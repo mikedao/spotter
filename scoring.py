@@ -19,9 +19,14 @@ bands of (step_radius / 10). Inside the 10-ring the DISC divides into ten
 bands, so dead centre reads 10.9 - which is why the 10-ring cannot simply be
 treated as another annulus.
 """
+import math
 from dataclasses import dataclass
 
 PELLET_MM = 4.5  # .177
+
+# A hole edge this close to a ring line is flagged as a line call: below this
+# the measurement cannot be trusted to decide a touch (higher ring) either way.
+LINE_CALL_MM = 0.25
 
 
 @dataclass(frozen=True)
@@ -83,12 +88,22 @@ def score(r_mm: float, spec: TargetSpec = PISTOL, pellet_mm: float = PELLET_MM):
         integer = max(0, 10 - int(-(-steps // 1)))  # ceil
 
     decimal = max(0.0, min(decimal, spec.max_decimal))
+    # Decimals are TRUNCATED, as electronic scoring does (hence 10.9 max).
+    # Rounding showed 6.96 as "7.0" on a ring-6 shot; truncation keeps the
+    # decimal and the integer ring consistent.
+    decimal = math.floor(decimal * 10.0 + 1e-9) / 10.0
+    # How close the hole's edge is to the nearest ring line. Within the
+    # measurement uncertainty, a line call (touching = higher ring) could go
+    # either way, so callers flag it rather than silently pick a side.
+    line_mm = min(abs(r_edge - ring_radius_mm(spec, n)) for n in range(1, 11))
     return {
-        "decimal": round(decimal, 1),
+        "decimal": decimal,
         "integer": integer,
         "inner_ten": r_edge <= spec.inner_ten_radius_mm,
         "r_mm": r_mm,
         "r_edge_mm": r_edge,
+        "line_mm": line_mm,
+        "line_call": line_mm < LINE_CALL_MM,
     }
 
 

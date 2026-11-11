@@ -121,6 +121,21 @@ def report(holes, tf, spec, vis=None, quiet=False):
         else:
             x_mm, y_mm = tf.to_mm(h["xw"], h["yw"])
         s = score_xy(x_mm, y_mm, spec)
+        # On torn paper the circle fit and the region centroid can disagree
+        # by 1-2 mm, and neither is reliably right (2026-11: one real shot each
+        # way). When they land in different rings, the ring is not known.
+        # Flag when the span between the two estimates (plus the line-call
+        # margin) crosses a ring line: then the ring itself is not known.
+        s["ambiguous"] = False
+        if h.get("x_mm") is not None:
+            from scoring import ring_radius_mm, LINE_CALL_MM
+            sc = score_xy(*tf.to_mm(h["xw"], h["yw"]), spec)
+            s["alt_decimal"] = sc["decimal"]
+            lo = min(s["r_edge_mm"], sc["r_edge_mm"]) - LINE_CALL_MM
+            hi = max(s["r_edge_mm"], sc["r_edge_mm"]) + LINE_CALL_MM
+            s["ambiguous"] = any(lo <= ring_radius_mm(spec, k) <= hi
+                                 for k in range(1, 11))
+        s["check"] = s["line_call"] or s["ambiguous"]
         s["clipped"] = h.get("clipped", False)
         s["dia_mm"] = h["diam_px"] * tf.local_mm_per_px(h["xw"], h["yw"])
         s["circ"] = h["circ"]
@@ -145,6 +160,10 @@ def report(holes, tf, spec, vis=None, quiet=False):
             flag += "  INNER TEN"
         if s["clipped"]:
             flag += "  EDGE-CLIPPED"
+        if s["line_call"]:
+            flag += f"  LINE ({s['line_mm']:.2f} mm) - check"
+        if s["ambiguous"]:
+            flag += f"  RING UNCERTAIN ({s['alt_decimal']} by centroid) - check"
         print(f"  {i:>2} {s['x_mm']:>+8.2f} {s['y_mm']:>+8.2f} {s['r_mm']:>8.2f} "
               f"{s['decimal']:>6.1f} {s['integer']:>5} {s['dia_mm']:>7.2f} "
               f"{s['circ']:>5.2f}{flag}")
@@ -234,8 +253,27 @@ def _shot_once(a, spec):
             cv2.imwrite(str(sd / f"{n:03d}_{tag}.png"),
                         np.clip(img, 0, 255).astype(np.uint8))
         print(f"  saved as shot {n:03d} -> {sd}/{n:03d}_before.png / _after.png")
-    print(f"\n{spec.name}")
-    tf, _ = establish(after, spec)
+    return _score_pair(a, spec, before, tf_b, after, n)
+
+
+def _next_shot_number():
+    sd = OUT / "shots"
+    sd.mkdir(parents=True, exist_ok=True)
+    return 1 + max([int(p.name[:3]) for p in sd.glob("[0-9][0-9][0-9]_after.png")]
+                   or [0])
+
+
+def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True):
+    """
+    Score what changed between a baseline and an after frame. Returns a result
+    dict, or None if the target could not be found in the after frame.
+    """
+    from geometry import register, frame_shift_mm, new_light
+
+    if verbose:
+        print(f"\n{spec.name}")
+    if tf is None:
+        tf, _ = establish(after, spec, verbose=verbose)
     if tf is None:
         return None
 
@@ -313,7 +351,11 @@ def _shot_once(a, spec):
     best = rows[0]
     print(f"\n  SHOT: {best['decimal']} decimal / ring {best['integer']}"
           f"   at x {best['x_mm']:+.2f} mm  y {best['y_mm']:+.2f} mm"
-          + ("   INNER TEN" if best["inner_ten"] else ""))
+          + ("   INNER TEN" if best["inner_ten"] else "")
+          + (f"   LINE CALL - edge {best['line_mm']:.2f} mm from a ring line, "
+             "check by eye" if best["line_call"] else "")
+          + (f"   RING UNCERTAIN - {best['alt_decimal']} by the other method, "
+             "check by eye" if best["ambiguous"] else ""))
     if len(hd) > 1:
         print(f"  ({len(hd)-1} smaller region(s) also found - if those are not")
         print("   real shots, pass --expect 1)")
@@ -324,7 +366,7 @@ def _shot_once(a, spec):
     print(f"  difference image -> {OUT/'p1_shot_diff.png'}\n")
     f = hd[0]["fit"]
     return {"n": n, "found": True, "row": best, "fit_ok": f["ok"],
-            "arc_deg": f["arc_deg"], "regions": len(hd)}
+            "arc_deg": f["arc_deg"], "regions": len(hd), "tf": tf}
 
 
 def cmd_shot(a):
@@ -344,9 +386,10 @@ def cmd_shot(a):
         _shot_once(a, spec)
         return
 
-    log = OUT / "shots" / "calls.csv"
-    fields = ["when", "shot", "decimal", "ring", "x_mm", "y_mm", "r_mm",
-              "fit", "arc_deg", "regions", "your_call"]
+    if a.auto:
+        _shot_auto(a, spec)
+        return
+
     for i in range(a.count):
         if a.count > 1:
             print(f"\n========== shot {i + 1} of {a.count} ==========")
@@ -361,30 +404,213 @@ def cmd_shot(a):
         if a.count > 1 or a.ask:
             call = input("  Your by-eye call (ring, and which end is the impact "
                          "if torn) - ENTER to skip:\n  > ").strip()
-        new = not log.exists()
-        log.parent.mkdir(parents=True, exist_ok=True)
-        with open(log, "a", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=fields)
-            if new:
-                w.writeheader()
-            w.writerow({"when": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "shot": f"{res['n']:03d}", "decimal": r["decimal"],
-                        "ring": r["integer"], "x_mm": round(r["x_mm"], 2),
-                        "y_mm": round(r["y_mm"], 2),
-                        "r_mm": round(r["r_mm"], 2),
-                        "fit": "circle" if res["fit_ok"] else "centroid",
-                        "arc_deg": round(res["arc_deg"]),
-                        "regions": res["regions"], "your_call": call})
+        _log_shot(res, call)
+    _print_log(max(a.count, 5))
 
-    if log.exists():
-        with open(log) as fh:
-            rows = list(csv.DictReader(fh))
-        print(f"\n  shot log ({log}):")
-        print(f"  {'shot':>4} {'score':>6} {'ring':>4} {'fit':>8}  your call")
-        for row in rows[-max(a.count, 5):]:
-            print(f"  {row['shot']:>4} {row['decimal']:>6} {row['ring']:>4} "
-                  f"{row['fit']:>8}  {row['your_call']}")
-        print()
+
+SHOT_LOG_FIELDS = ["when", "shot", "decimal", "ring", "x_mm", "y_mm", "r_mm",
+                   "fit", "arc_deg", "regions", "your_call"]
+
+
+def _log_shot(res, call=""):
+    """Append one scored shot to out/shots/calls.csv."""
+    import csv
+    from datetime import datetime
+    log = OUT / "shots" / "calls.csv"
+    r = res["row"]
+    new = not log.exists()
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with open(log, "a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=SHOT_LOG_FIELDS)
+        if new:
+            w.writeheader()
+        w.writerow({"when": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "shot": f"{res['n']:03d}", "decimal": r["decimal"],
+                    "ring": r["integer"], "x_mm": round(r["x_mm"], 2),
+                    "y_mm": round(r["y_mm"], 2), "r_mm": round(r["r_mm"], 2),
+                    "fit": "circle" if res["fit_ok"] else "centroid",
+                    "arc_deg": round(res["arc_deg"]),
+                    "regions": res["regions"], "your_call": call})
+
+
+def _print_log(last):
+    import csv
+    log = OUT / "shots" / "calls.csv"
+    if not log.exists():
+        return
+    with open(log) as fh:
+        rows = list(csv.DictReader(fh))
+    print(f"\n  shot log ({log}):")
+    print(f"  {'shot':>4} {'score':>6} {'ring':>4} {'fit':>8}  your call")
+    for row in rows[-last:]:
+        print(f"  {row['shot']:>4} {row['decimal']:>6} {row['ring']:>4} "
+              f"{row['fit']:>8}  {row['your_call']}")
+    print()
+
+
+class _LiveCamera:
+    """
+    Keep the camera open and read continuously in a background thread, so a
+    capture returns FRESH frames immediately instead of reopening the device
+    (seconds) or getting stale buffered frames.
+    """
+
+    def __init__(self, device, w=1920, h=1080):
+        import threading
+        self.cap = target0.open_camera(device, w, h)
+        self.lock = threading.Lock()
+        self.frame, self.seq = None, 0
+        self.running = True
+        self.th = threading.Thread(target=self._run, daemon=True)
+        self.th.start()
+
+    def _run(self):
+        while self.running:
+            ok, bgr = self.cap.read()
+            if ok:
+                with self.lock:
+                    self.frame, self.seq = bgr, self.seq + 1
+
+    def grab(self, n=8, timeout=5.0):
+        """Average the next n frames that arrive AFTER this call."""
+        import time
+        with self.lock:
+            start = self.seq
+        acc, last, t0 = [], start, time.time()
+        while len(acc) < n and time.time() - t0 < timeout:
+            with self.lock:
+                f, sq = self.frame, self.seq
+            if sq > last and f is not None:
+                acc.append(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32))
+                last = sq
+            else:
+                time.sleep(0.005)
+        if not acc:
+            raise RuntimeError("camera delivered no frames")
+        return np.mean(acc, axis=0)
+
+    def close(self):
+        # Release only once the reader has left cap.read(): releasing under a
+        # blocked read can hang AVFoundation. The thread is a daemon, so if it
+        # is stuck the process still exits.
+        self.running = False
+        self.th.join(timeout=2.0)
+        if not self.th.is_alive():
+            self.cap.release()
+
+
+def _shot_auto(a, spec):
+    """
+    Hands-free: the camera's microphone triggers each capture.
+
+    A shot is a loud, sustained impulse on the mic (measured 2026-11: shots at
+    -1 to 0 dBFS, +59 to +65 dB over the room floor, 280-370 ms of ringing;
+    the loudest non-shot was +43 dB). After a trigger we wait for the paper
+    and trap to settle (a faint secondary sound follows ~0.7 s later), take
+    the after frame, score it, and it becomes the next baseline.
+
+    A false trigger is harmless: if vision finds no new hole the shot is
+    discarded and the baseline is kept, so a hole can never be absorbed into
+    the baseline without being scored.
+    """
+    import queue
+    import time
+    import sounddevice as sd
+    import audio
+
+    # Each trigger compares the frame just before a shot with the frame just
+    # after it, so there is exactly one new hole per comparison.
+    if a.expect is None:
+        a.expect = 1
+    idx, info = audio.find_input(a.mic)
+    rate = int(info["default_samplerate"])
+    q = queue.Queue()
+
+    def cb(indata, frames, t, status):
+        q.put(indata.mean(axis=1).astype(np.float32).copy())
+
+    print(f"\n  AUTO: listening on '{info['name']}', camera {a.device}. "
+          "Ctrl+C to finish.")
+    print(f"  trigger: > +{a.trigger_db:.0f} dB over the room, "
+          f">= {a.trigger_ms:.0f} ms long; capture {a.settle:.1f} s after impact.")
+    cam = _LiveCamera(a.device)
+    scored = 0
+    try:
+        time.sleep(1.0)                          # let exposure settle
+        before = cam.grab(a.frames)
+        tf_b, _ = establish(before, spec, verbose=False)
+        if tf_b is None:
+            print("  could not locate the target - check framing and lighting")
+            return
+        print("  baseline taken. Ready - fire when you like.\n")
+
+        det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
+        with sd.InputStream(device=idx, channels=min(2, info["max_input_channels"]),
+                            samplerate=rate, blocksize=int(rate * 0.02),
+                            callback=cb):
+            t_audio0 = time.time()
+            last_trig = -1e9
+            while True:
+                try:
+                    blk = q.get(timeout=1.0)
+                except queue.Empty:
+                    continue
+                for e in det.feed(blk):
+                    why = ("too quiet" if e["over_db"] < a.trigger_db else
+                           "too short" if e["len_ms"] < a.trigger_ms else
+                           "echo of last shot" if e["t"] - last_trig < 2.0
+                           else None)
+                    if a.verbose:
+                        print(f"    sound +{e['over_db']:.1f} dB "
+                              f"{max(0.0, e['len_ms']):.0f} ms at {e['t']:.2f} s"
+                              + (f"  - ignored: {why}" if why else ""),
+                              flush=True)
+                    if why:
+                        continue
+                    last_trig = e["t"]
+                    wait = a.settle - (time.time() - (t_audio0 + e["t"]))
+                    if wait > 0:
+                        time.sleep(wait)
+                    after = cam.grab(a.frames)
+                    n = _next_shot_number()
+                    print(f"  ===== shot {n:03d}  (sound +{e['over_db']:.0f} dB)")
+                    import contextlib
+                    import io
+                    quiet = (contextlib.nullcontext() if a.verbose
+                             else contextlib.redirect_stdout(io.StringIO()))
+                    with quiet:
+                        res = _score_pair(a, spec, before, tf_b, after, n,
+                                          verbose=a.verbose)
+                    if res is None or not res.get("found"):
+                        print("  sound, but no new hole on the card - ignored "
+                              "(baseline kept)\n")
+                        continue
+                    sdir = OUT / "shots"
+                    for tag, img in (("before", before), ("after", after)):
+                        cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
+                                    np.clip(img, 0, 255).astype(np.uint8))
+                    r = res["row"]
+                    print(f"  >>> {r['decimal']}   ring {r['integer']}   "
+                          f"x {r['x_mm']:+.1f}  y {r['y_mm']:+.1f} mm"
+                          + ("   INNER TEN" if r["inner_ten"] else "")
+                          + ("" if res["fit_ok"] else "   (centroid - check)")
+                          + (f"   LINE CALL ({r['line_mm']:.2f} mm) - check by eye"
+                             if r["line_call"] else "")
+                          + (f"   RING UNCERTAIN (or {r['alt_decimal']}) - check by eye"
+                             if r["ambiguous"] else "")
+                          + "\n", flush=True)
+                    _log_shot(res)
+                    scored += 1
+                    # Audio that queued up while scoring is NOT discarded: a
+                    # second shot fired during scoring must still be caught.
+                    # The trap's ringing is handled by the 2 s echo window.
+                    before, tf_b = after, res["tf"]
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cam.close()
+    print(f"\n  session: {scored} shot(s) scored")
+    _print_log(max(scored, 1))
 
 
 def cmd_bench(a):
@@ -541,6 +767,42 @@ def _keep_on_card(holes, tf, spec):
     return kept, len(holes) - len(kept)
 
 
+def cmd_listen(a):
+    """
+    Measure what the camera's microphone hears when a shot lands, so the
+    audio trigger threshold is set from real numbers. Fire a few shots while
+    it runs; each sharp sound is printed as it happens.
+    """
+    import audio
+    OUT.mkdir(exist_ok=True)
+    wav = OUT / "listen.wav"
+    print(f"\n  listening on '{a.mic}' for {a.seconds:.0f} s (Ctrl+C to stop).")
+    print("  Stay quiet for the first 3 s while the room's noise floor is "
+          "measured,")
+    print("  then fire a few shots. Each sharp sound is printed below.\n")
+    print(f"  {'#':>3} {'time s':>8} {'gap ms':>8} {'peak dBFS':>10} "
+          f"{'above floor':>12} {'length ms':>10}")
+
+    def show(e, evs):
+        gap = (e["t"] - evs[-2]["t"]) * 1000.0 if len(evs) > 1 else float("nan")
+        print(f"  {len(evs):>3} {e['t']:>8.2f} {gap:>8.0f} {e['peak_db']:>10.1f} "
+              f"{e['over_db']:>10.1f} dB {e['len_ms']:>10.0f}", flush=True)
+
+    events, floor_db, x, rate = audio.listen(a.seconds, a.mic, a.ratio_db,
+                                             on_event=show, wav_path=wav)
+    if len(x) == 0 or float(np.abs(x).max()) == 0.0:
+        print("\n  ! The microphone returned pure silence. On macOS that "
+              "usually means")
+        print("    no permission: System Settings > Privacy & Security > "
+              "Microphone,")
+        print("    allow VS Code / Terminal, then fully restart it.")
+        return
+    print(f"\n  noise floor {floor_db:.1f} dBFS, loudest sample "
+          f"{audio.dbfs(np.abs(x).max()):.1f} dBFS, "
+          f"{len(events)} event(s) over +{a.ratio_db:.0f} dB")
+    print(f"  recording -> {wav}\n")
+
+
 def _scale_tf(tf, k):
     """Rescale a TargetFrame found on a downscaled image back to full size."""
     return tf.scaled(k)
@@ -676,7 +938,9 @@ def main():
                         ("shot", cmd_shot, "before/after: score the new hole"),
                         ("live", cmd_live, "live view with real-time geometry"),
                         ("bench", cmd_bench, "measure the rig for A/B lighting "
-                                             "comparisons")):
+                                             "comparisons"),
+                        ("listen", cmd_listen, "measure what the camera mic "
+                                               "hears when a shot lands")):
         s = sub.add_parser(name, help=h)
         s.set_defaults(func=fn)
         s.add_argument("--target", choices=sorted(SPECS), default="pistol")
@@ -693,12 +957,29 @@ def main():
                                 "after each")
             s.add_argument("--ask", action="store_true",
                            help="ask for your by-eye call on a single shot")
+            s.add_argument("--auto", action="store_true",
+                           help="hands-free: the camera mic triggers each shot")
+            s.add_argument("--mic", default="Kiyo")
+            s.add_argument("--trigger-db", type=float, default=52.0,
+                           help="auto: loudness over the room floor")
+            s.add_argument("--trigger-ms", type=float, default=100.0,
+                           help="auto: minimum sound length")
+            s.add_argument("--settle", type=float, default=1.0,
+                           help="auto: seconds after impact before capture")
+            s.add_argument("--verbose", action="store_true",
+                           help="auto: print every sound and full reports")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")
         s.add_argument("--every", type=int, default=3,
                        help="live: solve geometry every Nth frame")
         s.add_argument("--detect-scale", type=float, default=0.5,
                        help="live: downscale factor for the solve")
+        if name == "listen":
+            s.add_argument("--seconds", type=float, default=60.0)
+            s.add_argument("--mic", default="Kiyo",
+                           help="input device name to match")
+            s.add_argument("--ratio-db", type=float, default=20.0,
+                           help="event threshold above the noise floor")
         if name == "bench":
             s.add_argument("--label", required=True,
                            help="condition name, e.g. light-on / light-off")

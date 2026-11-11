@@ -60,6 +60,7 @@ fitted to every printed ring, per frame:
 | `target0.py` | Hole detection + Phase 0 rig tools (`jitter`, `drift`, ...) |
 | `selftest.py` | Synthetic validation of detector AND off-axis geometry. No camera. |
 | `cameras.py` | Enumerate cameras, map OpenCV indices to names |
+| `audio.py` | Camera-mic shot TRIGGER (not positioning): impulse events vs running floor |
 | `probe.py` | Camera permission / resolution check |
 
 ### The central design idea
@@ -90,6 +91,8 @@ any other way (no `cx + r/mm_per_px`, no `cv2.ellipse` of a ring).
 ./.venv/bin/python phase1.py shot --expect 1   # before/after, scores the new hole
 ./.venv/bin/python phase1.py shot --expect 1 --count 5   # series; logs your by-eye call per shot
 ./.venv/bin/python phase1.py bench --label light-on   # A/B a rig/lighting change
+./.venv/bin/python phase1.py listen --seconds 120      # what the camera mic hears
+./.venv/bin/python phase1.py shot --auto              # hands-free, mic-triggered
 ./.venv/bin/python selftest.py             # synthetic check, no camera
 ```
 
@@ -189,6 +192,22 @@ because ISSF awards the higher value when the hole touches the line.
 - Do not set `min_circularity=0` to let overlap crescents through. It disables
   the filter entirely and floods the results.
 
+**Audio trigger (`shot --auto`)**
+- The mic only says WHEN; vision says WHERE. This is not the rejected acoustic
+  approach, which needed sub-microsecond timing for position.
+- Measured 2026-11 (Kiyo mic, metal trap): shots clip at ~0 dBFS, +59 to +65 dB
+  over the room floor, ringing 280-370 ms; a faint secondary sound follows
+  ~0.7 s later. Loudest non-shot +43 dB. Defaults: trigger >= +52 dB and
+  >= 100 ms, capture 1.0 s after impact, 2 s echo window.
+- A trigger with no new hole is ignored AND the baseline is kept, so a missed
+  hole can never be silently absorbed into the baseline.
+- Never discard queued audio after scoring: a shot fired during scoring would
+  be lost. The echo window handles the trap's ringing.
+- The camera stays open in a reader thread (`_LiveCamera`); release it only
+  after the thread leaves `cap.read()` or AVFoundation can hang.
+- Testing from a script: background jobs ignore SIGINT, so Ctrl+C-style
+  `kill -INT` does nothing there. Use plain `kill`.
+
 **Platform**
 - On macOS, OpenCV/AVFoundation reports `autofocus=-1 auto_exposure=-1
   auto_wb=-1`: these cannot be locked from code. Work around it by killing room
@@ -210,6 +229,24 @@ because ISSF awards the higher value when the hole touches the line.
   model. `shot` saves every shot as `out/shots/NNN_before.png` / `NNN_after.png`;
   replay with `shot --before out/shots/NNN_before.png --image out/shots/NNN_after.png` and collect
   real cases (with the shooter's by-eye call) before tuning further.
+- **Torn white-paper holes can be ~1 mm off.** Shot 006 (2026-11) touched the
+  7 line by eye; the circle fit put its edge 1.23 mm outside (6.8), the
+  centroid 0.03 mm outside. On another torn shot the centroid was the worse
+  one. Neither is trusted alone: `report` flags RING UNCERTAIN when the span
+  between the two estimates (+-0.25 mm, `LINE_CALL_MM`) crosses a ring line,
+  and LINE CALL when the edge is within 0.25 mm of one. On white paper the
+  hole itself looks DARK (dark backstop) inside a ring of bright torn fibres,
+  and the light-change detector finds the fibres; a dark-change channel was
+  tried and did not fix 006.
+- Decimals are TRUNCATED (`scoring.score`), not rounded: rounding showed a
+  ring-6 shot as "7.0".
+- **Decimal accuracy on real shots is UNVERIFIED** (deliberately deferred).
+  Integer rings matched the shooter's call on 5/5 real shots (2026-11), but
+  calls were integers only. Holes straddling the aiming-mark edge are the
+  weakest case (part of the hole is on white paper, low contrast); one moved
+  7.2 -> 7.4 between differencing methods. To verify: caliper-measure centre
+  to hole centre on a few holes and compare with `r_mm` in
+  `out/shots/calls.csv`.
 - **Static `score` loses holes near the white rings inside the black.** The
   top-hat keeps the white ring lines, and a hole within ~1.5 mm of one merges
   into a ring-sized blob that fails the size/roundness filters. It also picks
