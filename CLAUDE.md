@@ -160,6 +160,13 @@ from there). The user commits; don't commit unless asked.
   events go through `PracticeSession#show_status!`, which never overwrites
   `stopping` (a shot found by the final check would read "Ready"); only
   `session_ended` (or `reconcile!`) ends it. Verified in Chrome.
+- **Reviewing shots walks the whole SESSION** (`ShotReview`): every scored shot,
+  cards in order. "Save and next" = next shot WITHOUT a call after this one,
+  wrapping to the start (it used to go forward on the same card only, so opening
+  shot 5 never visited 1-4 or later cards); the save completing the review goes
+  back to the session; if all were already called, it steps on in order.
+  `after_save` must be asked BEFORE `record_call!`. Shot page shows "Shot N of M"
+  and previous/next links.
 - **Deleting a session** (list and range screen, with a confirm): cards, shots,
   calls, pictures (purged at once - `dependent: :purge`, no job worker needed) and
   the engine log go too. Refused while live (`before_destroy ..., prepend: true`,

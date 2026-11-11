@@ -12,6 +12,22 @@
   <%= link_to "Back to the session", practice_session_path(@session), class: "text-blue-700 hover:underline dark:text-blue-300" %>
 </div>
 
+<% if @shot.scored? && @review.count > 1 %>
+  <nav class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" aria-label="Shots in this session">
+    <% link = "inline-flex min-h-11 items-center text-blue-700 hover:underline dark:text-blue-300" %>
+    <% if (prev = @review.previous) %>
+      <%= link_to "← Card #{prev.card.number}, shot #{prev.number}", shot_path(prev), class: link %>
+    <% end %>
+    <span class="text-gray-600 dark:text-gray-300">
+      Shot <%= @review.position %> of <%= @review.count %> this session ·
+      <%= @review.left.zero? ? "every other shot has a call" : "#{pluralize(@review.left, 'other shot')} still without a call" %>
+    </span>
+    <% if (nxt = @review.following) %>
+      <%= link_to "Card #{nxt.card.number}, shot #{nxt.number} →", shot_path(nxt), class: "#{link} ml-auto" %>
+    <% end %>
+  </nav>
+<% end %>
+
 <div class="space-y-4"
      data-controller="shot-call"
      data-action="closeup:picked->shot-call#picked"
@@ -91,7 +107,7 @@
               <%= f.label :note, "Note (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
               <%= f.text_field :note, value: @shot.call_note, placeholder: "e.g. torn right; pellet ring touches the 8", class: "w-full rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
             </div>
-            <%= render(ButtonComponent.new(type: :submit, full_width: true)) { @next_shot ? "Save and next shot" : "Save" } %>
+            <%= render(ButtonComponent.new(type: :submit, full_width: true)) { (n = @review.after_save) ? "Save and go to card #{n.card.number}, shot #{n.number}" : "Save and back to the session" } %>
           <% end %>
         <% end %>
       </div>

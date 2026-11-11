@@ -5,13 +5,15 @@ class ShotsController < ApplicationController
 
   def show
     @session = @shot.practice_session
-    @next_shot = next_on_card
+    @review = ShotReview.new(@shot)
   end
 
   def update
+    following = ShotReview.new(@shot).after_save   # decided before this call is saved
     @shot.record_call!(**call_params.to_h.symbolize_keys)
     LiveBroadcast.new(@shot.practice_session).call
-    redirect_to(next_on_card || practice_session_path(@shot.practice_session), notice: "Call saved for shot #{@shot.number}.")
+    redirect_to(following ? shot_path(following) : practice_session_path(@shot.practice_session),
+                notice: "Call saved for card #{@shot.card.number}, shot #{@shot.number}.")
   rescue ActiveRecord::RecordInvalid => e
     redirect_to shot_path(@shot), alert: e.record.errors.full_messages.to_sentence
   end
@@ -26,9 +28,5 @@ class ShotsController < ApplicationController
 
     def call_params
       params.expect(shot: [ :ring, :decimal, :x_mm, :y_mm, :note ])
-    end
-
-    def next_on_card
-      @shot.card.shots.where("fired_at > ?", @shot.fired_at).order(:fired_at).first
     end
 end
