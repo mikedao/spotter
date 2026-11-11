@@ -221,6 +221,7 @@ def detect_holes(gray, mm_per_px=None, min_mm=1.5, max_mm=14.0,
             "area_px": float(area),
             "diam_px": float(2.0 * np.sqrt(area / np.pi)),
             "circ": float(circ),
+            "bbox": (int(x), int(y), int(w), int(h)),
             "peak": float(topf[y:y + h, x:x + w][sub > 0].max()),
             "sat": float((g8[y:y + h, x:x + w][sub > 0] >= 254).mean()),
         })
@@ -236,6 +237,101 @@ def detect_holes(gray, mm_per_px=None, min_mm=1.5, max_mm=14.0,
 
     holes.sort(key=lambda d: (d["yb"], d["xb"]))
     return holes, thr_val, mask
+
+
+def fit_pellet(img, hole, to_mm, r_mm=PELLET_MM / 2.0, iters=400,
+               tol_mm=0.12, seed=0):
+    """
+    Locate the pellet in a hole region by fitting a circle of the pellet's
+    KNOWN radius to the round part of its edge, instead of taking the centroid.
+
+    The centroid is wrong whenever the visible region is not a whole pellet
+    disc:
+      - paper tears: the region is the pellet hole plus a flap ripped along
+        one direction, so the centroid is dragged along the tear;
+      - overlapping shots: only a crescent is new, and a crescent's centroid
+        is not the pellet's centre (measured 0.33 mm at 3 mm separation).
+    In both cases only the pellet's own arc is round with radius r_mm.
+
+    The edge is taken at half the region's height (the true edge of a
+    blurred step) and fitted in TARGET millimetres via to_mm, because off-axis
+    a round hole images as an ellipse. Two edge points fix two candidate
+    centres of radius r_mm; the candidate with the most edge points on its
+    circle wins (RANSAC), then least squares refines it on those inliers.
+
+    Returns dict(x_mm, y_mm, inliers, arc_deg, ok) - ok False means too little
+    round edge was found and the caller should fall back to the centroid.
+    """
+    H, W = img.shape[:2]
+    x0, y0, w, h = hole["bbox"]
+    pad = max(6, int(0.5 * max(w, h)))
+    xa, ya = max(0, x0 - pad), max(0, y0 - pad)
+    xb, yb = min(W, x0 + w + pad), min(H, y0 + h + pad)
+    sub = np.asarray(img[ya:yb, xa:xb], np.float32)
+    sub = cv2.GaussianBlur(sub, (0, 0), 1.0)
+    inner = sub[(y0 - ya):(y0 - ya + h), (x0 - xa):(x0 - xa + w)]
+    peak = float(np.percentile(inner, 95))
+    bg = float(np.median(sub))
+    thr = bg + 0.5 * (peak - bg)
+    m = (sub >= thr).astype(np.uint8)
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    fail = {"x_mm": None, "y_mm": None, "inliers": 0, "arc_deg": 0.0,
+            "ok": False}
+    if not cnts:
+        return fail
+    cx, cy = hole["xw"] - xa, hole["yw"] - ya
+    cnt = min(cnts, key=lambda c: abs(cv2.pointPolygonTest(c, (cx, cy), True))
+              if cv2.contourArea(c) > 4 else 1e9)
+    pts = cnt[:, 0, :].astype(np.float64)
+    if len(pts) < 12:
+        return fail
+    X, Y = to_mm(pts[:, 0] + xa, pts[:, 1] + ya)
+    P = np.stack([np.asarray(X), np.asarray(Y)], 1)
+
+    rng = np.random.default_rng(seed)
+    best_c, best_n = None, 0
+    n = len(P)
+    for _ in range(iters):
+        i, j = rng.choice(n, 2, replace=False)
+        p, q = P[i], P[j]
+        d = np.linalg.norm(q - p)
+        if d < 0.6 * r_mm or d > 2 * r_mm:
+            continue
+        mid = 0.5 * (p + q)
+        nrm = np.array([-(q - p)[1], (q - p)[0]]) / d
+        hgt = np.sqrt(max(r_mm * r_mm - 0.25 * d * d, 0.0))
+        for c in (mid + hgt * nrm, mid - hgt * nrm):
+            cnt_in = int((np.abs(np.linalg.norm(P - c, axis=1) - r_mm)
+                          < tol_mm).sum())
+            if cnt_in > best_n:
+                best_c, best_n = c, cnt_in
+    if best_c is None:
+        return fail
+
+    c = best_c.copy()
+    for _ in range(10):                       # Gauss-Newton, centre only
+        inl = np.abs(np.linalg.norm(P - c, axis=1) - r_mm) < tol_mm
+        Q = P[inl]
+        if len(Q) < 6:
+            break
+        v = Q - c
+        dist = np.linalg.norm(v, axis=1)
+        J = -v / dist[:, None]
+        res = dist - r_mm
+        step, *_ = np.linalg.lstsq(J, -res, rcond=None)
+        c = c + step
+        if np.linalg.norm(step) < 1e-5:
+            break
+    inl = np.abs(np.linalg.norm(P - c, axis=1) - r_mm) < tol_mm
+    ang = np.sort(np.degrees(np.arctan2(*(P[inl] - c).T[::-1])) % 360)
+    if len(ang) > 1:
+        gaps = np.diff(np.concatenate([ang, [ang[0] + 360]]))
+        arc = 360.0 - float(gaps.max())
+    else:
+        arc = 0.0
+    return {"x_mm": float(c[0]), "y_mm": float(c[1]),
+            "inliers": int(inl.sum()), "arc_deg": arc,
+            "ok": bool(inl.sum() >= 12 and arc >= 150.0)}
 
 
 def match(ref, cand, tol_px):

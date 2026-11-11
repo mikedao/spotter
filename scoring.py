@@ -31,6 +31,7 @@ class TargetSpec:
     step_dia_mm: float        # DIAMETER increase per ring outward
     black_ring: int           # which ring is the edge of the aiming mark
     inner_ten_dia_mm: float
+    card_mm: float            # side of the square card
     max_decimal: float = 10.9
 
     @property
@@ -50,8 +51,8 @@ class TargetSpec:
         return self.inner_ten_dia_mm / 2.0
 
 
-PISTOL = TargetSpec("10m Air Pistol", 11.5, 16.0, 7, 5.0)
-RIFLE = TargetSpec("10m Air Rifle", 0.5, 5.0, 4, 0.5)
+PISTOL = TargetSpec("10m Air Pistol", 11.5, 16.0, 7, 5.0, 170.0)
+RIFLE = TargetSpec("10m Air Rifle", 0.5, 5.0, 4, 0.5, 80.0)
 SPECS = {"pistol": PISTOL, "rifle": RIFLE}
 
 
@@ -89,6 +90,12 @@ def score(r_mm: float, spec: TargetSpec = PISTOL, pellet_mm: float = PELLET_MM):
         "r_mm": r_mm,
         "r_edge_mm": r_edge,
     }
+
+
+def on_card(x_mm: float, y_mm: float, spec: TargetSpec) -> bool:
+    """Inside the card's square outline (target mm, origin at centre)."""
+    half = spec.card_mm / 2.0
+    return abs(x_mm) <= half and abs(y_mm) <= half
 
 
 def score_xy(x_mm: float, y_mm: float, spec: TargetSpec = PISTOL, **kw):

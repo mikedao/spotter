@@ -78,6 +78,7 @@ Camera** to Terminal or VS Code, then fully restart that app.
 ./.venv/bin/python phase1.py locate            # show derived geometry + overlay
 ./.venv/bin/python phase1.py score             # find and score every hole
 ./.venv/bin/python phase1.py shot --expect 1   # before/after: score the new shot
+./.venv/bin/python phase1.py bench --label light-on   # measure the rig, A/B lighting
 ```
 
 `--target rifle` switches to air rifle. `--image <path>` works from a saved
@@ -87,7 +88,7 @@ file instead of the camera. `--device N` picks the camera.
 you which way to move things:
 
 ```
-  ratio   want >= 0.990    square the camera to the card
+  view    camera may sit off to the side; ring fit RMS want <= 0.25 mm
   RMS     want <= 0.50 px  focus
   fill    want 85-95%      move closer / further
   offset  want ~0,0        recentre the card
@@ -107,7 +108,9 @@ lighting or rig stability.
 
 ## Rig
 
-- Camera square to the card (this matters — tilt was worth 10% distortion)
+- Camera may sit off to the side, out of the line of fire (tested to 45 deg).
+  Perspective and lens distortion are solved from the printed rings each frame
+- Card mounted **flat**: off-axis, a bump of height h shifts by ~h*tan(angle)
 - Even lighting, no specular glare; backlighting is better than front lighting
 - Card centred, filling 85-95% of frame height
 - Everything rigidly mounted

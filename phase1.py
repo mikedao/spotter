@@ -19,9 +19,9 @@ import cv2
 import numpy as np
 
 import target0
-from geometry import (find_target_frame, refine_bull_ellipse,
-                      flatten_illumination, draw_rings)
-from scoring import SPECS, PISTOL, score_xy, decimal_step_mm
+from geometry import (find_target_frame, refine_bull_ellipse, fit_perspective,
+                      flatten_illumination, draw_rings, offscreen_sides)
+from scoring import SPECS, PISTOL, score_xy, decimal_step_mm, on_card
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
@@ -62,53 +62,72 @@ def establish(gray, spec, verbose=True):
     if tf0 is None:
         print(f"  could not find the aiming mark: {diag.get('reason')}")
         return None, diag
-    tf, info = refine_bull_ellipse(flat, tf0)
+    tf_e, info = refine_bull_ellipse(flat, tf0)
+    tf, pinfo = fit_perspective(flat, tf_e, spec)
+    info.update(pinfo)
     if verbose:
         print(f"  aiming mark : ring {spec.black_ring} = {spec.black_dia_mm} mm")
-        print(f"  centre      : ({tf.cx:.2f}, {tf.cy:.2f}) px")
-        print(f"  semi-axes   : {tf.semi_a:.2f} x {tf.semi_b:.2f} px "
-              f"at {tf.angle_deg:.1f} deg")
         print(f"  axis ratio  : {tf.axis_ratio:.4f}"
-              f"  -> implied tilt {tf.tilt_deg:.1f} deg")
-        print(f"  scale       : {tf.mm_per_px:.5f} mm/px "
-              f"({1/tf.mm_per_px:.1f} px/mm)")
+              f"  -> view ~{tf.tilt_deg:.0f} deg off-axis")
         if info.get("refined"):
             print(f"  edge fit    : {info['edge_points']} points, "
                   f"RMS {info['edge_rms_px']:.2f} px")
         else:
             print(f"  edge fit    : NOT applied ({info.get('reason')})")
-        r1_mm = 77.75 if spec is not None and spec.name.startswith("10m Air Pistol") else None
+        if pinfo.get("perspective"):
+            print(f"  model       : perspective + lens, from "
+                  f"{len(pinfo['rings'])} rings")
+            print(f"  ring fit    : {pinfo['points']} points, "
+                  f"RMS {pinfo['rms_mm']:.3f} mm "
+                  f"({pinfo['rejected']} rejected)")
+            print(f"  lens        : k1 {pinfo['k1']:+.3f}  k2 {pinfo['k2']:+.3f}")
+            print(f"  perspective : scale varies {pinfo['scale_spread_pct']:.1f}% "
+                  f"across the aiming mark")
+            print(f"                true centre is {pinfo['centre_shift_px']:.1f} px "
+                  f"from the ellipse centre")
+            fw, (fr, fa) = pinfo["flat_worst_mm"], pinfo["flat_worst_at"]
+            flag = "OK" if abs(fw) <= 0.1 else "NOT FLAT"
+            print(f"  card flat   : worst {fw:+.2f} mm (ring {fr}, {fa} deg; "
+                  f"0=right 90=up)  {flag}")
+            if abs(fw) > 0.1:
+                print("  ! Part of the card is not flat. Off-axis, a bump "
+                      "shifts what the")
+                print("    camera sees; scores near it can be off by about "
+                      "that much.")
+        else:
+            print(f"  model       : ELLIPSE ONLY - {pinfo.get('reason')}")
+            if tf.axis_ratio < 0.98:
+                print("  ! The camera is off-axis but the perspective fit "
+                      "failed, so scores")
+                print("    will be wrong away from the centre. Check the ring "
+                      "lines are visible.")
+        print(f"  centre      : ({tf.cx:.2f}, {tf.cy:.2f}) px")
+        print(f"  scale       : {tf.mm_per_px:.5f} mm/px at the centre "
+              f"({1/tf.mm_per_px:.1f} px/mm)")
         from scoring import ring_radius_mm as _rr
-        r1_px = _rr(spec, 1) / tf.mm_per_px
-        H, W = gray.shape[:2]
-        over = [n for n, v in (("left", tf.cx - r1_px), ("top", tf.cy - r1_px),
-                               ("right", W - (tf.cx + r1_px)),
-                               ("bottom", H - (tf.cy + r1_px))) if v < 0]
+        over = offscreen_sides(tf, _rr(spec, 1), gray.shape)
         if over:
             print(f"\n  ! The ring-1 scoring edge runs outside the frame on the "
                   f"{', '.join(over)}.")
             print("    Shots landing there cannot be seen. Recentre the card.")
-        if tf.axis_ratio < 0.98:
-            print(f"\n  ! The aiming mark is {(1/tf.axis_ratio-1)*100:.0f}% "
-                  f"out of round. Either the camera is off-axis or the")
-            print("    sensor pixels are not square. Square the camera up and")
-            print("    re-run: if the ratio goes to ~1.000 it was tilt.")
-            print("    Perspective is projective; this affine model only")
-            print("    corrects it to first order.")
     return tf, info
 
 
 def report(holes, tf, spec, vis=None, quiet=False):
     rows = []
     for h in holes:
-        x_mm, y_mm = tf.to_mm(h["xw"], h["yw"])
+        if h.get("x_mm") is not None:          # circle-fitted pellet centre
+            x_mm, y_mm = h["x_mm"], h["y_mm"]
+        else:
+            x_mm, y_mm = tf.to_mm(h["xw"], h["yw"])
         s = score_xy(x_mm, y_mm, spec)
         s["clipped"] = h.get("clipped", False)
-        s["dia_mm"] = h["diam_px"] * tf.mm_per_px
+        s["dia_mm"] = h["diam_px"] * tf.local_mm_per_px(h["xw"], h["yw"])
         s["circ"] = h["circ"]
         rows.append(s)
         if vis is not None:
-            c = (int(round(h["xw"])), int(round(h["yw"])))
+            mx, my = tf.from_mm(x_mm, y_mm)
+            c = (int(round(mx)), int(round(my)))
             cv2.drawMarker(vis, c, (255, 0, 255), cv2.MARKER_TILTED_CROSS, 25, 2)
             cv2.putText(vis, f"{s['decimal']}", (c[0] + 18, c[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 255), 2)
@@ -154,7 +173,11 @@ def cmd_score(a):
     tf, _ = establish(gray, spec)
     if tf is None:
         return
-    holes, _, _ = target0.detect_holes(gray, tf.mm_per_px, max_holes=a.expect)
+    holes, _, _ = target0.detect_holes(gray, tf.mm_per_px)
+    holes, _ = _keep_on_card(holes, tf, spec)
+    if a.expect is not None and len(holes) > a.expect:
+        holes.sort(key=lambda d: d["peak"] * d["area_px"], reverse=True)
+        holes = holes[:a.expect]
     vis = cv2.cvtColor(np.clip(gray, 0, 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     draw_rings(vis, tf, spec)
     rows = report(holes, tf, spec, vis)
@@ -176,19 +199,35 @@ def cmd_shot(a):
     printed ring line into a bright edge in the difference image, and you get
     dozens of phantom "shots" spaced exactly one ring apart.
     """
-    from geometry import align_matrix, frame_shift_mm
+    from geometry import register, frame_shift_mm
 
     spec = SPECS[a.target]
-    input("\nBASELINE: leave the card as-is and press ENTER...")
-    before = acquire(a)
+    OUT.mkdir(exist_ok=True)
+    if a.before:
+        # replay: --before is the baseline frame, --image the after frame
+        if not a.image:
+            sys.exit("  --before needs --image (the after frame)")
+        b = cv2.imread(a.before, cv2.IMREAD_GRAYSCALE)
+        if b is None:
+            sys.exit(f"could not read {a.before}")
+        before = b.astype(np.float32)
+    else:
+        input("\nBASELINE: leave the card as-is and press ENTER...")
+        before = acquire(a)
     tf_b, _ = establish(before, spec, verbose=False)
     if tf_b is None:
         sys.exit("  could not locate the target in the baseline frame")
-    hb, _, _ = target0.detect_holes(before, tf_b.mm_per_px)
-    print(f"  baseline: {len(hb)} hole(s) on the card")
 
-    input("Now ADD A SHOT, then press ENTER...")
+    if not a.before:
+        input("Now ADD A SHOT, then press ENTER...")
     after = acquire(a)
+    # keep the raw frames so a shot can be re-scored later with
+    #   shot --before out/shot_before.png --image out/shot_after.png
+    if not a.before:
+        cv2.imwrite(str(OUT / "shot_before.png"),
+                    np.clip(before, 0, 255).astype(np.uint8))
+        cv2.imwrite(str(OUT / "shot_after.png"),
+                    np.clip(after, 0, 255).astype(np.uint8))
     print(f"\n{spec.name}")
     tf, _ = establish(after, spec)
     if tf is None:
@@ -196,14 +235,9 @@ def cmd_shot(a):
 
     # --- register the baseline into the new frame's geometry ------------
     moved_mm, scale_pct = frame_shift_mm(tf_b, tf)
-    M = align_matrix(tf_b, tf, after.shape)
-    # WARP_INVERSE_MAP is essential: M already maps AFTER coordinates back to
-    # BEFORE coordinates, which is exactly the inverse map warpAffine wants.
-    # Without the flag OpenCV treats M as a forward map and doubles the error.
-    before_reg = cv2.warpAffine(
-        before.astype(np.float32), M, (after.shape[1], after.shape[0]),
-        flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
-        borderMode=cv2.BORDER_REPLICATE)
+    # Dense remap after-px -> target mm -> before-px. Exact under perspective
+    # and lens distortion, which a single 3x3 warp is not.
+    before_reg = register(before, tf_b, tf, after.shape)
 
     print(f"\n  camera moved {moved_mm:.2f} mm between captures "
           f"(scale change {scale_pct:+.2f}%)")
@@ -219,7 +253,14 @@ def cmd_shot(a):
     # overlapping shot is not round, so circularity is kept permissive but not
     # disabled, or registration residue floods the list.
     hd, _, _ = target0.detect_holes(diff, tf.mm_per_px, min_mm=2.0,
-                                    min_circularity=0.30, max_holes=a.expect)
+                                    min_circularity=0.30)
+    hd, off = _keep_on_card(hd, tf, spec)
+    if off:
+        print(f"\n  ignored {off} change(s) off the card (background glints, "
+              "movement)")
+    if a.expect is not None:
+        hd.sort(key=lambda d: d["peak"] * d["area_px"], reverse=True)
+        hd = hd[:a.expect]
     hd.sort(key=lambda h: h["area_px"], reverse=True)
 
     OUT.mkdir(exist_ok=True)
@@ -230,20 +271,36 @@ def cmd_shot(a):
         print("\n  No new region found. Was a shot actually added?")
         return
 
-    ref = float(np.median([h["area_px"] for h in hb])) if hb else None
-    print(f"\n  NEW region(s), largest first"
-          f"{'  (hole area ref from baseline)' if ref else ''}:")
+    # Pellet centre from a circle of the pellet's known size fitted to the
+    # round part of the edge. The centroid is dragged along paper tears and
+    # is wrong for an overlap crescent; this is not.
+    for h in hd:
+        f = target0.fit_pellet(diff, h, tf.to_mm)
+        h["fit"] = f
+        if f["ok"]:
+            h["x_mm"], h["y_mm"] = f["x_mm"], f["y_mm"]
+
+    print("\n  NEW region(s), largest first:")
     vis = cv2.cvtColor(np.clip(after, 0, 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     draw_rings(vis, tf, spec)
     rows = report(hd, tf, spec, vis)
 
+    from scoring import PELLET_MM
     for i, h in enumerate(hd):
-        if ref:
-            frac = h["area_px"] / ref
-            verdict = ("clean" if frac > 0.75 else
-                       "PARTIAL - overlaps an existing hole" if frac > 0.15
-                       else "sliver - position unreliable")
-            print(f"    [{i}] {frac*100:5.1f}% of a full hole -> {verdict}")
+        f = h["fit"]
+        cx, cy = tf.to_mm(h["xw"], h["yw"])
+        nominal = np.pi * (PELLET_MM / 2.0 / tf.local_mm_per_px(h["xw"], h["yw"])) ** 2
+        frac = h["area_px"] / nominal
+        shape = ("sliver" if frac < 0.15 else "partial / overlapping"
+                 if frac < 0.75 else "about one pellet" if frac < 1.8
+                 else "larger than a pellet - torn or merged")
+        if f["ok"]:
+            moved = float(np.hypot(f["x_mm"] - cx, f["y_mm"] - cy))
+            print(f"    [{i}] {shape}; pellet circle fitted to {f['arc_deg']:.0f} "
+                  f"deg of round edge, {moved:.2f} mm from the region centroid")
+        else:
+            print(f"    [{i}] {shape}; NO round pellet edge found - scored from "
+                  "the region centroid, treat with caution")
 
     best = rows[0]
     print(f"\n  SHOT: {best['decimal']} decimal / ring {best['integer']}"
@@ -257,13 +314,163 @@ def cmd_shot(a):
     print(f"  difference image -> {OUT/'p1_shot_diff.png'}\n")
 
 
+def cmd_bench(a):
+    """
+    Measure the rig as it stands, for A/B comparisons (camera light on vs off,
+    room lights, a new position). Nothing on the card may change during a run.
+
+    Each run appends one labelled row to out/bench.csv and prints every row so
+    far, so conditions can be compared side by side. Needs no calib.json.
+
+      geom noise  how far the REPORTED target mm of a fixed point wanders
+                  frame to frame, from re-solving the geometry each time.
+                  This is score noise that has nothing to do with holes.
+      phantoms    regions `shot` would report between two frames where
+                  nothing changed. Anything above 0 is a false shot.
+      ring RMS    perspective fit quality; edge RMS is focus.
+      pix noise   sensor noise, grey levels; sat% = clipped pixels on card.
+    """
+    import csv
+    import time
+    from datetime import datetime
+    from geometry import register
+    from scoring import ring_radius_mm
+
+    if a.image:
+        sys.exit("bench measures the live camera; --image does not apply")
+    spec = SPECS[a.target]
+    cap = target0.open_camera(a.device, 1920, 1080)
+    for _ in range(10):                         # let auto-exposure settle
+        cap.read()
+    print(f"\n  bench '{a.label}': {a.rounds} rounds of {a.frames} frame(s). "
+          "Do not touch anything.")
+    frames, tfs, infos = [], [], []
+    for i in range(a.rounds):
+        g, _ = target0.grab_gray(cap, a.frames)
+        tf, info = establish(g, spec, verbose=False)
+        if tf is None:
+            cap.release()
+            sys.exit(f"  round {i+1}: target not found ({info.get('reason')})")
+        frames.append(g); tfs.append(tf); infos.append(info)
+        print(f"    round {i+1}/{a.rounds}", end="\r")
+        time.sleep(0.15)
+    cap.release()
+    print()
+
+    ref = tfs[0]
+    H, W = frames[0].shape[:2]
+    # card region = inside ring 1, for image statistics
+    th = np.linspace(0, 2 * np.pi, 360, endpoint=False)
+    r1 = ring_radius_mm(spec, 1)
+    bx, by = ref.from_mm(r1 * np.cos(th), r1 * np.sin(th))
+    card = np.zeros((H, W), np.uint8)
+    cv2.fillPoly(card, [np.stack([bx, by], 1).astype(np.int32)], 1)
+    card = card.astype(bool)
+    stack = np.stack(frames)
+    pix_noise = float(np.median(stack.std(axis=0, ddof=1)[card]))
+    sat = float((stack[0][card] >= 254).mean() * 100)
+    Rb = spec.black_dia_mm / 2.0
+    inside = np.hypot(*ref.to_mm(*np.meshgrid(np.arange(W), np.arange(H)))) < 0.8 * Rb
+    black = float(np.median(stack[0][inside & card]))
+    paper = float(np.percentile(stack[0][card & ~inside], 75))
+
+    # score noise from geometry: fixed image points, re-measured each frame
+    pts = [(0, 0)] + [(r * np.cos(t), r * np.sin(t))
+                      for r in (10, 30, 60) for t in np.radians((0, 90, 180, 270))]
+    sds = []
+    for x, y in pts:
+        px, py = ref.from_mm(x, y)
+        m = np.array([t.to_mm(px, py) for t in tfs])
+        sds.append(float(np.hypot(*m.std(axis=0, ddof=1))))
+    geom_mean, geom_worst = float(np.mean(sds)), float(np.max(sds))
+    cen_sd = sds[0]
+
+    phantoms, ph_list, off_card = [], [], 0
+    for i, ((g0, t0), (g1, t1)) in enumerate(zip(zip(frames, tfs),
+                                                 zip(frames[1:], tfs[1:]))):
+        diff = np.clip(g1 - register(g0, t0, t1, g1.shape), 0, None)
+        hd, _, _ = target0.detect_holes(diff, t1.mm_per_px, min_mm=2.0,
+                                        min_circularity=0.30)
+        hd, off = _keep_on_card(hd, t1, spec)
+        off_card += off
+        phantoms.append(len(hd))
+        for h in hd:
+            x, y = t1.to_mm(h["xw"], h["yw"])
+            ph_list.append((i + 1, x, y, h["diam_px"], h["peak"]))
+        if hd:
+            # Where false shots sit says why: scattered blobs = light/exposure
+            # flicker; along printed lines = movement / registration.
+            vis = cv2.cvtColor(np.clip(diff * 4, 0, 255).astype(np.uint8),
+                               cv2.COLOR_GRAY2BGR)
+            for h in hd:
+                cv2.circle(vis, (int(h["xw"]), int(h["yw"])), 30, (0, 0, 255), 2)
+            OUT.mkdir(exist_ok=True)
+            cv2.imwrite(str(OUT / f"bench_{a.label}_phantom_{i+1}.png"), vis)
+    if ph_list:
+        print(f"\n  false shots ({len(ph_list)}), frame pair / target mm / "
+              "size / strength:")
+        for n, x, y, d, pk in ph_list:
+            print(f"    pair {n}: x {x:+7.1f}  y {y:+7.1f}  "
+                  f"{d:5.1f} px  peak {pk:5.1f}")
+        print(f"  difference images -> {OUT}/bench_{a.label}_phantom_*.png")
+    if off_card:
+        print(f"\n  ({off_card} change(s) off the card ignored, as `shot` "
+              "ignores them)")
+
+    persp = all(i.get("perspective") for i in infos)
+    ring_rms = float(np.mean([i.get("rms_mm", np.nan) for i in infos]))
+    edge_rms = float(np.mean([i.get("edge_rms_px", np.nan) for i in infos]))
+
+    OUT.mkdir(exist_ok=True)
+    snap = OUT / f"bench_{a.label}.png"
+    cv2.imwrite(str(snap), np.clip(frames[0], 0, 255).astype(np.uint8))
+    row = {"when": datetime.now().strftime("%Y-%m-%d %H:%M"), "label": a.label,
+           "rounds": a.rounds, "frames": a.frames,
+           "view_deg": round(ref.tilt_deg, 1), "perspective": persp,
+           "geom_noise_mm": round(geom_mean, 4),
+           "geom_worst_mm": round(geom_worst, 4),
+           "centre_sd_mm": round(cen_sd, 4),
+           "phantoms_max": max(phantoms) if phantoms else 0,
+           "ring_rms_mm": round(ring_rms, 3), "edge_rms_px": round(edge_rms, 2),
+           "pix_noise": round(pix_noise, 2), "sat_pct": round(sat, 2),
+           "paper": round(paper), "black": round(black),
+           "contrast": round(paper - black)}
+    path = OUT / "bench.csv"
+    new = not path.exists()
+    with open(path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(row))
+        if new:
+            w.writeheader()
+        w.writerow(row)
+
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    cols = [("label", 14, "label"), ("geom_noise_mm", 10, "geom mm"),
+            ("geom_worst_mm", 10, "worst mm"), ("phantoms_max", 8, "phantom"),
+            ("ring_rms_mm", 8, "ring mm"), ("edge_rms_px", 8, "edge px"),
+            ("pix_noise", 8, "noise"), ("sat_pct", 7, "sat%"),
+            ("contrast", 8, "contrast")]
+    print("\n  " + "".join(f"{h:>{w}}" for _, w, h in cols))
+    print("  " + "-" * sum(w for _, w, _ in cols))
+    for r in rows:
+        print("  " + "".join(f"{r[k]:>{w}}" for k, w, _ in cols))
+    dec = decimal_step_mm(spec) / 4.0
+    print(f"\n  budget {dec:.2f} mm. geom/worst = score noise from the geometry "
+          "alone; phantom = false shots `shot` would report.")
+    print(f"  frame -> {snap}\n")
+
+
+def _keep_on_card(holes, tf, spec):
+    """Drop detections outside the card outline. A change in the background
+    (a glint on a shiny object, something moving) is never a shot. Returns
+    (kept, number dropped)."""
+    kept = [h for h in holes if on_card(*tf.to_mm(h["xw"], h["yw"]), spec)]
+    return kept, len(holes) - len(kept)
+
+
 def _scale_tf(tf, k):
     """Rescale a TargetFrame found on a downscaled image back to full size."""
-    from geometry import TargetFrame
-    return TargetFrame(cx=tf.cx * k, cy=tf.cy * k, semi_a=tf.semi_a * k,
-                       semi_b=tf.semi_b * k, angle_deg=tf.angle_deg,
-                       black_dia_mm=tf.black_dia_mm, area_px=tf.area_px * k * k,
-                       circularity=tf.circularity)
+    return tf.scaled(k)
 
 
 def _hud(img, lines, x=12, y=28, dy=26):
@@ -297,7 +504,7 @@ def cmd_live(a):
     OUT.mkdir(exist_ok=True)
 
     print("\n  LIVE - adjust the camera while watching the numbers.")
-    print("    ratio   want >= 0.990   (square the camera to the card)")
+    print("    view    camera may sit off to the side; ring fit RMS want <= 0.25 mm")
     print("    RMS     want <= 0.50 px (focus)")
     print("    fill    want 85-95%     (move closer/further)")
     print("    offset  want ~0,0       (recentre the card)")
@@ -338,12 +545,17 @@ def cmd_live(a):
             dx, dy = tf.cx - W / 2.0, tf.cy - H / 2.0
             # RMS comes back in DOWNSCALED pixels; convert to full-frame px
             # or the focus check is silently too lenient.
-            ratio = tf.axis_ratio
             rms = info.get("edge_rms_px", float("nan")) / ds
 
-            lines.append((f"ratio {ratio:.4f}"
-                          f"{'  OK' if ratio >= 0.99 else '  SQUARE THE CAMERA UP'}",
-                          GOOD if ratio >= 0.99 else (WARN if ratio >= 0.97 else BAD)))
+            if info.get("perspective"):
+                rr = info["rms_mm"]
+                lines.append((f"view ~{tf.tilt_deg:.0f} deg   perspective fit "
+                              f"{len(info['rings'])} rings  RMS {rr:.2f} mm",
+                              GOOD if rr <= 0.25 else WARN))
+            else:
+                lines.append(("ELLIPSE ONLY - perspective fit failed: "
+                              f"{info.get('reason', '')[:40]}",
+                              WARN if tf.axis_ratio >= 0.99 else BAD))
             lines.append((f"edge RMS {rms:5.2f} px"
                           f"{'  OK' if rms <= 0.5 else '  ADJUST FOCUS'}",
                           GOOD if rms <= 0.5 else WARN))
@@ -364,9 +576,7 @@ def cmd_live(a):
                           + ("   move " + " and ".join(move) if move else "   OK"),
                           GOOD if not move else WARN))
 
-            over = [n for n, v in (("left", tf.cx - r1), ("top", tf.cy - r1),
-                                   ("right", W - (tf.cx + r1)),
-                                   ("bottom", H - (tf.cy + r1))) if v < 0]
+            over = offscreen_sides(tf, ring_radius_mm(spec, 1), gray.shape)
             lines.append((f"clipping: {', '.join(over) if over else 'none'}",
                           BAD if over else GOOD))
 
@@ -391,21 +601,31 @@ def main():
     for name, fn, h in (("locate", cmd_locate, "show the derived geometry"),
                         ("score", cmd_score, "find and score holes"),
                         ("shot", cmd_shot, "before/after: score the new hole"),
-                        ("live", cmd_live, "live view with real-time geometry")):
+                        ("live", cmd_live, "live view with real-time geometry"),
+                        ("bench", cmd_bench, "measure the rig for A/B lighting "
+                                             "comparisons")):
         s = sub.add_parser(name, help=h)
         s.set_defaults(func=fn)
         s.add_argument("--target", choices=sorted(SPECS), default="pistol")
-        s.add_argument("--device", type=int, default=2)
+        s.add_argument("--device", type=int, default=0)
         s.add_argument("--frames", type=int, default=8)
         s.add_argument("--expect", type=int, default=None)
         s.add_argument("--image", default=None,
                        help="score a saved image instead of the camera")
+        if name == "shot":
+            s.add_argument("--before", default=None,
+                           help="replay: baseline frame (with --image = after)")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")
         s.add_argument("--every", type=int, default=3,
                        help="live: solve geometry every Nth frame")
         s.add_argument("--detect-scale", type=float, default=0.5,
                        help="live: downscale factor for the solve")
+        if name == "bench":
+            s.add_argument("--label", required=True,
+                           help="condition name, e.g. light-on / light-off")
+            s.add_argument("--rounds", type=int, default=10)
+            s.set_defaults(frames=1)
     a = p.parse_args()
     a.func(a)
 

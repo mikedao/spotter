@@ -39,15 +39,26 @@ Phase 0 (feasibility) and Phase 1 (self-locating scorer) both **work**.
 
 Real card scored end to end: **9.4 decimal / ring 9**.
 
+**Camera now sits off to the side** (out of the line of fire), ~37 deg off-axis
+on the 2026-11 rig. The geometry is a full perspective + lens-distortion model
+fitted to every printed ring, per frame:
+
+| measurement (off-axis rig) | result | budget |
+|---|---|---|
+| synthetic, 0-45 deg, exact truth | worst 0.018 mm | 0.2 mm |
+| old ellipse-only model, same test | 1.6-6.3 mm | 0.2 mm |
+| geometry score noise, real Kiyo (`bench`) | 0.003 mm | 0.2 mm |
+| ring fit residual, real card | 0.20 mm RMS, structured | see card flatness |
+
 ## Architecture
 
 | file | role |
 |---|---|
 | `scoring.py` | ISSF ring geometry + score. Pure maths, no OpenCV. |
 | `geometry.py` | Find the target in the image, from the target itself. |
-| `phase1.py` | Main CLI: `live` / `locate` / `score` / `shot` |
+| `phase1.py` | Main CLI: `live` / `locate` / `score` / `shot` / `bench` |
 | `target0.py` | Hole detection + Phase 0 rig tools (`jitter`, `drift`, ...) |
-| `selftest.py` | Synthetic validation of the detector. No camera needed. |
+| `selftest.py` | Synthetic validation of detector AND off-axis geometry. No camera. |
 | `cameras.py` | Enumerate cameras, map OpenCV indices to names |
 | `probe.py` | Camera permission / resolution check |
 
@@ -62,6 +73,14 @@ This is not a refinement — it is the reason the 0.53 mm drift does not matter.
 Never reintroduce a static scale. `calib.json` survives only as an optional ROI
 crop (`--roi`) and its `mm_per_px` is deliberately ignored.
 
+The same applies to perspective and lens distortion: `geometry.fit_perspective`
+solves a homography plus two radial lens terms (k1, k2, centred on the image
+centre) from the aiming-mark edge and every visible ring line, in every frame.
+`TargetFrame.to_mm` / `from_mm` go through that model; never map pixels to mm
+any other way (no `cx + r/mm_per_px`, no `cv2.ellipse` of a ring).
+`mm_per_px` is the scale *at the centre* only; under perspective it varies
+~20% across the card, so use `local_mm_per_px(x, y)` for anything positional.
+
 ## Running it
 
 ```bash
@@ -69,13 +88,15 @@ crop (`--roi`) and its `mm_per_px` is deliberately ignored.
 ./.venv/bin/python phase1.py locate        # derived geometry + ring overlay
 ./.venv/bin/python phase1.py score         # find and score every hole
 ./.venv/bin/python phase1.py shot --expect 1   # before/after, scores the new hole
+./.venv/bin/python phase1.py bench --label light-on   # A/B a rig/lighting change
 ./.venv/bin/python selftest.py             # synthetic check, no camera
 ```
 
 Add `--image out/snap_raw.png` to any command to work from a file.
 Add `--target rifle` for air rifle.
 
-Rig: Razer Kiyo on **OpenCV device index 2** (`cameras.py` re-checks this).
+Rig: Razer Kiyo on **OpenCV device index 0** on the laptop (`cameras.py`
+re-checks this; it was 2 on the previous machine).
 macOS blocks camera access until Terminal/VS Code is granted it in
 System Settings > Privacy & Security > Camera, then fully restarted.
 
@@ -132,17 +153,32 @@ because ISSF awards the higher value when the hole touches the line.
   38 px RMS garbage fit.
 - A downscaled solve returns edge RMS in **downscaled pixels**. Divide by the
   scale factor or the focus check is silently too lenient.
+- Scaling a downscaled solve back up must use `TargetFrame.scaled(k)`, which
+  applies cv2.resize's pixel-CENTRE convention (`new = (old+0.5)k - 0.5`).
+  Plain multiplication shifted everything ~0.7 px.
+- The aiming mark alone **cannot** reveal perspective: a circle in perspective
+  images as an exact ellipse, but its centre is not the ellipse's centre. At
+  37 deg the ellipse model put the 10-ring ~1.8 mm off and ring 1 ~9 mm off.
+  Only the concentric ring lines fix it.
+- **Lens distortion is real on the Kiyo** (k1 ~ -0.19, k2 ~ +0.29). A
+  homography alone left a ring-by-ring curve of -0.4 to +0.5 mm. That also
+  means the old square-on rig carried uncorrected error at the outer rings.
+- `fit_perspective` adds rings outward from the aiming mark in stages and only
+  frees k1/k2 once every ring is in; the starting ellipse model is too far out
+  at ring 1 to search there directly.
+- **Card flatness matters off-axis.** A bump of height h shifts by ~h*tan(view
+  angle). The real card left smooth +-0.4 mm residual patches shared by
+  neighbouring rings (random part only 0.034 mm). `locate` warns when a ring's
+  mean residual exceeds 0.1 mm. Mount the card flat.
 
 **Registration (`shot`)**
 - Before/after frames are registered through the target via
-  `geometry.align_matrix` before differencing. Without it, camera movement
-  turns every printed ring line into a bright edge. A real run produced **55
-  phantom shots**.
+  `geometry.register` (dense remap: after-px -> mm -> before-px) before
+  differencing. Without it, camera movement turns every printed ring line into
+  a bright edge. A real run produced **55 phantom shots**. A 3x3 warp cannot
+  express lens distortion, which is why this is a remap, not warpAffine.
 - Diagnostic: evenly spaced detections at constant x or y, **exactly one ring
   apart** (8 mm for pistol), always means registration error, never shots.
-- `cv2.warpAffine` needs **`WARP_INVERSE_MAP`** here. `align_matrix` returns an
-  after->before map, which is already the inverse map warpAffine wants; without
-  the flag OpenCV treats it as forward and DOUBLES the error.
 - Do not set `min_circularity=0` to let overlap crescents through. It disables
   the filter entirely and floods the results.
 
@@ -154,12 +190,38 @@ because ISSF awards the higher value when the hole touches the line.
 
 ## Known limits / next up
 
-- **Overlapping shots.** A 4.5 mm pellet needs ~4 mm separation. Measured error:
-  4 mm -> 0.08 mm, 3 mm -> 0.42 mm, 2 mm -> 0.83 mm. The error is
-  **systematic, not noise** (the centroid of a visible crescent is not the
-  centre of the pellet), so frame averaging cannot help.
-  **Planned fix:** fit a circle of known 4.5 mm diameter to the crescent's
-  outer arc instead of taking its centroid.
+- **Overlapping shots and paper tears: fixed in synthetic, NOT yet on real
+  holes.** `target0.fit_pellet` fits a circle of the known 4.5 mm pellet
+  diameter (in target mm, so off-axis ellipses are handled) to the round part
+  of the region's half-height edge, by RANSAC. Synthetic: overlap at 2 mm
+  separation 0.61 -> 0.04 mm; torn flaps 0.5-1.6 mm -> 0.03 mm. `shot` uses it
+  when it finds >= 150 deg of round edge, else falls back to the centroid and
+  says so.
+  First real shot (paper target, 24 deg, torn ~11 mm long): the fit found only
+  108 deg of arc and chose the tear's upper edge, not the round left end the
+  shooter identified as the impact. Real tears are rougher than the synthetic
+  model. `shot` now saves `out/shot_before.png` / `shot_after.png`; replay with
+  `shot --before out/shot_before.png --image out/shot_after.png` and collect
+  real cases (with the shooter's by-eye call) before tuning further.
+- **Static `score` loses holes near the white rings inside the black.** The
+  top-hat keeps the white ring lines, and a hole within ~1.5 mm of one merges
+  into a ring-sized blob that fails the size/roundness filters. It also picks
+  up the white numerals. `shot` is unaffected (differencing cancels print).
+  On the 2026-11 card `score` found 46 regions and neither real hole.
+- **Oblique view of a hole** (unverified estimate): at 30-40 deg the camera sees
+  part of the hole's inside wall, possibly shifting its apparent centre ~0.1 mm.
+  Check with a physical measurement.
+- `RING_LINE_MM = 0.2` (line centre half a width inside the nominal radius) is
+  an assumption, not measured. Ring 10 fits +0.14 mm and the aiming-mark edge
+  -0.09 mm on the real card, which may point at it.
+- Live solve takes ~210 ms at half scale with the perspective fit.
+- **Kiyo ring light: no effect on the card** (contrast 155 vs 154, geometry
+  noise ~0.0025 mm either way once settled; light-on has slightly lower pixel
+  noise, 2.3 vs 3.25). Its only effect was a flickering glint on a shiny object
+  in the background, which `shot` counted as false shots. Detections are now
+  limited to the card outline (`spec.card_mm`), so background changes are
+  ignored. Wait ~30 s after touching the camera before measuring: the first
+  light-on run right after pressing its button showed 4x the geometry noise.
 - Frame averaging buys nothing (1-frame and 16-frame are identical), so the
   system is not sensor-noise limited. Single frames are fine and faster.
 - Lighting is currently front-lit with glare. Backlighting is better: the air

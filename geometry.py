@@ -8,27 +8,95 @@ gives us centre and scale every time. Camera drift, thermal creep and mount
 settling then cancel out completely, because we only ever measure the hole's
 position relative to the TARGET, never relative to the sensor.
 
-Fitting an ELLIPSE rather than a circle also buys first-order tilt correction:
-a circle viewed off-axis projects to an ellipse, and de-skewing that ellipse
-back to a circle undoes the foreshortening.
+Two models, in increasing order of correctness:
+
+  1. ELLIPSE (affine). Fit an ellipse to the aiming mark and de-skew it back to
+     a circle. Correct only for a camera square to the card. A circle seen in
+     perspective still images as an exact ellipse, but the ellipse's CENTRE is
+     not the image of the circle's centre, and the scale varies across the
+     card. With the camera ~37 deg off to the side this put the outer rings
+     ~9 mm out and the centre over a millimetre out.
+
+  2. PERSPECTIVE (homography). Fit a full projective map to the aiming mark's
+     edge AND every visible printed ring line together. Concentric circles of
+     known radius pin down the true centre and the vanishing line, so the
+     camera can sit off to the side, out of the line of fire.
+
+Both are solved from the card itself in every frame; neither is a stored
+calibration.
 """
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 import cv2
 import numpy as np
 
+# Printed ring line width. ISSF ring diameters are taken to the OUTSIDE edge of
+# the line, so the line's centre (what the fit locates) sits half a width
+# inside the nominal radius. Not yet measured on a physical card - the per-ring
+# mean residuals that fit_perspective reports will show it if this is wrong.
+RING_LINE_MM = 0.2
+
+
+def apply_h(Hm, x, y):
+    """Apply a 3x3 homography to scalar or array coordinates."""
+    x = np.asarray(x, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    w = Hm[2, 0] * x + Hm[2, 1] * y + Hm[2, 2]
+    X = (Hm[0, 0] * x + Hm[0, 1] * y + Hm[0, 2]) / w
+    Y = (Hm[1, 0] * x + Hm[1, 1] * y + Hm[1, 2]) / w
+    if X.ndim == 0:
+        return float(X), float(Y)
+    return X, Y
+
 
 @dataclass
 class TargetFrame:
-    cx: float            # bull centre, px
+    cx: float            # image of the target centre, px
     cy: float
-    semi_a: float        # semi-axis along `angle`, px
+    semi_a: float        # aiming-mark ellipse semi-axis along `angle`, px
     semi_b: float        # semi-axis perpendicular, px
     angle_deg: float
     black_dia_mm: float
     area_px: float
     circularity: float
+    # 3x3 UNDISTORTED image px -> target mm (y UP). None = ellipse model.
+    H: Optional[np.ndarray] = None
+    # Radial lens distortion, solved per frame alongside H:
+    #   p_undist = c + (p - c) * (1 + k1 r^2 + k2 r^4),  r = |p - c| / norm
+    # dist = (cx, cy, norm) in image px; None = no distortion model.
+    k1: float = 0.0
+    k2: float = 0.0
+    dist: Optional[tuple] = None
+
+    @property
+    def perspective(self):
+        return self.H is not None
+
+    def undistort(self, px, py):
+        if self.dist is None:
+            return px, py
+        dcx, dcy, dn = self.dist
+        u = (np.asarray(px, np.float64) - dcx) / dn
+        v = (np.asarray(py, np.float64) - dcy) / dn
+        r2 = u * u + v * v
+        s = 1.0 + self.k1 * r2 + self.k2 * r2 * r2
+        return dcx + u * s * dn, dcy + v * s * dn
+
+    def distort(self, ux, uy, iters=12):
+        """Inverse of undistort, by fixed-point iteration."""
+        if self.dist is None:
+            return ux, uy
+        dcx, dcy, dn = self.dist
+        uu = (np.asarray(ux, np.float64) - dcx) / dn
+        vu = (np.asarray(uy, np.float64) - dcy) / dn
+        u, v = uu.copy(), vu.copy()
+        for _ in range(iters):
+            r2 = u * u + v * v
+            s = 1.0 + self.k1 * r2 + self.k2 * r2 * r2
+            u, v = uu / s, vu / s
+        return dcx + u * dn, dcy + v * dn
 
     @property
     def axis_ratio(self):
@@ -37,17 +105,54 @@ class TargetFrame:
 
     @property
     def mm_per_px(self):
-        """Mean scale - for reporting only; to_mm uses both axes."""
+        """Scale at the target centre. Under perspective it varies across the
+        card, so use local_mm_per_px for anything position-specific."""
+        if self.H is not None:
+            return self.local_mm_per_px(self.cx, self.cy)
         r_mm = self.black_dia_mm / 2.0
         return (r_mm / self.semi_a + r_mm / self.semi_b) / 2.0
 
+    def local_mm_per_px(self, px, py):
+        """Geometric-mean scale at an image point (sqrt of the Jacobian)."""
+        x0, y0 = self.to_mm(px, py)
+        x1, y1 = self.to_mm(px + 1.0, py)
+        x2, y2 = self.to_mm(px, py + 1.0)
+        det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+        return math.sqrt(abs(det))
+
     @property
     def tilt_deg(self):
-        """Approximate off-axis angle implied by the foreshortening."""
+        """Approximate off-axis angle implied by the aiming mark's shape."""
         return math.degrees(math.acos(min(1.0, max(0.0, self.axis_ratio))))
+
+    @property
+    def matrix(self):
+        """3x3 image px -> target mm, for either model."""
+        if self.H is not None:
+            return self.H
+        ox, oy = self._ellipse_to_mm(self.cx, self.cy)
+        ax, ay = self._ellipse_to_mm(self.cx + 1.0, self.cy)
+        bx, by = self._ellipse_to_mm(self.cx, self.cy + 1.0)
+        L = np.array([[ax - ox, bx - ox], [ay - oy, by - oy]])
+        t = np.array([ox, oy]) - L @ np.array([self.cx, self.cy])
+        return np.array([[L[0, 0], L[0, 1], t[0]],
+                         [L[1, 0], L[1, 1], t[1]],
+                         [0.0, 0.0, 1.0]])
 
     def to_mm(self, px, py):
         """Image pixel -> target millimetres, origin at bull centre, y UP."""
+        return apply_h(self.matrix, *self.undistort(px, py))
+
+    def from_mm(self, x_mm, y_mm):
+        """Inverse of to_mm: target millimetres -> image pixel."""
+        ux, uy = apply_h(np.linalg.inv(self.matrix), x_mm, y_mm)
+        x, y = self.distort(ux, uy)
+        if np.ndim(x) == 0:
+            return float(x), float(y)
+        return x, y
+
+    def _ellipse_to_mm(self, px, py):
+        """Affine model: de-skew the aiming-mark ellipse to a circle."""
         r_mm = self.black_dia_mm / 2.0
         th = math.radians(self.angle_deg)
         c, s = math.cos(th), math.sin(th)
@@ -64,20 +169,27 @@ class TargetFrame:
         y_mm = ax * s + by * c
         return x_mm, -y_mm          # image y is down, target y is up
 
-    def from_mm(self, x_mm, y_mm):
-        """Inverse of to_mm: target millimetres -> image pixel."""
-        r_mm = self.black_dia_mm / 2.0
-        th = math.radians(self.angle_deg)
-        c, s = math.cos(th), math.sin(th)
+    def scaled(self, k):
+        """
+        The same frame for an image resized by factor k.
 
-        x, y = x_mm, -y_mm
-        a = x * c + y * s
-        b = -x * s + y * c
-        ux = a * (self.semi_a / r_mm)
-        uy = b * (self.semi_b / r_mm)
-        vx = ux * c - uy * s
-        vy = ux * s + uy * c
-        return vx + self.cx, vy + self.cy
+        cv2.resize maps pixel CENTRES, so new = (old + 0.5) * k - 0.5, not
+        old * k. Ignoring the half pixel shifts everything by ~0.7 px when
+        scaling a half-size solve back up.
+        """
+        o = 0.5 * k - 0.5                      # new = k * old + o
+        S = np.array([[1.0 / k, 0, -o / k], [0, 1.0 / k, -o / k], [0, 0, 1.0]])
+        return TargetFrame(cx=self.cx * k + o, cy=self.cy * k + o,
+                           semi_a=self.semi_a * k, semi_b=self.semi_b * k,
+                           angle_deg=self.angle_deg,
+                           black_dia_mm=self.black_dia_mm,
+                           area_px=self.area_px * k * k,
+                           circularity=self.circularity,
+                           H=None if self.H is None else self.H @ S,
+                           k1=self.k1, k2=self.k2,
+                           dist=None if self.dist is None else
+                           (self.dist[0] * k + o, self.dist[1] * k + o,
+                            self.dist[2] * k))
 
     def radius_mm(self, px, py):
         x, y = self.to_mm(px, py)
@@ -305,20 +417,327 @@ def refine_bull_ellipse(gray_flat, tf, n_rays=360, span_in=0.15, span_out=0.15,
                  "edge_rms_px": rms}
 
 
-def align_matrix(tf_from, tf_to, shape):
+def ring_features(spec):
     """
-    2x3 affine mapping TO-image coordinates back into FROM-image coordinates.
+    Printed circles usable for the fit: (radius_mm, kind, ring).
 
-    Both frames describe the SAME physical circle, so composing
-    to-pixels -> mm -> from-pixels registers the two images through the target
-    itself. Feed this to cv2.warpAffine(from_image, M, size) and the result is
-    the "from" image resampled into the "to" image's geometry, so a difference
-    is then meaningful even if the camera moved between captures.
+    kind is 'edge' for the aiming mark's rim (dark inside, light outside),
+    'dark' for a black line on white paper, 'light' for a white line inside
+    the black. Circles too small to sample (the rifle's 10 dot) are skipped.
+    """
+    from scoring import ring_radius_mm
+    feats = []
+    for ring in range(1, 11):
+        R = ring_radius_mm(spec, ring)
+        if ring == spec.black_ring:
+            feats.append((R, "edge", ring))
+        elif R - RING_LINE_MM / 2.0 < 2.0:
+            continue
+        else:
+            feats.append((R - RING_LINE_MM / 2.0,
+                          "dark" if ring < spec.black_ring else "light", ring))
+    return feats
+
+
+def _search_halfwidth(feats, spec):
+    """Per-feature radial search window: 40% of the gap to the nearest other
+    printed circle, so a search can never reach a neighbouring ring."""
+    radii = sorted([f[0] for f in feats] + [spec.inner_ten_radius_mm, 0.0])
+    out = []
+    for R, _, _ in feats:
+        gaps = [abs(R - o) for o in radii if abs(R - o) > 1e-6]
+        out.append(0.4 * min(gaps))
+    return out
+
+
+def _extract_ring_points(img, w2i, feats, halfw, step_mm, n_rays=360):
+    """
+    Locate each printed circle along rays cast in TARGET space.
+
+    Rays are radial in target millimetres and mapped into the image through
+    the current model (w2i: target mm -> image px), so the search follows the
+    perspective and lens distortion as the fit improves. Returns image points
+    with the radius each one should have, and which feature it belongs to.
+    """
+    H, W = img.shape[:2]
+    th = np.linspace(0, 2 * np.pi, n_rays, endpoint=False)
+    ct, st = np.cos(th)[:, None], np.sin(th)[:, None]
+    px, py, pR, pk = [], [], [], []
+    for fi, ((R, kind, ring), hw) in enumerate(zip(feats, halfw)):
+        r = R + np.arange(-hw, hw + step_mm / 2.0, step_mm)[None, :]
+        ix, iy = w2i(r * ct, r * st)
+        ok = np.all((ix >= 1) & (ix < W - 2) & (iy >= 1) & (iy < H - 2), axis=1)
+        if not ok.any():
+            continue
+        prof = _sample_bilinear(img, np.clip(ix, 0, W - 2), np.clip(iy, 0, H - 2))
+        m = prof.shape[1]
+        med = np.median(prof, axis=1)
+
+        if kind == "edge":
+            v = np.diff(prof, axis=1)              # dark inside -> light out
+            off = 0.5
+            k = np.argmax(v, axis=1)
+            strength = (np.median(prof[:, -m // 3:], axis=1) -
+                        np.median(prof[:, : m // 3], axis=1))
+            ok &= strength > 40
+        else:
+            v = -prof if kind == "dark" else prof
+            off = 0.0
+            k = np.argmax(v, axis=1)
+            peak = v[np.arange(len(k)), k]
+            strength = peak + (med if kind == "dark" else -med)
+            # a dark line must sit on paper, a light line on the black
+            ok &= (med > 90) if kind == "dark" else (med < 90)
+            ok &= strength > 15
+
+        idx = np.arange(len(k))
+        ok &= (k > 0) & (k < v.shape[1] - 1)
+        kk = np.clip(k, 1, v.shape[1] - 2)
+        vm1, v0, vp1 = v[idx, kk - 1], v[idx, kk], v[idx, kk + 1]
+        den = vm1 - 2 * v0 + vp1
+        delta = np.where(np.abs(den) > 1e-9, 0.5 * (vm1 - vp1) / den, 0.0)
+        delta = np.clip(delta, -1.0, 1.0)
+        r_hat = r[0, 0] + (kk + off + delta) * step_mm
+        x, y = w2i(r_hat * ct[:, 0], r_hat * st[:, 0])
+        px.append(x[ok]); py.append(y[ok])
+        pR.append(np.full(ok.sum(), R)); pk.append(np.full(ok.sum(), fi))
+    if not px:
+        return (np.empty(0),) * 4
+    return (np.concatenate(px), np.concatenate(py),
+            np.concatenate(pR), np.concatenate(pk).astype(int))
+
+
+# Model parameters: a, b, d, tx, ty, l1, l2, k1, k2
+#   undistort:  p_u = c + (p - c) (1 + k1 r^2 + k2 r^4)
+#   normalise:  q = (p_u - c0) / s0
+#   project:    target = A . P . q,  A upper-triangular affine,
+#               P = [[1,0,0],[0,1,0],[l1,l2,1]]
+def _model_resid(theta, x, y, R, ctx):
+    a, b, d, tx, ty, l1, l2, k1, k2 = theta
+    dcx, dcy, dn, cx0, cy0, s0 = ctx
+    u, v = (x - dcx) / dn, (y - dcy) / dn
+    r2 = u * u + v * v
+    s = 1.0 + k1 * r2 + k2 * r2 * r2
+    qx = (dcx + u * s * dn - cx0) / s0
+    qy = (dcy + v * s * dn - cy0) / s0
+    w = l1 * qx + l2 * qy + 1.0
+    X = (a * qx + b * qy) / w + tx
+    Y = d * qy / w + ty
+    return np.hypot(X, Y) - R
+
+
+def _lm(theta, free, x, y, R, ctx, iters=60):
+    """Levenberg-Marquardt on radial residuals (mm), numeric Jacobian, over
+    the parameters flagged in `free`."""
+    theta = theta.astype(np.float64).copy()
+    fi = np.where(free)[0]
+    lam = 1e-3
+    r = _model_resid(theta, x, y, R, ctx)
+    cost = float(r @ r)
+    for _ in range(iters):
+        J = np.empty((len(r), len(fi)))
+        for c, j in enumerate(fi):
+            h = 1e-7 * max(1.0, abs(theta[j]))
+            tp = theta.copy(); tp[j] += h
+            tm = theta.copy(); tm[j] -= h
+            J[:, c] = (_model_resid(tp, x, y, R, ctx) -
+                       _model_resid(tm, x, y, R, ctx)) / (2 * h)
+        A = J.T @ J
+        g = J.T @ r
+        improved, rel = False, 0.0
+        for _ in range(12):
+            try:
+                step = np.linalg.solve(A + lam * np.diag(np.diag(A) + 1e-12), -g)
+            except np.linalg.LinAlgError:
+                lam *= 10
+                continue
+            tn = theta.copy()
+            tn[fi] += step
+            rn = _model_resid(tn, x, y, R, ctx)
+            cn = float(rn @ rn)
+            if np.isfinite(cn) and cn < cost:
+                rel = (cost - cn) / max(cost, 1e-12)
+                theta, r, cost = tn, rn, cn
+                lam = max(lam / 3.0, 1e-9)
+                improved = True
+                break
+            lam *= 4.0
+        if not improved or rel < 1e-10:
+            break
+    return theta
+
+
+def fit_perspective(gray_flat, tf, spec, n_rays=360, max_rms_mm=0.35,
+                    distortion=True):
+    """
+    Fit perspective + lens distortion to the aiming mark and the printed rings.
+
+    A circle in perspective images as an exact ellipse, so the aiming mark
+    alone cannot reveal perspective. Several CONCENTRIC circles of known radius
+    can: together they fix the true centre (not the ellipse centre) and how
+    scale changes across the card. That is what lets the camera sit off to
+    the side, out of the line of fire.
+
+    A wide-angle webcam also bends straight lines. On a real Kiyo frame a
+    homography alone left a systematic ring-by-ring curve of -0.4 to +0.5 mm;
+    two radial terms (centred on the image centre) took every ring's mean
+    residual to ~0. Distortion is solved here, per frame, like everything else.
+
+    Rotation about the card's normal leaves circles unchanged, so it cannot be
+    fitted; it is fixed afterwards so that image-up is target-up.
+
+    Rings are added outward from the aiming mark in stages, re-searching each
+    time with the latest model, because the starting ellipse model can be
+    several mm out at the outer rings. Distortion is only freed once every
+    ring is in, when there is enough radial spread to pin it down.
+
+    Returns (TargetFrame, info). On failure returns the input tf unchanged with
+    info["perspective"] False and a reason.
+    """
+    img = cv2.GaussianBlur(gray_flat.astype(np.float32), (0, 0), 1.0)
+    Himg, Wimg = img.shape[:2]
+    feats_all = ring_features(spec)
+    halfw_all = _search_halfwidth(feats_all, spec)
+    R_bull = spec.black_dia_mm / 2.0
+
+    dist = (Wimg / 2.0, Himg / 2.0, Wimg / 2.0)
+    s0 = 0.5 * (tf.semi_a + tf.semi_b)
+    cx0, cy0 = tf.cx, tf.cy
+    ctx = dist + (cx0, cy0, s0)
+    N = np.array([[1 / s0, 0, -cx0 / s0], [0, 1 / s0, -cy0 / s0], [0, 0, 1.0]])
+
+    # initialise from the ellipse model: target = L (p - c0); QR drops rotation
+    _, Rq = np.linalg.qr(tf.matrix[:2, :2] * s0)
+    theta = np.array([Rq[0, 0], Rq[0, 1], Rq[1, 1], 0, 0, 0, 0, 0, 0], float)
+
+    def frame_of(th):
+        a, b, d, tx, ty, l1, l2, k1, k2 = th
+        A = np.array([[a, b, tx], [0, d, ty], [0, 0, 1.0]])
+        P = np.array([[1, 0, 0], [0, 1, 0], [l1, l2, 1.0]])
+        return TargetFrame(cx=tf.cx, cy=tf.cy, semi_a=tf.semi_a,
+                           semi_b=tf.semi_b, angle_deg=tf.angle_deg,
+                           black_dia_mm=tf.black_dia_mm, area_px=tf.area_px,
+                           circularity=tf.circularity, H=A @ P @ N,
+                           k1=float(k1), k2=float(k2), dist=dist)
+
+    step_mm = 0.25 * tf.mm_per_px
+    dist_mm = np.array([abs(f[0] - R_bull) for f in feats_all])
+    reach = 1.25 * spec.step_mm
+    stages = []
+    while True:
+        sel = np.where(dist_mm <= reach)[0]
+        stages.append((sel, False))
+        if len(sel) == len(feats_all):
+            break
+        reach += spec.step_mm
+    stages += [(stages[-1][0], distortion)] * 3     # polish with everything
+
+    for sel, free_dist in stages:
+        feats = [feats_all[i] for i in sel]
+        halfw = [halfw_all[i] for i in sel]
+        x, y, R, k = _extract_ring_points(img, frame_of(theta).from_mm, feats,
+                                          halfw, step_mm, n_rays)
+        if len(x) < 60:
+            return tf, {"perspective": False,
+                        "reason": f"only {len(x)} ring points found"}
+        free = np.array([1, 1, 1, 1, 1, 1, 1, free_dist, free_dist], bool)
+        keep = np.ones(len(x), bool)
+        for _ in range(4):                     # robust: trim and refit
+            theta = _lm(theta, free, x[keep], y[keep], R[keep], ctx)
+            res = _model_resid(theta, x, y, R, ctx)
+            sd = 1.4826 * np.median(np.abs(res[keep]))
+            new_keep = np.abs(res) < max(3.0 * sd, 0.03)
+            if (new_keep == keep).all():
+                break
+            keep = new_keep
+
+    res = _model_resid(theta, x, y, R, ctx)
+    rms = float(np.sqrt(np.mean(res[keep] ** 2)))
+    fit = frame_of(theta)
+
+    # fix the unobservable rotation: image-up through the centre is target +y
+    Hfit = fit.H
+    c = np.linalg.inv(Hfit) @ np.array([0.0, 0.0, 1.0])
+    cxu, cyu = c[0] / c[2], c[1] / c[2]          # undistorted centre
+    ux, uy = apply_h(Hfit, cxu, cyu - 0.2 * s0)
+    phi = math.pi / 2 - math.atan2(uy, ux)
+    G = np.array([[math.cos(phi), -math.sin(phi), 0],
+                  [math.sin(phi), math.cos(phi), 0], [0, 0, 1.0]])
+    rx, _ = apply_h(G @ Hfit, cxu + 0.2 * s0, cyu)
+    if rx < 0:                                   # keep image-right = target +x
+        G = np.diag([-1.0, 1.0, 1.0]) @ G
+    fit.H = G @ Hfit
+    fit.cx, fit.cy = fit.from_mm(0.0, 0.0)
+
+    per_ring = {}
+    for j, fi in enumerate(sel):
+        m = keep & (k == j)
+        if m.sum():
+            per_ring[feats_all[fi][2]] = (int(m.sum()), float(res[m].mean()),
+                                          float(np.sqrt(np.mean(res[m] ** 2))))
+
+    # Card flatness: mean residual per ring per 30-deg sector. A bowed card
+    # leaves smooth patches shared by neighbouring rings that a per-ring mean
+    # averages away; off-axis, a bump of height h shifts by ~h*tan(angle).
+    X, Y = fit.to_mm(x, y)
+    ang = np.degrees(np.arctan2(Y, X)) % 360.0
+    sector = (ang // 30).astype(int)
+    worst, worst_at = 0.0, None
+    for j, fi in enumerate(sel):
+        for sct in range(12):
+            m = keep & (k == j) & (sector == sct)
+            if m.sum() >= 6:
+                v = float(res[m].mean())
+                if abs(v) > abs(worst):
+                    worst, worst_at = v, (feats_all[fi][2], sct * 30 + 15)
+
+    sl = [fit.local_mm_per_px(*fit.from_mm(R_bull * math.cos(a),
+                                           R_bull * math.sin(a)))
+          for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
+    info = {"perspective": True, "points": int(keep.sum()),
+            "rejected": int((~keep).sum()), "rms_mm": rms, "rings": per_ring,
+            "k1": fit.k1, "k2": fit.k2,
+            "flat_worst_mm": worst, "flat_worst_at": worst_at,
+            # how much scale changes across the aiming mark: the honest
+            # "how oblique is the camera" number
+            "scale_spread_pct": (max(sl) / min(sl) - 1.0) * 100.0,
+            "centre_shift_px": math.hypot(fit.cx - tf.cx, fit.cy - tf.cy)}
+
+    if not np.isfinite(rms) or rms > max_rms_mm or len(per_ring) < 3:
+        info.update(perspective=False,
+                    reason=f"ring fit RMS {rms:.3f} mm over {len(per_ring)} "
+                           f"rings - keeping the ellipse model")
+        return tf, info
+    return fit, info
+
+
+def offscreen_sides(tf, r_mm, shape):
+    """Which image edges a target-space circle of radius r_mm runs past."""
+    H, W = shape[:2]
+    a = np.linspace(0, 2 * np.pi, 180, endpoint=False)
+    x, y = tf.from_mm(r_mm * np.cos(a), r_mm * np.sin(a))
+    return [n for n, v in (("left", x.min() < 0), ("top", y.min() < 0),
+                           ("right", x.max() > W - 1),
+                           ("bottom", y.max() > H - 1)) if v]
+
+
+def register(src_img, tf_src, tf_dst, shape):
+    """
+    Resample src_img into the geometry of the dst frame, through the target.
+
+    Both frames describe the SAME physical card, so every dst pixel maps
+    dst-px -> target mm -> src-px. Doing it densely (cv2.remap) handles
+    perspective and lens distortion exactly, which a 3x3 warp cannot. The
+    difference of dst and the result is then meaningful even if the camera
+    moved between captures.
     """
     H, W = shape[:2]
-    src = np.float32([[0, 0], [W - 1, 0], [0, H - 1]])
-    dst = np.float32([tf_from.from_mm(*tf_to.to_mm(x, y)) for x, y in src])
-    return cv2.getAffineTransform(src, dst)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float64)
+    mx, my = tf_dst.to_mm(xx, yy)
+    sx, sy = tf_src.from_mm(mx, my)
+    return cv2.remap(src_img.astype(np.float32), sx.astype(np.float32),
+                     sy.astype(np.float32), cv2.INTER_LINEAR,
+                     borderMode=cv2.BORDER_REPLICATE)
 
 
 def frame_shift_mm(tf_from, tf_to):
@@ -330,13 +749,13 @@ def frame_shift_mm(tf_from, tf_to):
 def draw_rings(img_bgr, tf, spec):
     """Overlay the derived ring geometry so you can eyeball the fit."""
     from scoring import ring_radius_mm
-    r_mm = tf.black_dia_mm / 2.0
+    a = np.linspace(0, 2 * np.pi, 360, endpoint=False)
     for ring in range(10, 0, -1):
         rr = ring_radius_mm(spec, ring)
-        d1 = 2.0 * rr * (tf.semi_a / r_mm)
-        d2 = 2.0 * rr * (tf.semi_b / r_mm)
-        cv2.ellipse(img_bgr, ((tf.cx, tf.cy), (d1, d2), tf.angle_deg),
-                    (0, 200, 255), 1)
+        x, y = tf.from_mm(rr * np.cos(a), rr * np.sin(a))
+        pts = np.round(np.stack([x, y], 1) * 16).astype(np.int32)
+        cv2.polylines(img_bgr, [pts], True, (0, 200, 255), 1, cv2.LINE_AA,
+                      shift=4)
     cv2.drawMarker(img_bgr, (int(tf.cx), int(tf.cy)), (0, 0, 255),
                    cv2.MARKER_CROSS, 25, 2)
     return img_bgr
