@@ -63,23 +63,12 @@
       <% end %>
 
       <div class="space-y-4">
-        <%= render(CardComponent.new(title: "Scored")) do %>
-          <div class="flex items-baseline gap-3">
-            <span class="text-5xl font-bold tabular-nums"><%= format("%.1f", @shot.decimal_score) %></span>
-            <span class="text-gray-600 dark:text-gray-300">ring <%= @shot.ring %> · <%= @shot.direction %> · <%= @shot.rule %> rule</span>
-          </div>
-          <% if @shot.flags.any? %>
-            <p class="mt-2 font-medium text-red-700 dark:text-red-300">Flagged: <%= @shot.flags.to_sentence %></p>
-          <% end %>
-          <dl class="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <dt class="text-gray-600 dark:text-gray-300">Edge to nearest line</dt><dd class="tabular-nums"><%= @shot.line_mm ? "#{@shot.line_mm.round(2)} mm" : "–" %></dd>
-            <dt class="text-gray-600 dark:text-gray-300">Picked up by</dt><dd><%= @shot.trigger == "sound" ? "sound (+#{@shot.sound_db&.round} dB)" : @shot.trigger %></dd>
-            <dt class="text-gray-600 dark:text-gray-300">Region</dt><dd class="tabular-nums"><%= (@shot.region || {})["dia_mm"]&.round(1) %> mm across</dd>
-            <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
-          </dl>
-        <% end %>
-
         <%= render(CardComponent.new(title: "Your call")) do %>
+          <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+            Scored <strong class="text-base text-gray-900 tabular-nums dark:text-gray-100"><%= format("%.1f", @shot.decimal_score) %></strong>
+            · ring <%= @shot.ring %> · <%= @shot.direction %>
+            <% if @shot.flags.any? %><span class="block font-medium text-red-700 dark:text-red-300">Flagged: <%= @shot.flags.to_sentence %></span><% end %>
+          </p>
           <%= form_with model: @shot, url: shot_path(@shot), method: :patch, class: "space-y-4" do |f| %>
             <fieldset>
               <legend class="mb-2 text-sm text-gray-600 dark:text-gray-300">Ring</legend>
@@ -99,16 +88,29 @@
             <%= f.hidden_field :x_mm, value: @shot.call_x_mm, data: { shot_call_target: "x" } %>
             <%= f.hidden_field :y_mm, value: @shot.call_y_mm, data: { shot_call_target: "y" } %>
 
-            <div>
-              <%= f.label :decimal, "Decimal (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
-              <%= f.number_field :decimal, value: @shot.call_decimal, step: 0.1, min: 0, max: 10.9, class: "w-28 rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
-            </div>
-            <div>
-              <%= f.label :note, "Note (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
-              <%= f.text_field :note, value: @shot.call_note, placeholder: "e.g. torn right; pellet ring touches the 8", class: "w-full rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
-            </div>
             <%= render(ButtonComponent.new(type: :submit, full_width: true)) { (n = @review.after_save) ? "Save and go to card #{n.card.number}, shot #{n.number}" : "Save and back to the session" } %>
+
+            <div class="flex flex-wrap gap-3">
+              <div>
+                <%= f.label :decimal, "Decimal (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
+                <%= f.number_field :decimal, value: @shot.call_decimal, step: 0.1, min: 0, max: 10.9, class: "w-28 rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
+              </div>
+              <div class="min-w-48 flex-1">
+                <%= f.label :note, "Note (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
+                <%= f.text_field :note, value: @shot.call_note, placeholder: "e.g. torn right; pellet ring touches the 8", class: "w-full rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
+              </div>
+            </div>
           <% end %>
+        <% end %>
+
+        <%= render(CardComponent.new(title: "How it was scored")) do %>
+          <dl class="grid grid-cols-2 gap-2 text-sm">
+            <dt class="text-gray-600 dark:text-gray-300">Score</dt><dd class="tabular-nums"><%= format("%.1f", @shot.decimal_score) %> · ring <%= @shot.ring %> · <%= @shot.rule %> rule</dd>
+            <dt class="text-gray-600 dark:text-gray-300">Edge to nearest line</dt><dd class="tabular-nums"><%= @shot.line_mm ? "#{@shot.line_mm.round(2)} mm" : "–" %></dd>
+            <dt class="text-gray-600 dark:text-gray-300">Picked up by</dt><dd><%= @shot.trigger == "sound" ? "sound (+#{@shot.sound_db&.round} dB)" : @shot.trigger %></dd>
+            <dt class="text-gray-600 dark:text-gray-300">Region</dt><dd class="tabular-nums"><%= (@shot.region || {})["dia_mm"]&.round(1) %> mm across</dd>
+            <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
+          </dl>
         <% end %>
       </div>
     </div>
