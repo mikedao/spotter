@@ -1,14 +1,16 @@
 <% content_for :title, @session.title %>
 <%= turbo_stream_from @session %>
-
-<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-  <h1 class="text-2xl font-semibold"><%= @session.title %></h1>
-  <% if @session.live? %>
-    <%= render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" } %>
-  <% end %>
-</div>
-
-<div class="space-y-4">
+<div class="space-y-3">
   <%= render(SessionStatusComponent.new(session: @session)) %>
-  <%= render(LivePanelComponent.new(session: @session)) %>
+
+  <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
+    <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
+    <div class="space-y-4">
+      <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
+      <%= render(LiveCameraComponent.new(session: @session)) %>
+      <%= render(LivePanelComponent.new(session: @session, section: :stats)) %>
+    </div>
+  </div>
+
+  <%= render(LivePanelComponent.new(session: @session, section: :list)) %>
 </div>

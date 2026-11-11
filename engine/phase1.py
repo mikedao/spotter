@@ -12,6 +12,7 @@ frame, so camera drift, thermal creep and mount settling cancel out entirely.
     ./phase1.py locate --image out/snap_raw.png     # work from a file
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -31,7 +32,9 @@ HERE = Path(__file__).resolve().parent
 # says exactly what would trigger).
 TRIGGER_DB = 45.0
 TRIGGER_MS = 180.0
-OUT = HERE / "out"
+# Where shots, logs and pictures are saved. SPOTTER_OUT overrides it, so a demo
+# replay (web: bin/rails spotter:demo) never writes into the real shot log.
+OUT = Path(os.environ["SPOTTER_OUT"]) if os.environ.get("SPOTTER_OUT") else HERE / "out"
 
 
 def acquire(a):
@@ -946,6 +949,13 @@ def _shot_auto(a, spec):
     cam = _LiveCamera(a.device)
     st = {"prior": [], "scored": 0, "card_no": 1, "ann": [],
           "last_fail_say": -1e9, "dirty": False}
+    # The live picture for the web app's range screen (the engine holds the
+    # camera, so it serves it): rings from the current baseline drawn on.
+    view_srv = None
+    if a.stream_port:
+        from liveview import LiveView
+        view_srv = LiveView(cam, spec, geometry=lambda: st.get("tf_b")).serve(a.stream_port)
+        print(f"  live view: http://127.0.0.1:{a.stream_port}/snapshot.jpg (and /stream)")
 
     # The web app (web/), when asked: every event below is also posted there.
     rep = None
@@ -1339,6 +1349,8 @@ def _shot_auto(a, spec):
         except KeyboardInterrupt:
             pass
     finally:
+        if view_srv is not None:
+            view_srv.shutdown()
         cam.close()
         if rep is not None:
             emit("session_ended")
@@ -1711,7 +1723,28 @@ def cmd_live(a):
     cv2.destroyAllWindows()
 
 
+def _stop_signals():
+    """
+    Make Ctrl+C (SIGINT) and a polite terminate (SIGTERM) both raise
+    KeyboardInterrupt, so every stop runs the clean shutdown (`shot --auto`'s
+    final check and session_ended; `listen`'s summary).
+
+    Installed explicitly because a process started in the background from a
+    script inherits SIGINT as IGNORED, and Python keeps an inherited ignore:
+    the web app's Stop then silently did nothing (found 2026-11 when the demo
+    task, itself started in the background, launched the engine).
+    """
+    import signal
+
+    def interrupt(signum, frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    signal.signal(signal.SIGTERM, interrupt)
+
+
 def main():
+    _stop_signals()
     p = argparse.ArgumentParser(description="Phase 1 - self-locating scorer")
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn, h in (("locate", cmd_locate, "show the derived geometry"),
@@ -1781,6 +1814,10 @@ def main():
             s.add_argument("--speaker", action="store_true",
                            help="auto: announcements play from a speaker near "
                                 "the camera - ignore the mic while they play")
+            s.add_argument("--stream-port", type=int, default=0,
+                           help="auto: serve the live camera picture, rings "
+                                "drawn on, on 127.0.0.1:PORT (the web app's "
+                                "range screen shows it)")
             s.add_argument("--per-card", type=int, default=None,
                            help="auto: announce 'change the card' after this "
                                 "many shots on a card")

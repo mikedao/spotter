@@ -22,6 +22,40 @@ RSpec.describe "Pages" do
       expect(response.body).to include("<svg", "Latest shot", "8.4", "Check by eye: line call")
     end
 
+    it "shows an empty card before the first shot" do
+      fresh = create(:practice_session, user:, status: "ready")
+      get practice_session_path(fresh)
+      expect(response.body).to include("Card 1", "<svg", "no shots on this card yet")
+      expect(response.body).not_to include("Waiting for the first shot")
+    end
+
+    it "shows the live camera and Stop only while the session runs" do
+      live = create(:practice_session, user:, status: "ready")
+      allow(EngineRunner).to receive(:reconcile!)   # no real engine behind it
+      get practice_session_path(live)
+      expect(response.body).to include("Camera", camera_practice_session_path(live), "Stop session")
+
+      live.update!(status: "ended", ended_at: Time.current)
+      get practice_session_path(live)
+      expect(response.body).not_to include(camera_practice_session_path(live), "Stop session")
+    end
+
+    it "relays the engine's live picture, and says 204 when there is none" do
+      live = create(:practice_session, user:, status: "ready", stream_port: 45_999)
+      allow(EngineRunner).to receive(:snapshot).and_return("\xFF\xD8jpeg".b)
+      get camera_practice_session_path(live)
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq "image/jpeg"
+
+      allow(EngineRunner).to receive(:snapshot).and_call_original
+      get camera_practice_session_path(live)   # nothing listening on that port
+      expect(response).to have_http_status(:no_content)
+
+      live.update!(status: "ended", ended_at: Time.current)
+      get camera_practice_session_path(live)
+      expect(response).to have_http_status(:gone)
+    end
+
     it "shows a shot for review" do
       get shot_path(shot)
       expect(response.body).to include("Your call", "Flagged: line call")
@@ -43,6 +77,8 @@ RSpec.describe "Pages" do
       expect(response.body).not_to include(practice_session_path(session))
 
       get practice_session_path(session)
+      expect(response).to have_http_status(:not_found)
+      get camera_practice_session_path(session)
       expect(response).to have_http_status(:not_found)
       get shot_path(shot)
       expect(response).to have_http_status(:not_found)

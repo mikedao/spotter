@@ -1,3 +1,6 @@
+require "net/http"
+require "socket"
+
 # Starts and stops the scoring engine (../engine, `phase1.py shot --auto`) for a
 # signed-in user, so nobody needs a terminal. One rig, one camera: only one
 # session can run at a time.
@@ -55,7 +58,7 @@ class EngineRunner
       nil
     end
 
-    def start!(user:, target:, per_card:, camera: nil, mic: nil)
+    def start!(user:, target:, per_card:, camera: nil, mic: nil, env: {})
       if (busy = running)
         raise Busy, busy
       end
@@ -69,14 +72,15 @@ class EngineRunner
 
       session = user.practice_sessions.create!(
         engine_session_id: "#{Time.current.strftime('%Y%m%d-%H%M%S')}-#{SecureRandom.hex(2)}",
-        target:, per_card: per_card.presence, camera:, mic:, rule: "pellet", status: "starting", started_at: Time.current
+        target:, per_card: per_card.presence, camera:, mic:, rule: "pellet", status: "starting", started_at: Time.current,
+        stream_port: free_port
       )
       user.update!(last_camera: camera, last_mic: mic)
       log = Rails.root.join("log", "engine", "#{session.engine_session_id}.log")
       FileUtils.mkdir_p(log.dirname)
 
       pid = Process.spawn(
-        { "SPOTTER_TOKEN" => session.run_token, "PYTHONUNBUFFERED" => "1" },
+        { "SPOTTER_TOKEN" => session.run_token, "PYTHONUNBUFFERED" => "1" }.merge(env),
         *command(session),
         chdir: engine_dir.to_s, out: log.to_s, err: [ :child, :out ], pgroup: true
       )
@@ -94,7 +98,24 @@ class EngineRunner
         "--target", session.target, "--device", session.camera.presence || camera,
         "--mic=#{session.mic.presence || mic}",
         "--report-to", web_url, "--session-id", session.engine_session_id,
-        *([ "--per-card", session.per_card.to_s ] if session.per_card) ]
+        *([ "--per-card", session.per_card.to_s ] if session.per_card),
+        *([ "--stream-port", session.stream_port.to_s ] if session.stream_port) ]
+    end
+
+    # The engine serves the live camera picture on this port (127.0.0.1 only);
+    # the range screen gets it through PracticeSessionsController#camera.
+    def free_port = TCPServer.open("127.0.0.1", 0) { |s| s.addr[1] }
+
+    # The latest live picture (JPEG bytes), or nil when the engine has none to give.
+    def snapshot(session)
+      return unless session.live? && session.stream_port
+
+      res = Net::HTTP.start("127.0.0.1", session.stream_port, open_timeout: 1, read_timeout: 2) do |http|
+        http.get("/snapshot.jpg")
+      end
+      res.body if res.is_a?(Net::HTTPOK)
+    rescue SystemCallError, IOError, Net::OpenTimeout, Net::ReadTimeout
+      nil
     end
 
     def stop!(session)

@@ -34,6 +34,21 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_session_path(@session), notice: "Stopping - the engine does a last check for an unscored hole first."
   end
 
+  # The live camera picture, relayed from the engine (which holds the camera and
+  # serves it on 127.0.0.1 only), so it stays behind the login and works from a
+  # phone. Polled a few times a second by live_camera_controller.js; 204 = none
+  # right now, 410 = the session is over (the page then drops the picture).
+  def camera
+    session = Current.user.practice_sessions.find(params[:id])
+    return head(:gone) unless session.live?
+
+    jpeg = EngineRunner.snapshot(session)
+    return head(:no_content) unless jpeg
+
+    response.headers["Cache-Control"] = "no-store"
+    send_data jpeg, type: "image/jpeg", disposition: "inline"
+  end
+
   private
     def set_session
       @session = Current.user.practice_sessions.includes(cards: :shots).find(params[:id])

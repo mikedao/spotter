@@ -21,6 +21,7 @@ RSpec.describe EngineRunner do
     expect(Process).to have_received(:spawn) do |env, *cmd, **opts|
       expect(env["SPOTTER_TOKEN"]).to eq session.run_token
       expect(cmd).to include("--auto", "--session-id", session.engine_session_id, "--per-card", "10", "--report-to")
+      expect(cmd.each_cons(2)).to include([ "--stream-port", session.stream_port.to_s ])
       expect(opts[:chdir]).to end_with("engine")
     end
   end

@@ -1,39 +1,40 @@
-<div id="live_panel" class="space-y-4">
-  <% if @card.nil? %>
-    <%= render(CardComponent.new) do %>
-      <p class="text-gray-600 dark:text-gray-300">Waiting for the first shot.</p>
+<% case section %>
+<% when :target %>
+  <div id="<%= dom_id %>" class="<%= LivePanelComponent::TARGET_SIZE %>">
+    <%= render(CardComponent.new(padding: :none, class: "relative p-2")) do %>
+      <span class="absolute left-4 top-3 text-sm font-semibold text-gray-700">Card <%= card_number %></span>
+      <%= render(TargetSvgComponent.new(spec:, shots: scored, latest:, label: "Card #{card_number}")) %>
     <% end %>
-  <% else %>
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <%= render(CardComponent.new(title: "Card #{@card.number}")) do %>
-        <div class="mx-auto max-w-xl">
-          <%= render(TargetSvgComponent.new(spec:, shots: scored, latest:, label: "Card #{@card.number}")) %>
-        </div>
-      <% end %>
-
-      <div class="space-y-4">
-        <%= render(CardComponent.new(title: "Latest shot")) do %>
-          <% if latest %>
-            <%= link_to shot_path(latest), class: "block" do %>
-              <div class="flex items-baseline gap-3">
-                <span class="text-6xl font-bold tabular-nums"><%= format("%.1f", latest.final_decimal) %></span>
-                <span class="text-xl text-gray-600 dark:text-gray-300">
-                  shot <%= latest.number %> · <%= latest.direction %><%= " · inner ten" if latest.final_inner_ten? %>
-                </span>
-              </div>
-              <% if latest.flagged? && !latest.called? %>
-                <p class="mt-2 font-medium text-red-700 dark:text-red-300">Check by eye: <%= latest.flags.to_sentence %></p>
-              <% end %>
-            <% end %>
-          <% else %>
-            <p class="text-gray-600 dark:text-gray-300">No shots on this card yet.</p>
+  </div>
+<% when :latest %>
+  <div id="<%= dom_id %>">
+    <%= render(CardComponent.new(title: "Latest shot")) do %>
+      <% if latest %>
+        <%= link_to shot_path(latest), class: "block" do %>
+          <div class="flex flex-wrap items-baseline gap-x-3">
+            <span class="text-5xl font-bold tabular-nums"><%= format("%.1f", latest.final_decimal) %></span>
+            <span class="text-lg text-gray-600 dark:text-gray-300">
+              shot <%= latest.number %> · <%= latest.direction %><%= " · inner ten" if latest.final_inner_ten? %>
+            </span>
+          </div>
+          <% if latest.flagged? && !latest.called? %>
+            <p class="mt-2 font-medium text-red-700 dark:text-red-300">Check by eye: <%= latest.flags.to_sentence %></p>
           <% end %>
         <% end %>
-
-        <%= render(CardStatsComponent.new(stats:)) %>
-      </div>
-    </div>
-
+      <% else %>
+        <div class="flex flex-wrap items-baseline gap-x-3 text-gray-400 dark:text-gray-500">
+          <span class="text-5xl font-bold tabular-nums">–</span>
+          <span class="text-lg">no shots on this card yet</span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% when :stats %>
+  <div id="<%= dom_id %>">
+    <%= render(CardStatsComponent.new(stats:)) %>
+  </div>
+<% when :list %>
+  <div id="<%= dom_id %>" class="space-y-4">
     <%= render(ShotListComponent.new(shots:)) %>
 
     <% if earlier_cards.any? %>
@@ -51,5 +52,5 @@
         </ul>
       <% end %>
     <% end %>
-  <% end %>
-</div>
+  </div>
+<% end %>

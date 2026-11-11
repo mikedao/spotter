@@ -25,10 +25,21 @@ BOUNDARY = "spotterframe"
 
 class Camera:
     """Reads continuously; keeps only the latest JPEG. With `image`, serves that
-    still picture as if it were a live camera (testing and demos without one)."""
+    still picture as if it were a live camera; with `playlist`, a series of
+    pictures in turn, `every` seconds apart, holding the last - e.g. a card
+    photographed after each shot, replayed as if shot live (tests and demos)."""
 
-    def __init__(self, device, width, height, quality, image=None):
-        self.still = cv2.imread(image) if image else None
+    def __init__(self, device, width, height, quality, image=None, playlist=None, every=8.0):
+        self.playlist = []
+        for path in playlist or []:
+            img = cv2.imread(path)
+            if img is None:
+                raise SystemExit(f"could not read {path}")
+            self.playlist.append(img)
+        self.every, self.t0 = every, time.time()
+        if self.playlist:
+            image = None
+        self.still = cv2.imread(image) if image else (self.playlist[0] if self.playlist else None)
         if image and self.still is None:
             raise SystemExit(f"could not read {image}")
         if self.still is None:
@@ -44,7 +55,11 @@ class Camera:
 
     def _run(self):
         while True:
-            if self.still is not None:
+            if self.playlist:
+                i = min(int((time.time() - self.t0) / self.every), len(self.playlist) - 1)
+                ok, frame = True, self.playlist[i]
+                time.sleep(1 / 30)
+            elif self.still is not None:
                 ok, frame = True, self.still
                 time.sleep(1 / 30)
             else:
@@ -57,6 +72,10 @@ class Camera:
                 with self.cond:
                     self.jpeg, self.seq = buf.tobytes(), self.seq + 1
                     self.cond.notify_all()
+
+    def latest_jpeg(self):
+        with self.cond:
+            return self.jpeg
 
     def next_jpeg(self, after_seq):
         with self.cond:
@@ -76,11 +95,25 @@ class Server(ThreadingHTTPServer):
 
 
 def make_handler(cam, fps):
+    """GET /stream (or /) = MJPEG; GET /snapshot.jpg = the latest picture.
+    `cam` needs next_jpeg(after_seq) -> (jpeg, seq) and latest_jpeg()."""
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
         def do_GET(self):
+            if self.path == "/snapshot.jpg":
+                jpeg = cam.latest_jpeg()
+                if jpeg is None:
+                    self.send_error(503, "no picture yet")
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(jpeg)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(jpeg)
+                return
             if self.path not in ("/stream", "/"):
                 self.send_error(404)
                 return
@@ -115,10 +148,15 @@ def main():
     p.add_argument("--quality", type=int, default=95)
     p.add_argument("--image", default=None,
                    help="serve this still image instead of a camera (testing, demos)")
+    p.add_argument("--playlist", nargs="+", default=None,
+                   help="serve these images in turn, --every seconds apart (replay a card)")
+    p.add_argument("--every", type=float, default=8.0)
     a = p.parse_args()
-    cam = Camera(a.device, a.width, a.height, a.quality, a.image)
+    cam = Camera(a.device, a.width, a.height, a.quality, a.image, a.playlist, a.every)
     srv = Server(("0.0.0.0", a.port), make_handler(cam, a.fps))
-    print(f"streaming {a.image or f'camera {a.device}'} at http://<this machine>:{a.port}/stream "
+    what = (f"{len(a.playlist)} images, {a.every:g} s apart" if a.playlist
+            else a.image or f"camera {a.device}")
+    print(f"streaming {what} at http://<this machine>:{a.port}/stream "
           f"({a.fps:g} fps, JPEG quality {a.quality}). Ctrl+C to stop.")
     try:
         srv.serve_forever()

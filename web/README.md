@@ -19,6 +19,13 @@ unscored hole, then ends the session. One session at a time (one camera): while
 someone shoots, Start says who. If the engine dies (no camera, no mic), the range
 screen shows the last lines it printed.
 
+The range screen fits the whole card in the window, and while the session runs it
+shows a **live camera picture** with the fitted rings drawn on. The engine holds
+the camera, so it serves the picture (`--stream-port`, 127.0.0.1 only, on a free
+port `EngineRunner` picks). The page fetches it a few times a second through
+`GET /practice/:id/camera`, which relays it behind the login, so it also works
+from a phone.
+
 The rig, set in the environment of `bin/dev`:
 
 | | default | |
@@ -58,6 +65,13 @@ the engine inherits it.
 Forgotten password (the app sends no email):
 `bin/rails users:reset_password EMAIL=... PASSWORD=...`
 
+To see it work without a camera or a gun: with `bin/dev` running,
+`bin/rails spotter:demo` replays a real ten-shot card (engine/out/shots/044-053)
+through the real engine - open the link it prints (sign in as
+demo@spotter.local / spotter-demo, or pass `EMAIL=you@...` to use your own
+account) and watch the range screen fill up live. Its shots go to a temporary
+folder, never the real shot log.
+
 To test without a camera: `cd ../engine && ./.venv/bin/python camstream.py
 --image out/shots/053_after.png --port 8090`, then `SPOTTER_CAMERA=http://127.0.0.1:8090/stream
 SPOTTER_MIC=MacBook bin/dev`.
@@ -76,7 +90,7 @@ run token).
 | `EngineRunner` | starts / stops the engine for a user, one session at a time, notices a dead engine |
 | `RigCheck::Locate`, `RigCheck::Listen` | the rig setup page's camera and sound checks |
 | `EngineEvent` | applies one engine event (contract: `../docs/engine-events.md`) |
-| `LiveBroadcast` | pushes a session's status line and live panel to open screens |
+| `LiveBroadcast` | pushes a session's header (status, Stop) and live sections (target, latest, stats, list) to open screens; never the camera picture, which refreshes itself (`LiveCameraComponent`, `live_camera_controller.js`) |
 | `PracticeSession` → `Card` → `Shot` | the data; a shot keeps the rules' PROPOSAL and the shooter's CALL in separate columns |
 | `TargetSpec` | ISSF ring geometry and scoring, a port of the engine's `scoring.py` (specs pin the same values) |
 | `CardStats` | total, average, inner tens, group size, group centre, mean radius, time per shot |

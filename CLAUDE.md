@@ -68,6 +68,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `audio.py` | Camera-mic shot TRIGGER (not positioning): impulse events vs running floor |
 | `report.py` | Posts engine events to the web app (`--report-to`), off the scoring thread |
 | `camstream.py` | Serves a local camera as MJPEG: tests the Pi stream path on the laptop |
+| `liveview.py` | The engine's live picture (rings drawn on) for the range screen, `shot --auto --stream-port` |
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
@@ -171,6 +172,19 @@ from there). The user commits; don't commit unless asked.
   countdown and meter update live - which also confirms the Turbo push path the
   range screen uses. Note: system specs can't see live updates (test cable
   adapter); drive a real browser for that.
+- **Stop must work even with SIGINT inherited as IGNORED** (a process started
+  in the background from a script; Python keeps an inherited ignore). The engine
+  installs SIGINT and SIGTERM -> KeyboardInterrupt in `main()`
+  (`_stop_signals`). Found when the demo task, started in the background, could
+  not stop its engine; without the fix the web app's Stop would silently do
+  nothing under any service manager. Verified with an inherited ignore.
+- `bin/rails spotter:demo` replays the real 10-shot card 044-053 through the real
+  engine (`camstream.py --playlist`, no mic) into a "Demo" user (or EMAIL=...),
+  writing the engine's files to a temp `SPOTTER_OUT` so the real shot log is never
+  touched. Default 10 s per image (>= 7 s enforced; 7 s lost shots while Spotlight
+  indexing slowed solves 1.7x): camera-only needs two checks + scoring, and at 5 s
+  two holes landed in one comparison and one was lost (6 of 10) - which is also
+  the real limit for camera-only mode (no mic): shots < ~5 s apart can be missed.
 - Browser specs: `spec/system` (Capybara + Cuprite, as fl-shooters) for screens
   request specs can't see; `SCREENSHOTS=1` saves tmp/screenshots/.
 - **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,
@@ -186,8 +200,20 @@ from there). The user commits; don't commit unless asked.
   three together. Positions are mm, x right, **y UP** (fl-shooters stores y down).
 - Time zone defaults to Eastern (`SPOTTER_TIME_ZONE` overrides).
 
-Not built yet (agreed order): live MJPEG camera view (`--stream`, from the engine:
-only one process can hold the camera), import of the pre-web `engine/out/shots` log,
+- **Live camera view** on the range screen (2026-11): the engine holds the camera,
+  so it serves it (`shot --auto --stream-port PORT`, `liveview.LiveView`, 127.0.0.1
+  only): ~4 fps, 960 px, rings of the current baseline drawn on, encoded only when
+  asked. `EngineRunner` picks a free port (`practice_sessions.stream_port`); the
+  page polls `GET /practice/:id/camera` (relayed behind the login; 204 = no picture,
+  410 = session over, picture removed). Polling snapshots rather than relaying
+  MJPEG keeps no Puma thread open per viewer. The camera picture is outside
+  everything `LiveBroadcast` replaces, else every shot would blank it; the panel
+  is split into `live_target/latest/stats/list` for that reason. The header (status
+  pill + Stop) is broadcast too, so Stop goes away when the session ends.
+- The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
+  `100svh - 11rem`) so the whole card is visible without scrolling.
+
+Not built yet (agreed order): import of the pre-web `engine/out/shots` log,
 session history with trends, match/final timing and a virtual RO (freETarget
 has both), and the model trained from reviewed calls.
 

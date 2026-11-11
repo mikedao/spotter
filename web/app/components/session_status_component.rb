@@ -1,5 +1,5 @@
-# The range screen's status line: what the engine is doing right now, in the same
-# words it says in the shooter's earbuds.
+# The range screen's header line: the session, what the engine is doing right now
+# (in the same words it says in the shooter's earbuds), and Stop while it runs.
 class SessionStatusComponent < ApplicationComponent
   LOOK = {
     "starting" => [ "Starting the engine… (camera and microphone)", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ],
@@ -12,24 +12,39 @@ class SessionStatusComponent < ApplicationComponent
 
   def initialize(session:) = @session = session
 
-  # Includes the engine's last words when it died, so a crash shows up live on an
-  # open range screen (this component is what LiveBroadcast pushes first).
+  # The range screen's header: title, what the engine is doing (a pill), and Stop
+  # while it runs - plus the engine's last words when it died. Pushed live by
+  # LiveBroadcast, so Stop goes away the moment the session ends and a crash shows
+  # up on an open screen.
   def call
-    text, colours = LOOK.fetch(@session.status, LOOK["starting"])
     tag.div(id: "session_status", class: "space-y-3") do
-      safe_join([
-        tag.div(class: classes("flex items-center gap-2 rounded-md px-4 py-3 font-medium", colours)) do
-          safe_join([
-            (tag.span(class: "inline-block size-2.5 animate-pulse rounded-full bg-current") if @session.live?),
-            tag.span(text)
-          ].compact)
-        end,
-        (error_box if @session.engine_error.present?)
-      ].compact)
+      safe_join([ header, (error_box if @session.engine_error.present?) ].compact)
     end
   end
 
   private
+    def header
+      text, colours = LOOK.fetch(@session.status, LOOK["starting"])
+      tag.div(class: "flex flex-wrap items-center gap-x-4 gap-y-2") do
+        safe_join([
+          tag.h1(@session.title, class: "text-2xl font-semibold"),
+          tag.div(class: classes("flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium", colours)) do
+            safe_join([
+              (tag.span(class: "inline-block size-2 animate-pulse rounded-full bg-current") if @session.live?),
+              tag.span(text)
+            ].compact)
+          end,
+          (stop_button if @session.live?)
+        ].compact)
+      end
+    end
+
+    def stop_button
+      tag.div(class: "ml-auto") do
+        render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" }
+      end
+    end
+
     def error_box
       tag.div(class: "rounded-md border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950") do
         safe_join([
