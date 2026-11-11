@@ -740,6 +740,27 @@ def register(src_img, tf_src, tf_dst, shape):
                      borderMode=cv2.BORDER_REPLICATE)
 
 
+def new_light(after, before_reg, radius_px=2):
+    """
+    Where the after frame got brighter than the (registered) before frame,
+    counting a pixel only if it beats EVERY before pixel within radius_px.
+
+    A plain after - before difference lights up every printed edge: frames
+    differ slightly in sharpness and scale (autofocus cannot be locked on
+    macOS; scale moved up to 0.6% between shots) and a sub-pixel mismatch on
+    a sharp line is a bright line in the difference. On real shots that gave
+    up to 114 regions, and a hole on the aiming-mark edge merged with the edge
+    residue into one tall blob that the filters rejected - the shot was lost.
+    A max-filter on the before frame absorbs any edge that moved by up to
+    radius_px, while a new hole (bright where the before was dark over its
+    whole area) survives, minus a thin rim.
+    """
+    k = 2 * radius_px + 1
+    se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    bmax = cv2.dilate(np.asarray(before_reg, np.float32), se)
+    return np.clip(np.asarray(after, np.float32) - bmax, 0, None)
+
+
 def frame_shift_mm(tf_from, tf_to):
     """How far the camera moved between two frames, in target mm."""
     x, y = tf_to.to_mm(tf_from.cx, tf_from.cy)

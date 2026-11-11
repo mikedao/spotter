@@ -88,6 +88,7 @@ any other way (no `cx + r/mm_per_px`, no `cv2.ellipse` of a ring).
 ./.venv/bin/python phase1.py locate        # derived geometry + ring overlay
 ./.venv/bin/python phase1.py score         # find and score every hole
 ./.venv/bin/python phase1.py shot --expect 1   # before/after, scores the new hole
+./.venv/bin/python phase1.py shot --expect 1 --count 5   # series; logs your by-eye call per shot
 ./.venv/bin/python phase1.py bench --label light-on   # A/B a rig/lighting change
 ./.venv/bin/python selftest.py             # synthetic check, no camera
 ```
@@ -177,6 +178,12 @@ because ISSF awards the higher value when the hole touches the line.
   differencing. Without it, camera movement turns every printed ring line into
   a bright edge. A real run produced **55 phantom shots**. A 3x3 warp cannot
   express lens distortion, which is why this is a remap, not warpAffine.
+- The difference is `geometry.new_light`: after minus a 5x5 MAX-filtered
+  registered before. A plain difference lit every printed line and numeral
+  (frames differ in sharpness/scale - autofocus is unlockable on macOS), gave
+  up to 114 regions per shot, and LOST holes on the aiming-mark edge or a ring
+  line by merging them with the line residue. 2026-11 series of 5 real shots:
+  plain 3/5 rings matched the shooter's call, max-filter 5/5.
 - Diagnostic: evenly spaced detections at constant x or y, **exactly one ring
   apart** (8 mm for pistol), always means registration error, never shots.
 - Do not set `min_circularity=0` to let overlap crescents through. It disables
@@ -200,8 +207,8 @@ because ISSF awards the higher value when the hole touches the line.
   First real shot (paper target, 24 deg, torn ~11 mm long): the fit found only
   108 deg of arc and chose the tear's upper edge, not the round left end the
   shooter identified as the impact. Real tears are rougher than the synthetic
-  model. `shot` now saves `out/shot_before.png` / `shot_after.png`; replay with
-  `shot --before out/shot_before.png --image out/shot_after.png` and collect
+  model. `shot` saves every shot as `out/shots/NNN_before.png` / `NNN_after.png`;
+  replay with `shot --before out/shots/NNN_before.png --image out/shots/NNN_after.png` and collect
   real cases (with the shooter's by-eye call) before tuning further.
 - **Static `score` loses holes near the white rings inside the black.** The
   top-hat keeps the white ring lines, and a hole within ~1.5 mm of one merges

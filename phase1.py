@@ -190,19 +190,20 @@ def cmd_score(a):
     print(f"  overlay -> {OUT/'p1_score.png'}\n")
 
 
-def cmd_shot(a):
+def _shot_once(a, spec):
     """
-    Baseline, then a new shot. Scores only what changed.
+    Baseline, then a new shot. Scores only what changed. Returns a result
+    dict (or None if the target could not be found).
 
     The two captures are REGISTERED through the target itself before being
     differenced. Without that, any camera movement between them turns every
     printed ring line into a bright edge in the difference image, and you get
     dozens of phantom "shots" spaced exactly one ring apart.
     """
-    from geometry import register, frame_shift_mm
+    from geometry import register, frame_shift_mm, new_light
 
-    spec = SPECS[a.target]
     OUT.mkdir(exist_ok=True)
+    n = None
     if a.before:
         # replay: --before is the baseline frame, --image the after frame
         if not a.image:
@@ -216,22 +217,27 @@ def cmd_shot(a):
         before = acquire(a)
     tf_b, _ = establish(before, spec, verbose=False)
     if tf_b is None:
-        sys.exit("  could not locate the target in the baseline frame")
+        print("  could not locate the target in the baseline frame")
+        return None
 
     if not a.before:
         input("Now ADD A SHOT, then press ENTER...")
     after = acquire(a)
-    # keep the raw frames so a shot can be re-scored later with
-    #   shot --before out/shot_before.png --image out/shot_after.png
+    # keep every shot's raw frames, numbered, so any shot can be re-scored:
+    #   shot --before out/shots/003_before.png --image out/shots/003_after.png
     if not a.before:
-        cv2.imwrite(str(OUT / "shot_before.png"),
-                    np.clip(before, 0, 255).astype(np.uint8))
-        cv2.imwrite(str(OUT / "shot_after.png"),
-                    np.clip(after, 0, 255).astype(np.uint8))
+        sd = OUT / "shots"
+        sd.mkdir(parents=True, exist_ok=True)
+        n = 1 + max([int(p.name[:3]) for p in sd.glob("[0-9][0-9][0-9]_after.png")]
+                    or [0])
+        for tag, img in (("before", before), ("after", after)):
+            cv2.imwrite(str(sd / f"{n:03d}_{tag}.png"),
+                        np.clip(img, 0, 255).astype(np.uint8))
+        print(f"  saved as shot {n:03d} -> {sd}/{n:03d}_before.png / _after.png")
     print(f"\n{spec.name}")
     tf, _ = establish(after, spec)
     if tf is None:
-        return
+        return None
 
     # --- register the baseline into the new frame's geometry ------------
     moved_mm, scale_pct = frame_shift_mm(tf_b, tf)
@@ -247,7 +253,9 @@ def cmd_shot(a):
         print("  ! That is a large move. If the card itself was disturbed, the")
         print("    difference is meaningless - redo the baseline.")
 
-    diff = np.clip(after.astype(np.float32) - before_reg, 0, None)
+    # Brighter than every baseline pixel nearby - absorbs printed edges that
+    # shifted or changed sharpness between frames; see geometry.new_light.
+    diff = new_light(after, before_reg)
 
     # Filters matter here. A new region must be hole-SIZED; a crescent from an
     # overlapping shot is not round, so circularity is kept permissive but not
@@ -269,7 +277,7 @@ def cmd_shot(a):
 
     if not hd:
         print("\n  No new region found. Was a shot actually added?")
-        return
+        return {"n": n, "found": False}
 
     # Pellet centre from a circle of the pellet's known size fitted to the
     # round part of the edge. The centroid is dragged along paper tears and
@@ -292,7 +300,7 @@ def cmd_shot(a):
         nominal = np.pi * (PELLET_MM / 2.0 / tf.local_mm_per_px(h["xw"], h["yw"])) ** 2
         frac = h["area_px"] / nominal
         shape = ("sliver" if frac < 0.15 else "partial / overlapping"
-                 if frac < 0.75 else "about one pellet" if frac < 1.8
+                 if frac < 0.75 else "about one pellet" if frac < 2.5
                  else "larger than a pellet - torn or merged")
         if f["ok"]:
             moved = float(np.hypot(f["x_mm"] - cx, f["y_mm"] - cy))
@@ -310,8 +318,73 @@ def cmd_shot(a):
         print(f"  ({len(hd)-1} smaller region(s) also found - if those are not")
         print("   real shots, pass --expect 1)")
     cv2.imwrite(str(OUT / "p1_shot.png"), vis)
+    if n is not None:
+        cv2.imwrite(str(OUT / "shots" / f"{n:03d}_overlay.png"), vis)
     print(f"\n  overlay -> {OUT/'p1_shot.png'}")
     print(f"  difference image -> {OUT/'p1_shot_diff.png'}\n")
+    f = hd[0]["fit"]
+    return {"n": n, "found": True, "row": best, "fit_ok": f["ok"],
+            "arc_deg": f["arc_deg"], "regions": len(hd)}
+
+
+def cmd_shot(a):
+    """
+    Score new shots one at a time. With --count N, runs N shots in a row and
+    after each asks for your by-eye call, logged next to the system's score in
+    out/shots/calls.csv so the two can be compared shot by shot.
+
+    The two captures are REGISTERED through the target itself before being
+    differenced; see _shot_once.
+    """
+    import csv
+    from datetime import datetime
+
+    spec = SPECS[a.target]
+    if a.before:                                 # replay a saved shot
+        _shot_once(a, spec)
+        return
+
+    log = OUT / "shots" / "calls.csv"
+    fields = ["when", "shot", "decimal", "ring", "x_mm", "y_mm", "r_mm",
+              "fit", "arc_deg", "regions", "your_call"]
+    for i in range(a.count):
+        if a.count > 1:
+            print(f"\n========== shot {i + 1} of {a.count} ==========")
+        res = _shot_once(a, spec)
+        if res is None or not res.get("found"):
+            if a.count > 1 and input("  Nothing scored. Continue the series? "
+                                     "[Y/n] ").strip().lower() == "n":
+                break
+            continue
+        r = res["row"]
+        call = ""
+        if a.count > 1 or a.ask:
+            call = input("  Your by-eye call (ring, and which end is the impact "
+                         "if torn) - ENTER to skip:\n  > ").strip()
+        new = not log.exists()
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with open(log, "a", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=fields)
+            if new:
+                w.writeheader()
+            w.writerow({"when": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "shot": f"{res['n']:03d}", "decimal": r["decimal"],
+                        "ring": r["integer"], "x_mm": round(r["x_mm"], 2),
+                        "y_mm": round(r["y_mm"], 2),
+                        "r_mm": round(r["r_mm"], 2),
+                        "fit": "circle" if res["fit_ok"] else "centroid",
+                        "arc_deg": round(res["arc_deg"]),
+                        "regions": res["regions"], "your_call": call})
+
+    if log.exists():
+        with open(log) as fh:
+            rows = list(csv.DictReader(fh))
+        print(f"\n  shot log ({log}):")
+        print(f"  {'shot':>4} {'score':>6} {'ring':>4} {'fit':>8}  your call")
+        for row in rows[-max(a.count, 5):]:
+            print(f"  {row['shot']:>4} {row['decimal']:>6} {row['ring']:>4} "
+                  f"{row['fit']:>8}  {row['your_call']}")
+        print()
 
 
 def cmd_bench(a):
@@ -333,7 +406,7 @@ def cmd_bench(a):
     import csv
     import time
     from datetime import datetime
-    from geometry import register
+    from geometry import register, new_light
     from scoring import ring_radius_mm
 
     if a.image:
@@ -388,7 +461,7 @@ def cmd_bench(a):
     phantoms, ph_list, off_card = [], [], 0
     for i, ((g0, t0), (g1, t1)) in enumerate(zip(zip(frames, tfs),
                                                  zip(frames[1:], tfs[1:]))):
-        diff = np.clip(g1 - register(g0, t0, t1, g1.shape), 0, None)
+        diff = new_light(g1, register(g0, t0, t1, g1.shape))
         hd, _, _ = target0.detect_holes(diff, t1.mm_per_px, min_mm=2.0,
                                         min_circularity=0.30)
         hd, off = _keep_on_card(hd, t1, spec)
@@ -615,6 +688,11 @@ def main():
         if name == "shot":
             s.add_argument("--before", default=None,
                            help="replay: baseline frame (with --image = after)")
+            s.add_argument("--count", type=int, default=1,
+                           help="shots in a row; asks for your by-eye call "
+                                "after each")
+            s.add_argument("--ask", action="store_true",
+                           help="ask for your by-eye call on a single shot")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")
         s.add_argument("--every", type=int, default=3,
