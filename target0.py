@@ -334,6 +334,54 @@ def fit_pellet(img, hole, to_mm, r_mm=PELLET_MM / 2.0, iters=400,
             "ok": bool(inl.sum() >= 12 and arc >= 150.0)}
 
 
+def visible_edge(diff, hole, to_mm, grow_px=3):
+    """
+    Radius (target mm) of the VISIBLE hole's point nearest the centre - the
+    edge used by the "visible hole" scoring rule, tears included.
+
+    `diff` should be the PLAIN registered difference (after - before): the
+    max-filtered one used for detection erodes real hole edges by ~2 px, which
+    would bias every call against the shooter. The plain difference carries
+    printed-line residue, so it is only read inside the detected region grown
+    by grow_px, and cut at 30% of the region's peak (residue is far below that).
+
+    Returns dict(r_edge, x, y of the nearest visible point, pts_mm = the
+    visible outline in target mm), or None.
+    """
+    H, W = diff.shape[:2]
+    x0, y0, w, h = hole["bbox"]
+    pad = grow_px + 4
+    xa, ya = max(0, x0 - pad), max(0, y0 - pad)
+    xb, yb = min(W, x0 + w + pad), min(H, y0 + h + pad)
+    sub = np.asarray(diff[ya:yb, xa:xb], np.float32)
+    core = np.zeros(sub.shape, np.uint8)
+    core[(y0 - ya):(y0 - ya + h), (x0 - xa):(x0 - xa + w)] = 1
+    peak = float(np.percentile(sub[core > 0], 95))
+    if peak <= 0:
+        return None
+    # 30% of peak, not 50%: where a hole covers a WHITE ring line inside the
+    # black, that patch was already bright before, so its difference is only
+    # ~100 against a ~225 peak. At 50% the hole lost exactly the part touching
+    # the line (shot 005: called 10, scored 9.9). Printed-line residue in the
+    # plain difference is ~20-40, still well below 30%.
+    m = (sub >= 0.3 * peak).astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * grow_px + 1,) * 2)
+    m &= cv2.dilate(core, se)
+    # Every visible fragment inside the detected area counts (torn pieces are
+    # part of the visible hole). Picking one connected component made the
+    # result jump when the threshold changed which pieces were connected.
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not cnts:
+        return None
+    pts = np.concatenate([c[:, 0, :] for c in cnts]).astype(np.float64)
+    X, Y = to_mm(pts[:, 0] + xa, pts[:, 1] + ya)
+    r = np.hypot(X, Y)
+    i = int(np.argmin(r))
+    return {"r_edge": float(r[i]), "x": float(X[i]), "y": float(Y[i]),
+            "pts_mm": np.stack([np.asarray(X), np.asarray(Y)], 1)}
+
+
 def match(ref, cand, tol_px):
     """Nearest-neighbour match of cand onto ref; None where unmatched."""
     out = []

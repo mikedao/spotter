@@ -113,7 +113,15 @@ def establish(gray, spec, verbose=True):
     return tf, info
 
 
-def report(holes, tf, spec, vis=None, quiet=False):
+def report(holes, tf, spec, vis=None, quiet=False, rule="gauge"):
+    """
+    rule "gauge":   official - a pellet-sized circle at the hole centre must
+                    touch the line (the ISSF plug gauge; tears do not count).
+    rule "visible": the visible hole, tears included, touching the line
+                    counts. Chosen by the shooter as the default for `shot`
+                    because it favours the shooter, as touch rules do.
+    """
+    from scoring import score as _score
     rows = []
     for h in holes:
         if h.get("x_mm") is not None:          # circle-fitted pellet centre
@@ -121,13 +129,19 @@ def report(holes, tf, spec, vis=None, quiet=False):
         else:
             x_mm, y_mm = tf.to_mm(h["xw"], h["yw"])
         s = score_xy(x_mm, y_mm, spec)
+        s["rule"] = "gauge"
+        if rule == "visible" and h.get("vis_r_edge") is not None:
+            g = s
+            s = _score(h["vis_r_edge"], spec, pellet_mm=0.0)
+            s.update(x_mm=x_mm, y_mm=y_mm, r_mm=g["r_mm"], rule="visible",
+                     gauge_decimal=g["decimal"])
         # On torn paper the circle fit and the region centroid can disagree
         # by 1-2 mm, and neither is reliably right (2026-11: one real shot each
         # way). When they land in different rings, the ring is not known.
         # Flag when the span between the two estimates (plus the line-call
         # margin) crosses a ring line: then the ring itself is not known.
         s["ambiguous"] = False
-        if h.get("x_mm") is not None:
+        if h.get("x_mm") is not None and s["rule"] == "gauge":
             from scoring import ring_radius_mm, LINE_CALL_MM
             sc = score_xy(*tf.to_mm(h["xw"], h["yw"]), spec)
             s["alt_decimal"] = sc["decimal"]
@@ -135,7 +149,8 @@ def report(holes, tf, spec, vis=None, quiet=False):
             hi = max(s["r_edge_mm"], sc["r_edge_mm"]) + LINE_CALL_MM
             s["ambiguous"] = any(lo <= ring_radius_mm(spec, k) <= hi
                                  for k in range(1, 11))
-        s["check"] = s["line_call"] or s["ambiguous"]
+        s["overlap"] = h.get("overlap", False)
+        s["check"] = s["line_call"] or s["ambiguous"] or s["overlap"]
         s["clipped"] = h.get("clipped", False)
         s["dia_mm"] = h["diam_px"] * tf.local_mm_per_px(h["xw"], h["yw"])
         s["circ"] = h["circ"]
@@ -164,6 +179,8 @@ def report(holes, tf, spec, vis=None, quiet=False):
             flag += f"  LINE ({s['line_mm']:.2f} mm) - check"
         if s["ambiguous"]:
             flag += f"  RING UNCERTAIN ({s['alt_decimal']} by centroid) - check"
+        if s["overlap"]:
+            flag += "  OVERLAPS EARLIER HOLE - gauge rule used, check"
         print(f"  {i:>2} {s['x_mm']:>+8.2f} {s['y_mm']:>+8.2f} {s['r_mm']:>8.2f} "
               f"{s['decimal']:>6.1f} {s['integer']:>5} {s['dia_mm']:>7.2f} "
               f"{s['circ']:>5.2f}{flag}")
@@ -209,7 +226,7 @@ def cmd_score(a):
     print(f"  overlay -> {OUT/'p1_score.png'}\n")
 
 
-def _shot_once(a, spec):
+def _shot_once(a, spec, prior=()):
     """
     Baseline, then a new shot. Scores only what changed. Returns a result
     dict (or None if the target could not be found).
@@ -253,7 +270,7 @@ def _shot_once(a, spec):
             cv2.imwrite(str(sd / f"{n:03d}_{tag}.png"),
                         np.clip(img, 0, 255).astype(np.uint8))
         print(f"  saved as shot {n:03d} -> {sd}/{n:03d}_before.png / _after.png")
-    return _score_pair(a, spec, before, tf_b, after, n)
+    return _score_pair(a, spec, before, tf_b, after, n, prior=prior)
 
 
 def _next_shot_number():
@@ -263,7 +280,8 @@ def _next_shot_number():
                    or [0])
 
 
-def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True):
+def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
+                prior=()):
     """
     Score what changed between a baseline and an after frame. Returns a result
     dict, or None if the target could not be found in the after frame.
@@ -329,7 +347,26 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True):
     print("\n  NEW region(s), largest first:")
     vis = cv2.cvtColor(np.clip(after, 0, 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     draw_rings(vis, tf, spec)
-    rows = report(hd, tf, spec, vis)
+    # visible-hole edge, from the PLAIN difference (see target0.visible_edge)
+    plain = np.clip(after.astype(np.float32) - before_reg, 0, None)
+    # `prior` = centres (target mm) of earlier holes on this card. If the new
+    # visible region runs into one, the shot tore into an old hole: the
+    # visible edge then belongs partly to the OLD hole (a real 7 read as 9),
+    # so fall back to the pellet-sized gauge and flag it.
+    from scoring import PELLET_MM as _P
+    for h in hd:
+        ve = target0.visible_edge(plain, h, tf.to_mm)
+        h["vis_r_edge"] = ve["r_edge"] if ve else None
+        h["overlap"] = False
+        if ve is not None and len(prior):
+            pp = np.asarray(prior, float)
+            dmin = float(np.min(np.hypot(
+                ve["pts_mm"][:, None, 0] - pp[None, :, 0],
+                ve["pts_mm"][:, None, 1] - pp[None, :, 1])))
+            if dmin < _P / 2.0 + 0.5:
+                h["overlap"] = True
+                h["vis_r_edge"] = None
+    rows = report(hd, tf, spec, vis, rule=getattr(a, "rule", "gauge"))
 
     from scoring import PELLET_MM
     for i, h in enumerate(hd):
@@ -355,7 +392,9 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True):
           + (f"   LINE CALL - edge {best['line_mm']:.2f} mm from a ring line, "
              "check by eye" if best["line_call"] else "")
           + (f"   RING UNCERTAIN - {best['alt_decimal']} by the other method, "
-             "check by eye" if best["ambiguous"] else ""))
+             "check by eye" if best["ambiguous"] else "")
+          + ("   OVERLAPS EARLIER HOLE - scored by gauge, check by eye"
+             if best["overlap"] else ""))
     if len(hd) > 1:
         print(f"  ({len(hd)-1} smaller region(s) also found - if those are not")
         print("   real shots, pass --expect 1)")
@@ -390,10 +429,11 @@ def cmd_shot(a):
         _shot_auto(a, spec)
         return
 
+    prior = []          # hole centres on this card, this series
     for i in range(a.count):
         if a.count > 1:
             print(f"\n========== shot {i + 1} of {a.count} ==========")
-        res = _shot_once(a, spec)
+        res = _shot_once(a, spec, prior)
         if res is None or not res.get("found"):
             if a.count > 1 and input("  Nothing scored. Continue the series? "
                                      "[Y/n] ").strip().lower() == "n":
@@ -405,6 +445,7 @@ def cmd_shot(a):
             call = input("  Your by-eye call (ring, and which end is the impact "
                          "if torn) - ENTER to skip:\n  > ").strip()
         _log_shot(res, call)
+        prior.append((r["x_mm"], r["y_mm"]))
     _print_log(max(a.count, 5))
 
 
@@ -535,6 +576,7 @@ def _shot_auto(a, spec):
           f">= {a.trigger_ms:.0f} ms long; capture {a.settle:.1f} s after impact.")
     cam = _LiveCamera(a.device)
     scored = 0
+    prior = []          # hole centres on this card, this session
     try:
         time.sleep(1.0)                          # let exposure settle
         before = cam.grab(a.frames)
@@ -580,10 +622,27 @@ def _shot_auto(a, spec):
                              else contextlib.redirect_stdout(io.StringIO()))
                     with quiet:
                         res = _score_pair(a, spec, before, tf_b, after, n,
-                                          verbose=a.verbose)
+                                          verbose=a.verbose, prior=prior)
+                    if res is None:
+                        # Target not located in the after frame (something in
+                        # the way, a flap still moving...). Try once more.
+                        time.sleep(0.5)
+                        after = cam.grab(a.frames)
+                        with quiet:
+                            res = _score_pair(a, spec, before, tf_b, after, n,
+                                              verbose=a.verbose, prior=prior)
                     if res is None or not res.get("found"):
-                        print("  sound, but no new hole on the card - ignored "
-                              "(baseline kept)\n")
+                        # Never lose a shot: keep both frames for replay.
+                        stamp = time.strftime("%H%M%S")
+                        sdir = OUT / "shots"
+                        for tag, img in (("before", before), ("after", after)):
+                            cv2.imwrite(str(sdir / f"unscored_{stamp}_{tag}.png"),
+                                        np.clip(img, 0, 255).astype(np.uint8))
+                        why = ("could NOT LOCATE THE TARGET in the after frame"
+                               if res is None else "no new hole on the card")
+                        print(f"  sound, but {why} - not scored, baseline kept.")
+                        print(f"  frames saved: {sdir}/unscored_{stamp}_*.png "
+                              "(replay with shot --before ... --image ...)\n")
                         continue
                     sdir = OUT / "shots"
                     for tag, img in (("before", before), ("after", after)):
@@ -598,8 +657,11 @@ def _shot_auto(a, spec):
                              if r["line_call"] else "")
                           + (f"   RING UNCERTAIN (or {r['alt_decimal']}) - check by eye"
                              if r["ambiguous"] else "")
+                          + ("   OVERLAPS EARLIER HOLE - check by eye"
+                             if r["overlap"] else "")
                           + "\n", flush=True)
                     _log_shot(res)
+                    prior.append((r["x_mm"], r["y_mm"]))
                     scored += 1
                     # Audio that queued up while scoring is NOT discarded: a
                     # second shot fired during scoring must still be caught.
@@ -957,6 +1019,10 @@ def main():
                                 "after each")
             s.add_argument("--ask", action="store_true",
                            help="ask for your by-eye call on a single shot")
+            s.add_argument("--rule", choices=("visible", "gauge"),
+                           default="visible",
+                           help="touch rule: visible hole incl. tears (default) "
+                                "or official pellet-sized gauge")
             s.add_argument("--auto", action="store_true",
                            help="hands-free: the camera mic triggers each shot")
             s.add_argument("--mic", default="Kiyo")

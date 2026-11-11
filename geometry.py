@@ -280,6 +280,21 @@ def find_target_frame(gray, black_dia_mm=59.5, min_area_frac=0.005,
         if not cnts:
             continue
         cnt = max(cnts, key=cv2.contourArea)
+        # Judge roundness on the CONVEX HULL. Pellet holes on the rim of the
+        # mark show as bright notches (very visible once the trap is
+        # backlit through a diffuser) and dropped a real mark's circularity
+        # to 0.43, losing two shots. The hull bridges notches; a mark merged
+        # with a dark corner is still not round. refine_bull_ellipse rejects
+        # rim points that fall on holes, so precision is unaffected.
+        # ...but the hull of a frame-shaped dark background is a near-
+        # rectangle (circularity pi/4 = 0.785), so also demand that the region
+        # FILLS its hull: a notched disc does (~0.95), a frame or an L does not.
+        raw_area = cv2.contourArea(cnt)
+        cnt = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(cnt)
+        if hull_area <= 0 or raw_area / hull_area < 0.85:
+            rejected.append((frac, raw_area / max(hull_area, 1.0)))
+            continue
         if len(cnt) < 5:                      # fitEllipse needs >= 5 points
             continue
         per = cv2.arcLength(cnt, True)

@@ -238,6 +238,37 @@ because ISSF awards the higher value when the hole touches the line.
   hole itself looks DARK (dark backstop) inside a ring of bright torn fibres,
   and the light-change detector finds the fibres; a dark-change channel was
   tried and did not fix 006.
+- **Eye calls on a FINISHED card are contaminated by later shots.** Shot 011
+  was ~0.3 mm short of the 8 line when fired (system 7.9); a later shot tore
+  the paper between them, so on the finished card it "touched" and was
+  called 8. Ground truth must come from the photo taken right after each
+  shot (`out/shots/NNN_after.png`) or a call made before the next shot - the
+  shot-by-shot capture sees each hole before later damage.
+- **Touch rule is the VISIBLE hole (shooter's choice, 2026-11)**, default for
+  `shot`; `--rule gauge` gives the official ISSF plug-gauge rule (pellet-sized
+  circle at the hole centre). `target0.visible_edge` reads the PLAIN registered
+  difference (the max-filtered one erodes ~2 px off real edges) inside the
+  detected area, at 30% of peak (50% lost the part of a hole lying over a
+  WHITE ring line in the black - that patch was already bright before), and
+  uses every fragment (one component made it jump). Validated on 9 real shots
+  with known rings: all match, incl. 006 (7) and 013 (6) that the gauge rule
+  missed. If the visible region reaches an EARLIER hole on the card (sessions
+  track them; one card per session), the edge partly belongs to the old hole
+  (a real 7 read as 9), so it falls back to the gauge and flags OVERLAPS
+  EARLIER HOLE.
+- **Line calls may lean outward.** Two touching-line shots the shooter called
+  (006: 7, 013: 6) the system put just OUTSIDE the line (013: 0.36 mm). Either
+  the eye judges the visible torn hole (wider than the 4.5 mm the system and
+  the official plug gauge use) or there is a small outward bias - not yet
+  separated. `LINE_CALL_MM` widened 0.25 -> 0.5 mm so these get flagged.
+- **Diffuser behind the target (2026-11):** a sheet of printer paper ~1-2 cm
+  behind the card, lit by the trap's side LEDs, makes holes BRIGHT everywhere
+  (they were dark-on-black in the bull). Side effects: holes on the aiming
+  mark's rim notch its outline, so `find_target_frame` judges roundness on the
+  convex hull (+ solidity >= 0.85, or a frame-shaped background passes); a
+  wide torn target hole can line up with a diffuser hole and show a dark patch
+  that splits the region (replace the diffuser often). Holes still tear to
+  7-13 mm on this paper; that needs card targets / wadcutters, not light.
 - Decimals are TRUNCATED (`scoring.score`), not rounded: rounding showed a
   ring-6 shot as "7.0".
 - **Decimal accuracy on real shots is UNVERIFIED** (deliberately deferred).

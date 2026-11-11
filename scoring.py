@@ -26,7 +26,9 @@ PELLET_MM = 4.5  # .177
 
 # A hole edge this close to a ring line is flagged as a line call: below this
 # the measurement cannot be trusted to decide a touch (higher ring) either way.
-LINE_CALL_MM = 0.25
+# Was 0.25; shot 013 (2026-11) measured 0.36 mm outside the 6 line and the
+# shooter saw it touching, so the margin is widened to 0.5.
+LINE_CALL_MM = 0.5
 
 
 @dataclass(frozen=True)
