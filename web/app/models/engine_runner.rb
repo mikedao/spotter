@@ -33,9 +33,10 @@ class EngineRunner
   class << self
     def engine_dir = Pathname(ENV.fetch("SPOTTER_ENGINE_DIR", Rails.root.join("..", "engine").to_s)).expand_path
     def python = ENV.fetch("SPOTTER_PYTHON", engine_dir.join(".venv/bin/python").to_s)
-    # The rig: the default camera (index or the Pi's stream URL), and the
-    # microphone. The shooter picks the camera on the Start form.
-    def camera = ENV.fetch("SPOTTER_CAMERA", "0")
+    # Optional rig defaults (an index or the Pi's stream URL; a microphone name),
+    # pre-selected on the pickers only when the device search finds them. No
+    # built-in default: the shooter picks from what this computer can see.
+    def camera = ENV["SPOTTER_CAMERA"].presence
 
     # A camera is an OpenCV index or a stream URL - nothing else reaches the
     # engine's command line.
@@ -46,7 +47,7 @@ class EngineRunner
     # A microphone is a device name (the engine matches on it), or "none" for
     # camera only. Printable, and never starting with "-" (an option).
     def valid_mic?(value) = value.to_s.match?(/\A[^-\p{Cntrl}][^\p{Cntrl}]{0,99}\z/)
-    def mic = ENV.fetch("SPOTTER_MIC", "Kiyo")
+    def mic = ENV["SPOTTER_MIC"].presence || CameraProbe::NO_MIC
     def web_url = ENV.fetch("SPOTTER_WEB_URL", "http://127.0.0.1:#{ENV.fetch('PORT', 3000)}")
 
     # The session whose engine is running now, if any (cleaning up dead ones).
@@ -66,6 +67,7 @@ class EngineRunner
         raise RigCheck::Busy, "a #{check.label} is running - stop it on Rig setup first"
       end
       camera = camera.to_s.strip.presence || self.camera
+      raise BadCamera, "pick a camera (Find cameras and microphones shows what this computer can see)" if camera.blank?
       raise BadCamera, "that isn't a camera number or a stream URL" unless valid_camera?(camera)
       mic = mic.to_s.strip.presence || self.mic
       raise BadCamera, "that isn't a microphone name" unless valid_mic?(mic)
@@ -95,7 +97,7 @@ class EngineRunner
 
     def command(session)
       [ python, "phase1.py", "shot", "--auto",
-        "--target", session.target, "--device", session.camera.presence || camera,
+        "--target", session.target, "--device", session.camera,
         "--mic=#{session.mic.presence || mic}",
         "--report-to", web_url, "--session-id", session.engine_session_id,
         *([ "--per-card", session.per_card.to_s ] if session.per_card),

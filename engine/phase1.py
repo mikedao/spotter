@@ -920,7 +920,7 @@ def _shot_auto(a, spec):
     # --mic none: camera only. No sound trigger; the camera check every
     # --watch seconds finds each shot (2-4 s instead of ~1 s). For a camera
     # with no usable microphone, e.g. a stream from the Pi.
-    camera_only = str(a.mic).lower() == "none"
+    camera_only = a.mic is not None and a.mic.lower() == "none"   # not no --mic at all
     if camera_only:
         idx, info = None, {"name": "no microphone (camera only)",
                            "default_samplerate": 16000, "max_input_channels": 1}
@@ -1525,7 +1525,8 @@ def cmd_listen(a):
     wav = OUT / "listen.wav"
     if a.json:
         return _listen_json(a, audio, wav)
-    print(f"\n  listening on '{a.mic}' for {a.seconds:.0f} s (Ctrl+C to stop).")
+    print(f"\n  listening on '{a.mic or 'the default microphone'}' for "
+          f"{a.seconds:.0f} s (Ctrl+C to stop).")
     print("  Stay quiet for the first 3 s while the room's noise floor is "
           "measured,")
     print("  then fire a few shots. Each sharp sound is printed below.\n")
@@ -1788,7 +1789,9 @@ def main():
                                 "visible hole incl. tears; or official gauge")
             s.add_argument("--auto", action="store_true",
                            help="hands-free: the camera mic triggers each shot")
-            s.add_argument("--mic", default="Kiyo")
+            s.add_argument("--mic", default=None,
+                           help="auto: microphone name to match (default: the "
+                                "computer's default input; 'none' = camera only)")
             # 2026-11: shots +48..+65 dB, 204-370 ms; other sounds (card
             # change, magnet clang) up to +57 dB but at most 160 ms
             s.add_argument("--trigger-db", type=float, default=TRIGGER_DB,
@@ -1831,8 +1834,9 @@ def main():
             s.add_argument("--json", action="store_true",
                            help="one JSON line per event (the web app's sound check)")
             s.add_argument("--seconds", type=float, default=60.0)
-            s.add_argument("--mic", default="Kiyo",
-                           help="input device name to match")
+            s.add_argument("--mic", default=None,
+                           help="input device name to match (default: the "
+                                "computer's default input)")
             s.add_argument("--ratio-db", type=float, default=20.0,
                            help="event threshold above the noise floor")
         if name == "bench":

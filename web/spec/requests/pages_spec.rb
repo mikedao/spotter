@@ -17,6 +17,28 @@ RSpec.describe "Pages" do
       expect(response.body).to include("10m Air Pistol", "Start a session")
     end
 
+    it "lists only the cameras and microphones the last search found" do
+      user.update!(last_camera: "3", last_mic: "Razer Kiyo")   # gone since
+      FileUtils.mkdir_p(CameraProbe.dir)
+      CameraProbe.results_path.write({ cameras: [ { index: 0, name_hint: "MacBook Neo Camera" } ],
+                                       microphones: [ { name: "MacBook Neo Microphone" } ] }.to_json)
+      get root_path
+      expect(response.body).to include("MacBook Neo Camera", "MacBook Neo Microphone")
+      expect(response.body).not_to include("Kiyo", "Camera 3")
+      get setup_path
+      expect(response.body).to include("MacBook Neo Camera", "MacBook Neo Microphone")
+      expect(response.body).not_to include("Kiyo", "Camera 3")
+    ensure
+      FileUtils.rm_rf(CameraProbe.dir)
+    end
+
+    it "asks for a device search before there is anything to pick" do
+      FileUtils.rm_rf(CameraProbe.dir)
+      get root_path
+      expect(response.body).to include("No cameras looked for yet")
+      expect(response.body).not_to include("Kiyo")
+    end
+
     it "shows the range screen with the target, latest shot and stats" do
       get practice_session_path(session)
       expect(response.body).to include("<svg", "Latest shot", "8.4", "Check by eye: line call")
@@ -56,6 +78,32 @@ RSpec.describe "Pages" do
       expect(response).to have_http_status(:gone)
     end
 
+    it "deletes a finished session with its cards, shots, pictures and engine log" do
+      session.update!(status: "ended", ended_at: Time.current,
+                      engine_log: Rails.root.join("log/engine/spec-delete.log").to_s)
+      FileUtils.mkdir_p(Rails.root.join("log/engine"))
+      File.write(session.engine_log, "engine output")
+      shot.after_image.attach(io: StringIO.new("png"), filename: "after.png", content_type: "image/png")
+      blob = shot.after_image.blob
+
+      get practice_sessions_path
+      expect(response.body).to include("Delete", "This can&#39;t be undone")
+
+      expect { delete practice_session_path(session) }
+        .to change(PracticeSession, :count).by(-1).and change(Card, :count).by(-1).and change(Shot, :count).by(-1)
+      expect(response).to redirect_to(practice_sessions_path)
+      expect(ActiveStorage::Blob.exists?(blob.id)).to be false
+      expect(File).not_to exist(session.engine_log)
+    end
+
+    it "refuses to delete a running session" do
+      allow(EngineRunner).to receive(:reconcile!)   # its engine is running
+      expect { delete practice_session_path(session) }.not_to change(PracticeSession, :count)
+      expect(Shot.exists?(shot.id)).to be true
+      follow_redirect!
+      expect(response.body).to include("Stop the session before deleting it")
+    end
+
     it "shows a shot for review" do
       get shot_path(shot)
       expect(response.body).to include("Your call", "Flagged: line call")
@@ -84,6 +132,9 @@ RSpec.describe "Pages" do
       expect(response).to have_http_status(:not_found)
       patch shot_path(shot), params: { shot: { ring: "10" } }
       expect(response).to have_http_status(:not_found)
+      delete practice_session_path(session)
+      expect(response).to have_http_status(:not_found)
+      expect(PracticeSession.exists?(session.id)).to be true
       expect(shot.reload.call_ring).to be_nil
     end
   end

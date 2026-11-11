@@ -9,14 +9,12 @@
     <%= form_with url: locate_setup_path, class: "mb-4 flex flex-wrap items-end gap-4" do |f| %>
       <div>
         <%= f.label :camera, "Camera", class: "mb-1 block text-sm font-medium" %>
-        <% options = (@probe&.cameras || []).map { [ "#{it.label} (camera #{it.index})", it.value ] } %>
-        <% options.unshift([ "Camera #{@camera}", @camera ]) unless @camera.include?("://") || options.any? { it[1] == @camera } %>
-        <% options << [ "Stream URL…", "url" ] %>
-        <%= f.select :camera, options, { selected: @camera.include?("://") ? "url" : @camera }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
+        <% options = @choice.cameras.map { [ "#{it.label} (camera #{it.index})", it.value ] } << [ "Stream URL…", "url" ] %>
+        <%= f.select :camera, options, { selected: @choice.camera_url? ? "url" : @choice.camera }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
       </div>
       <div>
         <%= f.label :camera_url, "Stream URL (if chosen)", class: "mb-1 block text-sm font-medium" %>
-        <%= f.url_field :camera_url, value: (@camera if @camera.include?("://")), placeholder: "http://<pi>:8080/stream", class: "#{TextFieldComponent::INPUT} w-72" %>
+        <%= f.url_field :camera_url, value: (@choice.camera if @choice.camera_url?), placeholder: "http://<pi>:8080/stream", class: "#{TextFieldComponent::INPUT} w-72" %>
       </div>
       <div>
         <%= f.label :target, "Target", class: "mb-1 block text-sm font-medium" %>
@@ -32,21 +30,29 @@
     <%= form_with url: listen_setup_path, class: "mb-4 flex flex-wrap items-end gap-4" do |f| %>
       <div>
         <%= f.label :mic, "Microphone", class: "mb-1 block text-sm font-medium" %>
-        <% mics = (@probe&.microphones || []).map(&:name) %>
-        <% mics.unshift(@mic) unless mics.include?(@mic) || @mic == CameraProbe::NO_MIC %>
-        <%= f.select :mic, mics, { selected: @mic }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
+        <% mics = @choice.microphones.map(&:name) %>
+        <% if mics.any? %>
+          <%= f.select :mic, mics, { selected: @choice.mic }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
+        <% else %>
+          <p class="min-h-11 py-2.5 text-sm text-gray-600 dark:text-gray-300">None found - press Find cameras and microphones below.</p>
+        <% end %>
       </div>
       <div>
         <%= f.label :seconds, "For (seconds)", class: "mb-1 block text-sm font-medium" %>
         <%= f.number_field :seconds, value: 60, min: 5, max: RigCheck::Listen::MAX_SECONDS, class: "#{TextFieldComponent::INPUT} w-24" %>
       </div>
-      <%= f.button "Listen", class: "inline-flex min-h-11 cursor-pointer items-center rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-blue-500" %>
+      <%= f.button "Listen", disabled: mics.empty?, class: "inline-flex min-h-11 cursor-pointer items-center rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50" %>
     <% end %>
     <%= render(ListenPanelComponent.new(state: @listen, user: Current.user)) %>
   <% end %>
 
-  <p class="text-sm text-gray-600 dark:text-gray-300">
-    Don't see your camera or microphone? Use <strong>Find cameras and microphones</strong> on the
-    <%= link_to "Practice", practice_sessions_path, class: "text-blue-700 underline dark:text-blue-300" %> page.
-  </p>
+  <div class="flex flex-wrap items-center gap-3">
+    <%= button_to "Find cameras and microphones", refresh_cameras_path(back: "setup"),
+          class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",
+          data: { turbo_submits_with: "Looking…" } %>
+    <span class="text-sm text-gray-600 dark:text-gray-300">
+      Only what this computer can see is listed.
+      <% if @choice.found? %>Last looked <%= time_ago_in_words(@choice.probe.found_at) %> ago.<% else %>Not looked yet.<% end %>
+    </span>
+  </div>
 </div>

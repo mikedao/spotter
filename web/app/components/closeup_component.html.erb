@@ -1,12 +1,17 @@
 <figure class="space-y-1">
-  <div class="relative <%= "cursor-crosshair" if @tappable %>" <%= tag.attributes(data: data) %>>
+  <% if @tappable %>
+    <div class="relative cursor-crosshair touch-none rounded outline-offset-2 focus-visible:outline-2 focus-visible:outline-amber-500" tabindex="0" role="application"
+         aria-label="Where the pellet went through: drag the amber circle, or use the arrow keys" <%= tag.attributes(data: data) %>>
+  <% else %>
+    <div class="relative">
+  <% end %>
     <%= image_tag url_for(attachment), alt: "Shot #{@shot.number} #{@which}", class: "block h-auto w-full select-none rounded", draggable: false %>
     <svg viewBox="0 0 <%= @size %> <%= @size %>" class="pointer-events-none absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
       <% marks.each do |kind, u, v| %>
         <circle cx="<%= u.round(1) %>" cy="<%= v.round(1) %>" r="<%= pellet_r_px.round(1) %>" fill="none" stroke="<%= COLOURS[kind] %>" stroke-width="2.5" opacity="0.9" />
       <% end %>
       <% cu, cv = call_mark %>
-      <circle data-closeup-tap-target="mark" cx="<%= cu&.round(1) || -100 %>" cy="<%= cv&.round(1) || -100 %>" r="<%= pellet_r_px.round(1) %>"
+      <circle <%= 'data-closeup-tap-target="mark"'.html_safe if @tappable %> cx="<%= cu&.round(1) || -100 %>" cy="<%= cv&.round(1) || -100 %>" r="<%= pellet_r_px.round(1) %>"
               fill="none" stroke="<%= COLOURS[:call] %>" stroke-width="3.5" />
     </svg>
   </div>

@@ -12,10 +12,12 @@ class Shot < ApplicationRecord
 
   # Full frames from the engine, and the straightened close-ups (top-down,
   # CLOSEUP_PX_PER_MM, centred on CLOSEUP_CENTRE) the review screen draws on.
-  has_one_attached :before_image
-  has_one_attached :after_image
-  has_one_attached :closeup_before
-  has_one_attached :closeup_after
+  # Deleting a session removes its pictures at once, not in a background job
+  # that only runs if a job worker does.
+  has_one_attached :before_image, dependent: :purge
+  has_one_attached :after_image, dependent: :purge
+  has_one_attached :closeup_before, dependent: :purge
+  has_one_attached :closeup_after, dependent: :purge
 
   STATUSES = %w[ scored unscored ].freeze
   TRIGGERS = %w[ sound camera final_check ].freeze

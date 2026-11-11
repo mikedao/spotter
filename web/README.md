@@ -26,12 +26,17 @@ port `EngineRunner` picks). The page fetches it a few times a second through
 `GET /practice/:id/camera`, which relays it behind the login, so it also works
 from a phone.
 
+The pickers on the Start form and Rig setup list **only the cameras and microphones
+the last "Find cameras and microphones" found** (`DeviceChoice`), plus a stream URL
+and camera only. Nothing is built in: a remembered device that isn't there now is
+not offered.
+
 The rig, set in the environment of `bin/dev`:
 
 | | default | |
 |---|---|---|
-| `SPOTTER_CAMERA` | `0` | default camera; the shooter picks on the Start form (index or a stream URL), and their last pick is remembered |
-| `SPOTTER_MIC` | `Kiyo` | default microphone; the shooter picks on the Start form (or none: camera only) |
+| `SPOTTER_CAMERA` | none | optional rig camera (index or the Pi's stream URL), pre-selected only if the device search finds it (a URL always) |
+| `SPOTTER_MIC` | none | optional rig microphone name, pre-selected only if the device search finds it |
 | `SPOTTER_ENGINE_DIR` | `../engine` | where `phase1.py` and `.venv` are |
 | `SPOTTER_WEB_URL` | `http://127.0.0.1:$PORT` | where the engine posts its events |
 | `SPOTTER_TIME_ZONE` | Eastern | shown times |

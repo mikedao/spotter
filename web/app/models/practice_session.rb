@@ -15,6 +15,11 @@ class PracticeSession < ApplicationRecord
 
   scope :newest_first, -> { order(started_at: :desc) }
 
+  # Deleting a session takes its cards, shots, their pictures and the engine's
+  # log with it. Never while its engine runs: stop it first.
+  before_destroy :refuse_while_live, prepend: true   # before the cards go
+  after_destroy_commit :remove_engine_log
+
   def target_spec = TargetSpec.fetch(target)
   def live? = ended_at.nil?
   def current_card = cards.last
@@ -29,4 +34,17 @@ class PracticeSession < ApplicationRecord
   end
 
   def title = "#{target_spec.name} · #{started_at.strftime('%b %-d, %H:%M')}"
+
+  private
+    def refuse_while_live
+      return unless live?
+
+      errors.add(:base, "Stop the session before deleting it")
+      throw :abort
+    end
+
+    def remove_engine_log
+      path = engine_log.presence && Pathname(engine_log)
+      path.delete if path&.file? && path.dirname == Rails.root.join("log", "engine")
+    end
 end

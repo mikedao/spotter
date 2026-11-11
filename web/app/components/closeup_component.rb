@@ -1,8 +1,9 @@
 # A straightened close-up of a shot (top-down, fixed px/mm, see the engine's
 # closeup in docs/engine-events.md) with the position estimates drawn over it:
 # blue = what was scored, pink = region centroid, green = circle fit, amber = the
-# shooter's call. With `tappable: true` a tap moves the amber mark and fills the
-# call form's position (closeup_tap_controller.js).
+# shooter's call. With `tappable: true` the amber mark can be dragged (or placed
+# with a tap, nudged with the arrow keys), filling the call form's position
+# (closeup_tap_controller.js).
 class CloseupComponent < ApplicationComponent
   COLOURS = { scored: "#2563eb", centroid: "#ec4899", circle_fit: "#16a34a", call: "#f59e0b" }.freeze
 
@@ -41,6 +42,8 @@ class CloseupComponent < ApplicationComponent
     return {} unless @tappable
 
     { controller: "closeup-tap", "closeup-tap-cx-value": @cx, "closeup-tap-cy-value": @cy,
-      "closeup-tap-ppm-value": @ppm, "closeup-tap-size-value": @size, action: "click->closeup-tap#tap" }
+      "closeup-tap-ppm-value": @ppm, "closeup-tap-size-value": @size,
+      action: "pointerdown->closeup-tap#down pointermove->closeup-tap#move pointerup->closeup-tap#up " \
+              "pointercancel->closeup-tap#up keydown->closeup-tap#key" }
   end
 end

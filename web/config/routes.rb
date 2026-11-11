@@ -8,7 +8,7 @@ Rails.application.routes.draw do
   get "sign_up", to: "registrations#new", as: :new_registration
   post "sign_up", to: "registrations#create", as: :registration
 
-  resources :practice_sessions, only: %i[ index show create ], path: "practice" do
+  resources :practice_sessions, only: %i[ index show create destroy ], path: "practice" do
     post :stop, on: :member
     get :camera, on: :member   # the live camera picture, relayed from the engine
   end

@@ -2,12 +2,10 @@
 # browser instead of a terminal.
 class SetupsController < ApplicationController
   def show
-    @probe = CameraProbe.latest
+    @choice = DeviceChoice.new(user: Current.user)
     @locate = RigCheck::Locate.latest(Current.user)
     @locate_state = RigCheck::Locate.state_for(Current.user)
     @listen = RigCheck::Listen.state_for(Current.user)
-    @camera = Current.user.last_camera.presence || EngineRunner.camera
-    @mic = Current.user.last_mic.presence || EngineRunner.mic
   end
 
   def locate

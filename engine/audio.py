@@ -22,9 +22,21 @@ MERGE_MS = 25.0         # sub-events closer than this are one event
 FLOOR_S = 3.0           # running noise-floor window
 
 
-def find_input(name="Kiyo"):
-    """Index and info of the first input device whose name contains `name`."""
+def find_input(name=None):
+    """Index and info of the first input device whose name contains `name`;
+    with no name, the computer's default input (works with any camera or mic
+    connected - pick a specific one by name with --mic)."""
     import sounddevice as sd
+    if not name:
+        try:
+            info = sd.query_devices(kind="input")
+        except Exception:
+            info = None
+        if not info or info["max_input_channels"] <= 0:
+            raise SystemExit("no default microphone; name one with --mic, or "
+                             "--mic none for camera only")
+        idx = info.get("index", sd.default.device[0])
+        return idx, info
     for i, d in enumerate(sd.query_devices()):
         if d["max_input_channels"] > 0 and name.lower() in d["name"].lower():
             return i, d
@@ -96,7 +108,7 @@ class EventDetector:
         return done
 
 
-def listen(seconds=60.0, name="Kiyo", ratio_db=20.0, on_event=None,
+def listen(seconds=60.0, name=None, ratio_db=20.0, on_event=None,
            wav_path=None, on_level=None, level_every=0.25):
     """
     Stream the microphone for `seconds` (Ctrl+C stops early), printing each

@@ -36,7 +36,7 @@
     <div class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <%= render(CardComponent.new(title: "Close-ups")) do %>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
-          Tap where the pellet went through. <span style="color:#2563eb">Blue</span> was scored,
+          Drag the amber circle (or tap) to where the pellet went through; arrow keys nudge it. <span style="color:#2563eb">Blue</span> was scored,
           <span style="color:#ec4899">pink</span> is the region's centre, <span style="color:#16a34a">green</span> the circle fit,
           <span style="color:#b45309">amber</span> your call.
         </p>
@@ -78,7 +78,7 @@
             </fieldset>
 
             <p class="text-sm text-gray-700 dark:text-gray-200" data-shot-call-target="preview">
-              <% if @shot.call_x_mm %>Position recorded.<% else %>Tap the "After" close-up to mark where the pellet went through (optional, but the most useful label).<% end %>
+              <% if @shot.call_x_mm %>Position recorded.<% else %>Drag or tap on the "After" close-up to mark where the pellet went through (optional, but the most useful label).<% end %>
             </p>
             <%= f.hidden_field :x_mm, value: @shot.call_x_mm, data: { shot_call_target: "x" } %>
             <%= f.hidden_field :y_mm, value: @shot.call_y_mm, data: { shot_call_target: "y" } %>

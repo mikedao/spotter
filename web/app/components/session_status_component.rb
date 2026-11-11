@@ -12,6 +12,12 @@ class SessionStatusComponent < ApplicationComponent
 
   def initialize(session:) = @session = session
 
+  def self.confirm_delete(session)
+    shots = session.cards.sum { it.shots.size }   # uses preloaded shots on the list
+    "Delete #{session.title}#{" and its #{shots == 1 ? 'shot' : "#{shots} shots"}" if shots.positive?}? " \
+      "Your calls and the pictures go too. This can't be undone."
+  end
+
   # The range screen's header: title, what the engine is doing (a pill), and Stop
   # while it runs - plus the engine's last words when it died. Pushed live by
   # LiveBroadcast, so Stop goes away the moment the session ends and a crash shows
@@ -34,7 +40,7 @@ class SessionStatusComponent < ApplicationComponent
               tag.span(text)
             ].compact)
           end,
-          (stop_button if @session.live?)
+          (@session.live? ? stop_button : delete_button)
         ].compact)
       end
     end
@@ -42,6 +48,13 @@ class SessionStatusComponent < ApplicationComponent
     def stop_button
       tag.div(class: "ml-auto") do
         render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" }
+      end
+    end
+
+    def delete_button
+      tag.div(class: "ml-auto") do
+        render(ButtonComponent.new(href: practice_session_path(@session), method: :delete, variant: :secondary,
+                                   form: { data: { turbo_confirm: self.class.confirm_delete(@session) } })) { "Delete session" }
       end
     end
 

@@ -15,7 +15,7 @@ RSpec.describe EngineRunner do
     allow(Process).to receive(:spawn).and_return(999_999)
     allow(described_class).to receive(:watch)
 
-    session = described_class.start!(user:, target: "pistol", per_card: "10")
+    session = described_class.start!(user:, target: "pistol", per_card: "10", camera: "0", mic: "Razer Kiyo")
 
     expect(session).to have_attributes(user:, target: "pistol", per_card: 10, status: "starting", engine_pid: 999_999)
     expect(Process).to have_received(:spawn) do |env, *cmd, **opts|
@@ -50,6 +50,15 @@ RSpec.describe EngineRunner do
     expect(Process).to have_received(:spawn) do |_env, *cmd, **|
       expect(cmd).to include("--mic=Michael's iPhone Microphone")
     end
+  end
+
+  it "has no built-in camera or microphone: nothing picked is refused, no mic is camera only" do
+    expect { described_class.start!(user:, target: "pistol", per_card: nil) }
+      .to raise_error(EngineRunner::BadCamera, /pick a camera/)
+
+    allow(Process).to receive(:spawn).and_return(999_999)
+    allow(described_class).to receive(:watch)
+    expect(described_class.start!(user:, target: "pistol", per_card: nil, camera: "0").mic).to eq CameraProbe::NO_MIC
   end
 
   it "refuses a microphone name that could be read as an option" do

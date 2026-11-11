@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show stop ]
+  before_action :set_session, only: %i[ show stop destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(cards: :shots)
@@ -32,6 +32,17 @@ class PracticeSessionsController < ApplicationController
   def stop
     EngineRunner.stop!(@session)
     redirect_to practice_session_path(@session), notice: "Stopping - the engine does a last check for an unscored hole first."
+  end
+
+  # Delete a finished session and everything in it (cards, shots, your calls,
+  # pictures). A running one must be stopped first.
+  def destroy
+    EngineRunner.reconcile!(@session)   # a session whose engine died is over
+    if @session.destroy
+      redirect_to practice_sessions_path, notice: "Deleted #{@session.title}.", status: :see_other
+    else
+      redirect_to practice_session_path(@session), alert: "#{@session.errors.full_messages.to_sentence}.", status: :see_other
+    end
   end
 
   # The live camera picture, relayed from the engine (which holds the camera and

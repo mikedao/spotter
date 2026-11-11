@@ -37,7 +37,8 @@ class CameraProbe
 
   TIMEOUT = 90
 
-  def self.dir = Rails.root.join("tmp", "cameras")
+  # Specs write fake results here and delete them: never the dev server's own.
+  def self.dir = Rails.root.join("tmp", Rails.env.test? ? "cameras-test" : "cameras")
   def self.results_path = dir.join("latest.json")
 
   def self.latest

@@ -102,7 +102,7 @@ cd engine
 ./.venv/bin/python phase1.py shot --expect 1   # before/after, scores the new hole
 ./.venv/bin/python phase1.py shot --expect 1 --count 5   # series; logs your by-eye call per shot
 ./.venv/bin/python phase1.py bench --label light-on   # A/B a rig/lighting change
-./.venv/bin/python phase1.py listen --seconds 120      # what the camera mic hears
+./.venv/bin/python phase1.py listen --seconds 120      # what the default mic hears (--mic NAME)
 ./.venv/bin/python phase1.py shot --auto              # hands-free, mic-triggered
 ./.venv/bin/python selftest.py             # synthetic check, no camera
 ```
@@ -155,6 +155,21 @@ from there). The user commits; don't commit unless asked.
   leading "-". `EngineRunner`
   accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
   the engine's command line.
+- **Deleting a session** (list and range screen, with a confirm): cards, shots,
+  calls, pictures (purged at once - `dependent: :purge`, no job worker needed) and
+  the engine log go too. Refused while live (`before_destroy ..., prepend: true`,
+  so it runs before the cards cascade); `reconcile!` first, so a dead engine's
+  session can be deleted. Deleted calls are gone from the future training set.
+- **Pickers list only what was found** (`DeviceChoice`, both Start and Rig setup):
+  the last probe's cameras/mics + stream URL + camera only. No built-in device
+  (the web app used to default to "Kiyo" / camera 0 and show them even when
+  absent). Pre-select: last choice if still found (a URL always) > `SPOTTER_*` if
+  found > camera's own mic / first camera > camera only. Start with nothing picked
+  is refused. The engine has no built-in device either: `--mic` defaults to the
+  computer's DEFAULT INPUT (`audio.find_input(None)`), `--device` to index 0.
+  Careful: `str(None).lower() == "none"`, so camera-only is tested as
+  `a.mic is not None and ...` - else no `--mic` silently meant camera only.
+  Specs use `tmp/cameras-test`: they used to wipe the dev server's `tmp/cameras`.
 - **Rig setup page** (`/setup`, `SetupsController`), both checks LIVE through
   `RigCheck::LiveProcess` (runs an engine command printing JSON lines, streams
   each to the user's page over Turbo; one rig check at a time, never in a
@@ -195,6 +210,10 @@ from there). The user commits; don't commit unless asked.
   Displayed scores go through `Shot#final_*` (the call wins).
 - Close-ups are straightened top-down at 20 px/mm (`report.closeup`), so a tap is
   a position in target mm and the patches are uniform for training.
+  The amber call circle is DRAGGED as in fl-shooters (`closeup_tap_controller.js`):
+  grab keeps the grab offset (no jump), press elsewhere jumps then follows, arrows
+  nudge 0.1 mm (Shift 1 mm); `touch-none` so dragging doesn't scroll on a phone.
+  Verified in Chrome: drag (+60, +40) px moved it exactly that.
 - `TargetSpec` (Ruby) and `shot_call_controller.js` re-implement `scoring.py`'s
   arithmetic; `spec/models/target_spec_spec.rb` pins the same values. Change all
   three together. Positions are mm, x right, **y UP** (fl-shooters stores y down).
