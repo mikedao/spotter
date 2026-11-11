@@ -39,12 +39,16 @@ each shot with its 2-second camera check instead of the shot's sound.
 
 **Rig setup** (`/setup`) checks the rig before a session, in the browser:
 
-- *Camera check* runs the engine's `locate --json` on one frame and shows the
-  view with the fitted rings and plain verdicts (focus, ring fit, framing,
-  distance, flatness, light) until it says "Ready to shoot".
-- *Sound check* runs `listen --json` and lists each sound live, marked "would
-  trigger" against the engine's own trigger settings (`TRIGGER_DB` /
-  `TRIGGER_MS` in `phase1.py`). Fire a few shots: they should all trigger.
+- *Camera check* is live: the engine's `locate --json --watch` re-checks about
+  once a second for two minutes, and the page updates the view with the fitted
+  rings, a sharpness number (turn the focus for the highest) and plain verdicts
+  (focus, ring fit, framing, distance, flatness, light) as you aim and focus,
+  until it says "Ready to shoot".
+- *Sound check* runs `listen --json`: a live level meter against the trigger
+  level (with "measuring the room" and a countdown), and each sound as it
+  happens, marked "would trigger" against the engine's own settings
+  (`TRIGGER_DB` / `TRIGGER_MS` in `phase1.py`). Fire a few shots: they should
+  all trigger.
 
 Neither runs during a session, and Start waits while a sound check runs.
 

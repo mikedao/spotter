@@ -8,19 +8,19 @@ RSpec.describe "Rig setup" do
 
   it "offers the camera and sound checks" do
     get setup_path
-    expect(response.body).to include("Camera check", "Sound check", "Check the camera", "Listen")
+    expect(response.body).to include("Camera check", "Sound check", "Start live check", "Listen")
   end
 
-  it "runs the camera check and shows its verdicts" do
-    data = { "found" => true, "view_deg" => 20.0, "edge_rms_px" => 0.4, "perspective" => true, "ring_rms_mm" => 0.1,
-             "rings" => 10, "flat_worst_mm" => 0.05, "flat_worst_at" => [ 3, 15 ], "mm_per_px" => 0.2,
-             "ring1_offscreen" => [], "brightness" => 70, "saturated_pct" => 0 }
-    allow(Open3).to receive(:capture3).and_return([ data.to_json, "", instance_double(Process::Status, success?: true) ])
+  it "starts the live camera check and shows its latest verdicts" do
+    ENV["SPOTTER_PYTHON"] = file_fixture("fake_locate.sh").expand_path.to_s
+    post locate_setup_path, params: { camera: "1", target: "pistol" }
+    100.times { break if RigCheck::Locate.state_for(user)&.finished; sleep 0.05 }
 
-    post locate_setup_path, params: { camera: "0", target: "pistol" }
     follow_redirect!
-    expect(response.body).to include("Ready to shoot", "Sharp")
-    expect(user.reload.last_camera).to eq "0"
+    expect(response.body).to include("Ready to shoot", "Sharpness")
+    expect(user.reload.last_camera).to eq "1"
+  ensure
+    ENV.delete("SPOTTER_PYTHON")
   end
 
   it "has no overlay to show before a check" do

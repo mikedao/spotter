@@ -97,10 +97,14 @@ class EventDetector:
 
 
 def listen(seconds=60.0, name="Kiyo", ratio_db=20.0, on_event=None,
-           wav_path=None):
+           wav_path=None, on_level=None, level_every=0.25):
     """
     Stream the microphone for `seconds` (Ctrl+C stops early), printing each
     impulsive event. Returns (events, floor_dbfs, samples, rate).
+
+    on_level(elapsed_s, level_dbfs, floor_dbfs_or_None) is called every
+    `level_every` seconds with the loudest sample since the last call: a live
+    meter (the floor is None for the first half second, while it is measured).
     """
     import sounddevice as sd
     idx, info = find_input(name)
@@ -114,6 +118,7 @@ def listen(seconds=60.0, name="Kiyo", ratio_db=20.0, on_event=None,
     det = EventDetector(rate, ratio_db)
     events, chunks = [], []
     t0 = time.time()
+    next_level, level_peak = t0 + level_every, 0.0
     with sd.InputStream(device=idx, channels=ch, samplerate=rate,
                         blocksize=int(rate * 0.05), callback=cb):
         try:
@@ -127,6 +132,13 @@ def listen(seconds=60.0, name="Kiyo", ratio_db=20.0, on_event=None,
                     events.append(e)
                     if on_event:
                         on_event(e, events)
+                if on_level:
+                    level_peak = max(level_peak, float(np.abs(blk).max()) if len(blk) else 0.0)
+                    now = time.time()
+                    if now >= next_level:
+                        fl = det.floor
+                        on_level(now - t0, dbfs(level_peak), dbfs(fl) if fl else None)
+                        next_level, level_peak = now + level_every, 0.0
         except KeyboardInterrupt:
             pass
     x = np.concatenate(chunks) if chunks else np.zeros(0, np.float32)

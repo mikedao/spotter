@@ -9,13 +9,15 @@ RSpec.describe "Rig setup" do
     FileUtils.cp(Rails.root.join("public/icon.png"), RigCheck::Locate.overlay_path(user))
     RigCheck::Locate.result_path(user).write({
       found: true, camera: "1", view_deg: 26.0, edge_rms_px: 0.41, perspective: true, ring_rms_mm: 0.157, rings: 10,
-      flat_worst_mm: -0.43, flat_worst_at: [ 7, 225 ], mm_per_px: 0.197, ring1_offscreen: [], brightness: 67, saturated_pct: 0
+      flat_worst_mm: -0.43, flat_worst_at: [ 7, 225 ], mm_per_px: 0.197, ring1_offscreen: [], brightness: 67, saturated_pct: 0,
+      sharpness: 772.0, seq: 12
     }.to_json)
-    state = RigCheck::Listen::State.new(
-      user_id: user.id, pid: 0, mic: "Razer Kiyo", seconds: 60, started_at: Time.current, trigger_db: 45.0, trigger_ms: 180.0,
-      finished: true, summary: { "silent" => false, "floor_dbfs" => -61.0 },
-      sounds: [ { "n" => 1, "t" => 3.2, "over_db" => 38.0, "len_ms" => 22, "would_trigger" => false },
-                { "n" => 2, "t" => 8.9, "over_db" => 61.3, "len_ms" => 330, "would_trigger" => true } ]
+    state = RigCheck::LiveProcess::State.new(
+      kind: :listen, label: "sound check", user_id: user.id, pid: 0, started_at: Time.current, finished: true,
+      data: { "mic" => "Razer Kiyo", "seconds" => 60, "trigger_db" => 45.0, "trigger_ms" => 180.0,
+              "summary" => { "silent" => false, "floor_dbfs" => -61.0 },
+              "sounds" => [ { "n" => 1, "t" => 3.2, "over_db" => 38.0, "len_ms" => 22, "would_trigger" => false },
+                            { "n" => 2, "t" => 8.9, "over_db" => 61.3, "len_ms" => 330, "would_trigger" => true } ] }
     )
     allow(RigCheck::Listen).to receive(:state_for).and_return(state)
   end
@@ -31,6 +33,7 @@ RSpec.describe "Rig setup" do
 
     expect(page).to have_text("Ready to shoot")
     expect(page).to have_text("Slightly bowed")
+    expect(page).to have_text("Sharpness 772")
     expect(page).to have_text("would trigger")
     expect(page).to have_text("1 sound would trigger out of 2 heard")
     page.save_screenshot(Rails.root.join("tmp/screenshots/rig_setup.png")) if ENV["SCREENSHOTS"]

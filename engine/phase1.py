@@ -239,13 +239,76 @@ def _locate_json(a, spec):
     import io
     import json
     from scoring import ring_radius_mm
-    result = {"found": False}
+    if a.watch:
+        return _locate_watch(a, spec)
     with contextlib.redirect_stdout(io.StringIO()):
         gray = acquire(a)
+    path = Path(a.overlay) if a.overlay else OUT / "p1_locate.png"
+    print(json.dumps(_locate_result(gray, spec, a.target, path)))
+
+
+def _locate_watch(a, spec):
+    """
+    `locate --json --watch SECONDS`: the live camera check. Keeps the camera
+    open and prints a fresh result about once a second (with `seq`), saving
+    the overlay each time, so the shooter can aim and focus while watching the
+    verdicts change. Stops after SECONDS or on SIGINT (Ctrl+C / the web app's
+    Stop) with a final {"type": "end"} line.
+    """
+    import contextlib
+    import io
+    import json
+    import time
+    path = Path(a.overlay) if a.overlay else OUT / "p1_locate.png"
+    print(json.dumps({"type": "start", "camera": str(a.device),
+                      "seconds": a.watch}), flush=True)
+    with contextlib.redirect_stdout(io.StringIO()):
+        try:
+            cam = _LiveCamera(a.device)
+        except SystemExit as e:
+            cam, err = None, str(e).strip()
+    if cam is None:
+        print(json.dumps({"type": "error", "message": err}), flush=True)
+        return
+    t0, seq = time.time(), 0
+    try:
+        while time.time() - t0 < a.watch:
+            tick = time.time()
+            try:
+                gray = cam.grab(2)
+            except CameraLost as e:
+                print(json.dumps({"type": "error", "message": str(e)}), flush=True)
+                time.sleep(1.0)
+                continue
+            seq += 1
+            r = _locate_result(gray, spec, a.target, path)
+            r.update(type="result", seq=seq, t=round(time.time() - t0, 1),
+                     remaining=round(max(0.0, a.watch - (time.time() - t0))),
+                     solve_ms=round((time.time() - tick) * 1000))
+            print(json.dumps(r), flush=True)
+            time.sleep(max(0.0, 1.0 - (time.time() - tick)))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cam.close()
+    print(json.dumps({"type": "end", "results": seq}), flush=True)
+
+
+def _locate_result(gray, spec, target, path):
+    """One camera check: measurements as a dict, ring overlay saved to path
+    (atomically: written aside then renamed, so a reader never gets half)."""
+    import contextlib
+    import io
+    import os
+    from scoring import ring_radius_mm
+    result = {"found": False}
+    with contextlib.redirect_stdout(io.StringIO()):
         g8 = np.clip(gray, 0, 255).astype(np.uint8)
         result.update(width=int(gray.shape[1]), height=int(gray.shape[0]),
                       brightness=round(float(g8.mean()), 1),
-                      saturated_pct=round(float((g8 >= 254).mean() * 100), 2))
+                      saturated_pct=round(float((g8 >= 254).mean() * 100), 2),
+                      # rises as the picture gets sharper: a live focusing aid
+                      sharpness=round(float(cv2.Laplacian(g8, cv2.CV_64F).var()), 1))
         tf, info = establish(gray, spec, verbose=False)
     vis = cv2.cvtColor(g8, cv2.COLOR_GRAY2BGR)
     if tf is None:
@@ -254,7 +317,7 @@ def _locate_json(a, spec):
         draw_rings(vis, tf, spec)
         fw = info.get("flat_worst_mm")
         result.update(
-            found=True, target=a.target,
+            found=True, target=target,
             view_deg=round(tf.tilt_deg, 1),
             edge_rms_px=round(info["edge_rms_px"], 2) if info.get("refined") else None,
             perspective=bool(info.get("perspective")),
@@ -266,11 +329,13 @@ def _locate_json(a, spec):
             mm_per_px=round(tf.mm_per_px, 4),
             centre_px=[round(tf.cx, 1), round(tf.cy, 1)],
             ring1_offscreen=offscreen_sides(tf, ring_radius_mm(spec, 1), gray.shape))
-    path = Path(a.overlay) if a.overlay else OUT / "p1_locate.png"
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(path), vis)
+    tmp = path.with_name(path.stem + ".partial" + path.suffix)
+    cv2.imwrite(str(tmp), vis)
+    os.replace(tmp, path)
     result["overlay"] = str(path)
-    print(json.dumps(result))
+    return result
 
 
 def cmd_score(a):
@@ -1490,6 +1555,13 @@ def _listen_json(a, audio, wav):
     emit({"type": "start", "mic": a.mic, "seconds": a.seconds,
           "trigger_db": TRIGGER_DB, "trigger_ms": TRIGGER_MS})
 
+    def level(elapsed, level_db, floor_db):
+        emit({"type": "level", "t": round(elapsed, 2),
+              "remaining": round(max(0.0, a.seconds - elapsed)),
+              "level_dbfs": round(level_db, 1),
+              "floor_dbfs": round(floor_db, 1) if floor_db is not None else None,
+              "over_db": round(level_db - floor_db, 1) if floor_db is not None else None})
+
     def show(e, evs):
         gap = (e["t"] - evs[-2]["t"]) * 1000.0 if len(evs) > 1 else None
         length = max(0.0, e["len_ms"])
@@ -1501,7 +1573,8 @@ def _listen_json(a, audio, wav):
 
     try:
         events, floor_db, x, rate = audio.listen(a.seconds, a.mic, a.ratio_db,
-                                                 on_event=show, wav_path=wav)
+                                                 on_event=show, wav_path=wav,
+                                                 on_level=level)
     except SystemExit as e:                       # no such microphone
         emit({"type": "error", "message": str(e)})
         return
@@ -1664,6 +1737,9 @@ def main():
                            help="print one JSON result (the web app's camera check)")
             s.add_argument("--overlay", default=None,
                            help="with --json: where to save the ring overlay")
+            s.add_argument("--watch", type=float, default=0,
+                           help="with --json: keep checking about once a second "
+                                "for this many seconds (the live camera check)")
         if name == "shot":
             s.add_argument("--before", default=None,
                            help="replay: baseline frame (with --image = after)")

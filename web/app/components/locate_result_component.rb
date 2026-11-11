@@ -7,5 +7,5 @@ class LocateResultComponent < ApplicationComponent
     bad: "text-red-700 dark:text-red-300", info: "text-gray-600 dark:text-gray-300"
   }.freeze
 
-  def initialize(check:) = @check = check
+  def initialize(check:, live: false) = (@check, @live = check, live)
 end

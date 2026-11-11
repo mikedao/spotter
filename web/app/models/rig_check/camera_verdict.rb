@@ -1,45 +1,7 @@
-# The camera check on the rig setup page: runs the engine's `locate --json` on one
-# frame from the chosen camera and turns its numbers into plain verdicts, so
-# aiming and focusing the camera needs no terminal.
-#
-#   check = RigCheck::Locate.run!(user:, camera: "1", target: "pistol")
-#   check.verdicts   # => [ #<Verdict level=:good label="Focus" text="Sharp (edge 0.4 px)">, ... ]
-#
-# The result and its ring overlay are kept per user under tmp/setup/.
-class RigCheck::Locate
+# One camera check's measurements (from the engine's `locate --json`), as plain
+# verdicts with what to do about them. RigCheck::Locate produces them, live.
+class RigCheck::CameraVerdict
   Verdict = Data.define(:level, :label, :text)   # level: :good, :warn, :bad, :info
-
-  class Failed < StandardError; end
-
-  TIMEOUT = 60
-
-  def self.dir = Rails.root.join("tmp", "setup")
-  def self.overlay_path(user) = dir.join("locate-#{user.id}.png")
-  def self.result_path(user) = dir.join("locate-#{user.id}.json")
-
-  def self.latest(user)
-    path = result_path(user)
-    path.exist? ? new(JSON.parse(path.read), path.mtime) : nil
-  end
-
-  def self.run!(user:, camera:, target:)
-    RigCheck.ensure_free!
-    raise EngineRunner::BadCamera, "that isn't a camera number or a stream URL" unless EngineRunner.valid_camera?(camera)
-    raise ArgumentError, "unknown target #{target}" unless TargetSpec::SPECS.key?(target)
-
-    FileUtils.mkdir_p(dir)
-    cmd = [ EngineRunner.python, "phase1.py", "locate", "--json", "--target", target,
-            "--device", camera, "--frames", "4", "--overlay", overlay_path(user).to_s ]
-    out, err, status = Timeout.timeout(TIMEOUT) { Open3.capture3(*cmd, chdir: EngineRunner.engine_dir.to_s) }
-    line = out.lines.reverse.find { it.start_with?("{") }
-    raise Failed, (err.lines.last.presence || "the camera check failed").strip unless status.success? && line
-
-    data = JSON.parse(line).merge("camera" => camera)
-    result_path(user).write(JSON.generate(data))
-    new(data, Time.current)
-  rescue Timeout::Error
-    raise Failed, "the camera took over #{TIMEOUT} s to answer"
-  end
 
   attr_reader :data, :checked_at
 
@@ -47,6 +9,8 @@ class RigCheck::Locate
 
   def found? = data["found"]
   def camera = data["camera"]
+  def sharpness = data["sharpness"]
+  def seq = data["seq"].to_i
 
   # Plain-language verdicts, worst first in each group, with what to do about them.
   def verdicts

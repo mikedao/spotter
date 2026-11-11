@@ -4,6 +4,7 @@ class SetupsController < ApplicationController
   def show
     @probe = CameraProbe.latest
     @locate = RigCheck::Locate.latest(Current.user)
+    @locate_state = RigCheck::Locate.state_for(Current.user)
     @listen = RigCheck::Listen.state_for(Current.user)
     @camera = Current.user.last_camera.presence || EngineRunner.camera
     @mic = Current.user.last_mic.presence || EngineRunner.mic
@@ -11,11 +12,16 @@ class SetupsController < ApplicationController
 
   def locate
     camera = params[:camera] == "url" ? params[:camera_url] : params[:camera]
-    RigCheck::Locate.run!(user: Current.user, camera: camera.to_s.strip, target: params[:target].presence || "pistol")
+    RigCheck::Locate.start!(user: Current.user, camera: camera.to_s.strip, target: params[:target].presence || "pistol")
     Current.user.update!(last_camera: camera.to_s.strip)
     redirect_to setup_path(anchor: "camera")
-  rescue RigCheck::Busy, RigCheck::Locate::Failed, EngineRunner::BadCamera, ArgumentError => e
+  rescue RigCheck::Busy, EngineRunner::BadCamera, ArgumentError => e
     redirect_to setup_path(anchor: "camera"), alert: "Camera check: #{e.message}."
+  end
+
+  def stop_locate
+    RigCheck::Locate.stop!(Current.user)
+    redirect_to setup_path(anchor: "camera")
   end
 
   def locate_overlay

@@ -22,14 +22,10 @@
         <%= f.label :target, "Target", class: "mb-1 block text-sm font-medium" %>
         <%= f.select :target, TargetSpec::SPECS.values.map { [ it.name, it.key ] }, {}, class: TextFieldComponent::INPUT %>
       </div>
-      <%= f.button "Check the camera", class: "inline-flex min-h-11 cursor-pointer items-center rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-blue-500",
-                   data: { turbo_submits_with: "Checking…" } %>
+      <%= f.button "Start live check", class: "inline-flex min-h-11 cursor-pointer items-center rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-blue-500",
+                   data: { turbo_submits_with: "Starting…" } %>
     <% end %>
-    <% if @locate %>
-      <%= render(LocateResultComponent.new(check: @locate)) %>
-    <% else %>
-      <p class="text-sm text-gray-600 dark:text-gray-300">Takes a few seconds: one picture from the camera, the rings fitted to it, and a verdict on focus, framing, distance, flatness and light. Adjust the camera and check again until it says "Ready to shoot".</p>
-    <% end %>
+    <%= render(LocatePanelComponent.new(state: @locate_state, latest: @locate)) %>
   <% end %>
 
   <%= render(CardComponent.new(title: "Sound check", id: "sound")) do %>

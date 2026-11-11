@@ -3,7 +3,21 @@ require "rails_helper"
 RSpec.describe RigCheck do
   let(:user) { create(:user) }
 
-  describe RigCheck::Locate do
+  def with_engine(script)
+    ENV["SPOTTER_PYTHON"] = file_fixture(script).expand_path.to_s
+    yield
+  ensure
+    ENV.delete("SPOTTER_PYTHON")
+  end
+
+  def wait_until_finished(klass)
+    100.times { break if klass.state_for(user)&.finished; sleep 0.05 }
+    klass.state_for(user)
+  end
+
+  after { FileUtils.rm_rf(RigCheck::Locate.dir) }
+
+  describe RigCheck::CameraVerdict do
     let(:good) do
       { "found" => true, "camera" => "1", "view_deg" => 26.0, "edge_rms_px" => 0.43, "perspective" => true,
         "ring_rms_mm" => 0.11, "rings" => 10, "flat_worst_mm" => -0.08, "flat_worst_at" => [ 7, 225 ],
@@ -23,45 +37,55 @@ RSpec.describe RigCheck do
       expect(texts).to include("Blurry", "couldn't be fitted", "Ring 1 runs off the top", "blown out")
     end
 
+    it "only warns about a bow up to 0.5 mm (a used card's holes read as bow)" do
+      check = described_class.new(good.merge("flat_worst_mm" => -0.43), Time.current)
+      expect(check).to be_ok
+      expect(check.verdicts.find { it.label == "Card flat" }.text).to include("Slightly bowed", "fresh card")
+    end
+
     it "reports a target it can't find" do
       check = described_class.new({ "found" => false, "reason" => "no sufficiently large, round dark region found" }, Time.current)
       expect(check).not_to be_ok
       expect(check.verdicts.first.text).to include("Not found")
     end
+  end
 
-    it "runs the engine's locate --json on the chosen camera" do
-      allow(Open3).to receive(:capture3).and_return([ "#{good.except('camera').to_json}\n", "", instance_double(Process::Status, success?: true) ])
-      check = described_class.run!(user:, camera: "1", target: "pistol")
-      expect(Open3).to have_received(:capture3).with(EngineRunner.python, "phase1.py", "locate", "--json", "--target", "pistol",
-                                                     "--device", "1", "--frames", "4", "--overlay", anything, chdir: anything)
-      expect(check.camera).to eq "1"
-      expect(described_class.latest(user).found?).to be true
+  describe RigCheck::Locate do
+    it "streams each live result and keeps the latest" do
+      with_engine("fake_locate.sh") do
+        described_class.start!(user:, camera: "1", target: "pistol")
+        state = wait_until_finished(described_class)
+
+        expect(state).to have_attributes(finished: true, error: nil)
+        latest = described_class.latest(user)
+        expect(latest).to be_ok
+        expect([ latest.seq, latest.sharpness, latest.camera ]).to eq [ 2, 772.0, "1" ]
+      end
     end
 
     it "waits while a session is using the camera" do
       create(:practice_session, engine_pid: Process.pid, ended_at: nil)
-      expect { described_class.run!(user:, camera: "0", target: "pistol") }.to raise_error(RigCheck::Busy, /is shooting/)
+      expect { described_class.start!(user:, camera: "0", target: "pistol") }.to raise_error(RigCheck::Busy, /is shooting/)
+    end
+
+    it "refuses a bad camera before running anything" do
+      expect { described_class.start!(user:, camera: "--help", target: "pistol") }.to raise_error(EngineRunner::BadCamera)
+      expect(described_class.state_for(user)).to be_nil
     end
   end
 
   describe RigCheck::Listen do
-    around do |example|
-      ENV["SPOTTER_PYTHON"] = file_fixture("fake_listen.sh").expand_path.to_s
-      example.run
-    ensure
-      ENV.delete("SPOTTER_PYTHON")
-    end
+    it "streams the level meter and each sound, then a summary" do
+      with_engine("fake_listen.sh") do
+        described_class.start!(user:, mic: "Razer Kiyo", seconds: 5)
+        state = wait_until_finished(described_class)
 
-    it "streams each sound, marked with whether it would trigger, then a summary" do
-      described_class.start!(user:, mic: "Razer Kiyo", seconds: 5)
-      50.times { break if described_class.state_for(user).finished; sleep 0.05 }
-
-      state = described_class.state_for(user)
-      expect(state).to have_attributes(finished: true, error: nil, trigger_db: 45.0)
-      expect(state.sounds.map { it["would_trigger"] }).to eq [ false, true ]
-      expect(state.shots).to eq 1
-      expect(state.summary["floor_dbfs"]).to eq(-61.0)
-      expect(described_class).not_to be_running
+        expect(state).to have_attributes(finished: true, error: nil)
+        expect(state.data["level"]).to include("over_db" => 9.0, "floor_dbfs" => -61.0)
+        expect(state.data["sounds"].map { it["would_trigger"] }).to eq [ false, true ]
+        expect(state.data["summary"]["floor_dbfs"]).to eq(-61.0)
+        expect(RigCheck.running_check).to be_nil
+      end
     end
 
     it "needs a real microphone" do
@@ -70,8 +94,11 @@ RSpec.describe RigCheck do
     end
 
     it "is private to the user who ran it" do
-      described_class.start!(user:, mic: "Razer Kiyo", seconds: 5)
-      expect(described_class.state_for(create(:user))).to be_nil
+      with_engine("fake_listen.sh") do
+        described_class.start!(user:, mic: "Razer Kiyo", seconds: 5)
+        expect(described_class.state_for(create(:user))).to be_nil
+        wait_until_finished(described_class)
+      end
     end
   end
 end

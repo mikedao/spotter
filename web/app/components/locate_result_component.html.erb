@@ -1,8 +1,8 @@
 <div id="locate_result" class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
   <figure>
-    <%= image_tag helpers.locate_overlay_setup_path(v: @check.checked_at.to_i), alt: "What the camera sees, with the fitted rings", class: "w-full rounded" %>
+    <%= image_tag helpers.locate_overlay_setup_path(v: "#{@check.checked_at.to_i}-#{@check.seq}"), alt: "What the camera sees, with the fitted rings", class: "w-full rounded" %>
     <figcaption class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-      Camera <%= @check.camera %>, checked <%= helpers.time_ago_in_words(@check.checked_at) %> ago.
+      Camera <%= @check.camera %><%= @live ? ", live" : ", checked #{helpers.time_ago_in_words(@check.checked_at)} ago" %>.
       <% if @check.found? %>The yellow rings should sit on the printed ones.<% end %>
     </figcaption>
   </figure>
@@ -10,6 +10,12 @@
     <p class="mb-3 text-lg font-semibold <%= @check.ok? ? COLOUR[:good] : COLOUR[:bad] %>">
       <%= @check.ok? ? "Ready to shoot" : "Needs attention" %>
     </p>
+    <% if @check.sharpness %>
+      <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+        Sharpness <span class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100"><%= @check.sharpness.round %></span>
+        <span class="block">Higher is sharper - turn the focus for the highest number.</span>
+      </p>
+    <% end %>
     <ul class="space-y-2">
       <% @check.verdicts.each do |v| %>
         <li class="flex gap-2">

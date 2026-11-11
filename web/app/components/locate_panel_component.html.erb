@@ -1,0 +1,21 @@
+<div id="locate_panel" class="space-y-3">
+  <% if running? %>
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="inline-flex items-center gap-2 font-medium text-green-800 dark:text-green-300">
+        <span class="inline-block size-2.5 animate-pulse rounded-full bg-current"></span>
+        Live: re-checking every second<%= " · #{@state.data['remaining']} s left" if @state.data["remaining"] %>. Aim and focus while you watch.
+      </span>
+      <%= button_to "Stop", helpers.stop_locate_setup_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
+    </div>
+  <% end %>
+  <% if @state&.error %>
+    <p class="rounded-md bg-red-50 p-3 text-red-900 dark:bg-red-950 dark:text-red-200"><%= @state.error %></p>
+  <% end %>
+  <% if @latest %>
+    <%= render(LocateResultComponent.new(check: @latest, live: running?)) %>
+  <% elsif running? %>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Opening the camera…</p>
+  <% else %>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Shows what the camera sees with the rings fitted, re-checked every second for two minutes, with a verdict on focus, framing, distance, flatness and light. Adjust the camera until it says "Ready to shoot".</p>
+  <% end %>
+</div>

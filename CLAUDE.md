@@ -154,15 +154,23 @@ from there). The user commits; don't commit unless asked.
   leading "-". `EngineRunner`
   accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
   the engine's command line.
-- **Rig setup page** (`/setup`, `SetupsController`): camera check =
-  `phase1.py locate --json --overlay PATH` (`RigCheck::Locate`, verdicts in plain
+- **Rig setup page** (`/setup`, `SetupsController`), both checks LIVE through
+  `RigCheck::LiveProcess` (runs an engine command printing JSON lines, streams
+  each to the user's page over Turbo; one rig check at a time, never in a
+  session; state in-process, `RigCheck.reset!` between specs; `at_exit` stops running checks, else a check outlives a server restart holding the camera or mic for minutes with nothing able to stop it - verified). Camera check =
+  `phase1.py locate --json --watch SECONDS --overlay PATH` (a result about once a
+  second, ~0.6 s solve, overlay written atomically; `sharpness` = Laplacian
+  variance as a focusing aid; verdicts in `RigCheck::CameraVerdict`, plain
   words; flatness warns 0.15-0.5 mm and only blocks "Ready to shoot" beyond 0.5,
   because real cards read 0.2-0.6 and still scored right, and a used card's holes
-  read as bow); sound check = `phase1.py listen --json` streamed line by line to
-  the page (`RigCheck::Listen`, one at a time, state in-process), each sound
-  marked `would_trigger` from the engine's own `TRIGGER_DB`/`TRIGGER_MS`
-  constants (shared with `shot --auto`'s defaults). Neither runs during a
-  session; Start refuses while a sound check runs.
+  read as bow); sound check = `phase1.py listen --json` (`RigCheck::Listen`):
+  "level" lines 4x/s drive a meter redrawn on its own (`ListenMeterComponent`),
+  each sound marked `would_trigger` from the engine's own `TRIGGER_DB`/`TRIGGER_MS`
+  constants (shared with `shot --auto`'s defaults). Start refuses while any rig
+  check runs. VERIFIED in real Chrome against the dev server (Ferrum, no reload):
+  countdown and meter update live - which also confirms the Turbo push path the
+  range screen uses. Note: system specs can't see live updates (test cable
+  adapter); drive a real browser for that.
 - Browser specs: `spec/system` (Capybara + Cuprite, as fl-shooters) for screens
   request specs can't see; `SCREENSHOTS=1` saves tmp/screenshots/.
 - **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,

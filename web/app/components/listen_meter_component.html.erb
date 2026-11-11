@@ -1,0 +1,13 @@
+<div id="listen_meter" class="space-y-1.5">
+  <% if @state&.running? %>
+    <p class="text-sm font-medium"><%= phase %></p>
+    <div class="relative h-4 overflow-hidden rounded bg-gray-200 dark:bg-gray-800" role="meter" aria-label="Loudness over the room" aria-valuenow="<%= level&.dig("over_db") %>">
+      <div class="h-full <%= hot? ? "bg-green-600" : "bg-blue-600" %>" style="width: <%= bar_pct %>%"></div>
+      <div class="absolute inset-y-0 w-0.5 bg-gray-900 dark:bg-white" style="left: <%= trigger_pct %>%" title="trigger level"></div>
+    </div>
+    <p class="text-xs text-gray-600 dark:text-gray-300">
+      Now +<%= level&.dig("over_db")&.round || 0 %> dB over the room (floor <%= level&.dig("floor_dbfs") || "…" %> dBFS).
+      The line marks the trigger level, +<%= trigger.round %> dB.
+    </p>
+  <% end %>
+</div>

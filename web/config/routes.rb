@@ -16,6 +16,7 @@ Rails.application.routes.draw do
   # Rig setup: camera check (locate) and sound check (listen).
   resource :setup, only: :show do
     post :locate
+    post :stop_locate
     get :locate_overlay
     post :listen
     post :stop_listen
