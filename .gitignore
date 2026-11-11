@@ -1,0 +1,10 @@
+# virtualenv
+.venv/
+__pycache__/
+*.pyc
+
+# captured images and run artefacts - these are device/session specific and
+# can contain whatever is in view of the camera
+out/
+calib.json
+drift_log.json
