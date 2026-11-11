@@ -154,6 +154,15 @@ from there). The user commits; don't commit unless asked.
   leading "-". `EngineRunner`
   accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
   the engine's command line.
+- **Rig setup page** (`/setup`, `SetupsController`): camera check =
+  `phase1.py locate --json --overlay PATH` (`RigCheck::Locate`, verdicts in plain
+  words; flatness warns 0.15-0.5 mm and only blocks "Ready to shoot" beyond 0.5,
+  because real cards read 0.2-0.6 and still scored right, and a used card's holes
+  read as bow); sound check = `phase1.py listen --json` streamed line by line to
+  the page (`RigCheck::Listen`, one at a time, state in-process), each sound
+  marked `would_trigger` from the engine's own `TRIGGER_DB`/`TRIGGER_MS`
+  constants (shared with `shot --auto`'s defaults). Neither runs during a
+  session; Start refuses while a sound check runs.
 - Browser specs: `spec/system` (Capybara + Cuprite, as fl-shooters) for screens
   request specs can't see; `SCREENSHOTS=1` saves tmp/screenshots/.
 - **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,

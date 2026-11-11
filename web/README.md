@@ -37,6 +37,17 @@ selects its own microphone (Kiyo with Kiyo, iPhone with iPhone) when there is
 one; "No microphone - camera only" runs the engine with `--mic none`, finding
 each shot with its 2-second camera check instead of the shot's sound.
 
+**Rig setup** (`/setup`) checks the rig before a session, in the browser:
+
+- *Camera check* runs the engine's `locate --json` on one frame and shows the
+  view with the fitted rings and plain verdicts (focus, ring fit, framing,
+  distance, flatness, light) until it says "Ready to shoot".
+- *Sound check* runs `listen --json` and lists each sound live, marked "would
+  trigger" against the engine's own trigger settings (`TRIGGER_DB` /
+  `TRIGGER_MS` in `phase1.py`). Fire a few shots: they should all trigger.
+
+Neither runs during a session, and Start waits while a sound check runs.
+
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.
 
@@ -59,6 +70,7 @@ run token).
 |---|---|
 | `User`, `Session`, `Current` | Rails 8 authentication; open sign-up (`RegistrationsController`) |
 | `EngineRunner` | starts / stops the engine for a user, one session at a time, notices a dead engine |
+| `RigCheck::Locate`, `RigCheck::Listen` | the rig setup page's camera and sound checks |
 | `EngineEvent` | applies one engine event (contract: `../docs/engine-events.md`) |
 | `LiveBroadcast` | pushes a session's status line and live panel to open screens |
 | `PracticeSession` → `Card` → `Shot` | the data; a shot keeps the rules' PROPOSAL and the shooter's CALL in separate columns |

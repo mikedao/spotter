@@ -59,6 +59,7 @@ class EngineRunner
       if (busy = running)
         raise Busy, busy
       end
+      raise RigCheck::Busy, "a sound check is running - stop it on Rig setup first" if RigCheck::Listen.running?
       camera = camera.to_s.strip.presence || self.camera
       raise BadCamera, "that isn't a camera number or a stream URL" unless valid_camera?(camera)
       mic = mic.to_s.strip.presence || self.mic

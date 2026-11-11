@@ -20,6 +20,8 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
     redirect_to practice_sessions_path, alert: "#{e.message.capitalize}."
+  rescue RigCheck::Busy => e
+    redirect_to practice_sessions_path, alert: "#{e.message.capitalize}."
   rescue EngineRunner::Busy => e
     redirect_to practice_sessions_path, alert: "#{e.message} - one session at a time on this rig."
   rescue ActiveRecord::RecordInvalid => e

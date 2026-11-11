@@ -1,0 +1,67 @@
+<div id="listen_panel" class="space-y-3">
+  <% if @state.nil? %>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Not run yet.</p>
+  <% else %>
+    <div class="flex flex-wrap items-center gap-3">
+      <% if running? %>
+        <span class="inline-flex items-center gap-2 font-medium text-green-800 dark:text-green-300">
+          <span class="inline-block size-2.5 animate-pulse rounded-full bg-current"></span>
+          Listening on <%= @state.mic %>… stay quiet for 3 s, then fire a few shots.
+        </span>
+        <%= button_to "Stop", helpers.stop_listen_setup_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
+      <% else %>
+        <span class="font-medium">Finished: <%= @state.mic %></span>
+      <% end %>
+    </div>
+
+    <% if @state.error %>
+      <p class="rounded-md bg-red-50 p-3 text-red-900 dark:bg-red-950 dark:text-red-200"><%= @state.error %></p>
+    <% end %>
+
+    <% if @state.sounds.any? %>
+      <table class="w-full text-left text-sm tabular-nums">
+        <thead class="text-gray-600 dark:text-gray-300">
+          <tr><th class="py-1">#</th><th>At</th><th>Loudness</th><th>Length</th><th></th></tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+          <% @state.sounds.each do |s| %>
+            <tr>
+              <td class="py-1.5"><%= s["n"] %></td>
+              <td><%= s["t"] %> s</td>
+              <td>+<%= s["over_db"].round %> dB</td>
+              <td><%= s["len_ms"] %> ms</td>
+              <td>
+                <% if s["would_trigger"] %>
+                  <span class="rounded bg-green-100 px-2 py-0.5 text-green-900 dark:bg-green-950 dark:text-green-200">would trigger</span>
+                <% else %>
+                  <span class="text-gray-600 dark:text-gray-300"><%= s["over_db"] < @state.trigger_db.to_f ? "too quiet" : "too short" %></span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% elsif running? %>
+      <p class="text-sm text-gray-600 dark:text-gray-300">No sharp sounds yet.</p>
+    <% end %>
+
+    <% if (sum = @state.summary) %>
+      <% if sum["silent"] %>
+        <p class="rounded-md bg-red-50 p-3 text-red-900 dark:bg-red-950 dark:text-red-200">
+          The microphone returned pure silence. On macOS that usually means no permission: allow the terminal that runs Spotter
+          in System Settings › Privacy &amp; Security › Microphone, then restart it.
+        </p>
+      <% else %>
+        <p class="text-sm text-gray-700 dark:text-gray-200">
+          <strong><%= pluralize(@state.shots, "sound") %> would trigger</strong> out of <%= @state.sounds.size %> heard.
+          A capture needs at least +<%= @state.trigger_db.to_f.round %> dB over the room and <%= @state.trigger_ms.to_f.round %> ms.
+          Room noise floor <%= sum["floor_dbfs"] %> dBFS.
+          <% if @state.sounds.any? && @state.shots.zero? %>
+            None of these would trigger: if they were shots, the microphone is too far, too muffled, or filtering
+            sharp sounds (turn off noise suppression) - or use "No microphone - camera only".
+          <% end %>
+        </p>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>

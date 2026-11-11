@@ -24,6 +24,13 @@ from geometry import (find_target_frame, refine_bull_ellipse, fit_perspective,
 from scoring import SPECS, PISTOL, score_xy, decimal_step_mm, on_card
 
 HERE = Path(__file__).resolve().parent
+
+# The sound trigger, measured 2026-11: shots +48..+65 dB over the room floor and
+# 204-370 ms long; other sounds (card change, magnet clang) up to +57 dB but at
+# most 160 ms. Shared by `shot --auto` and `listen` (so the web app's sound check
+# says exactly what would trigger).
+TRIGGER_DB = 45.0
+TRIGGER_MS = 180.0
 OUT = HERE / "out"
 
 
@@ -206,6 +213,8 @@ def report(holes, tf, spec, vis=None, quiet=False, rule="gauge"):
 
 def cmd_locate(a):
     spec = SPECS[a.target]
+    if a.json:
+        return _locate_json(a, spec)
     gray = acquire(a)
     print(f"\n{spec.name}")
     tf, _ = establish(gray, spec)
@@ -217,6 +226,51 @@ def cmd_locate(a):
     cv2.imwrite(str(OUT / "p1_locate.png"), vis)
     print(f"\n  overlay -> {OUT/'p1_locate.png'}")
     print("  Check the yellow rings sit on the printed ones.\n")
+
+
+def _locate_json(a, spec):
+    """
+    `locate --json [--overlay PATH]`: the camera check for the web app's rig
+    setup page. One JSON object on stdout - is the target found, how well the
+    rings fit, focus, view angle, card flatness, which edges ring 1 runs off,
+    and the lighting - plus the ring overlay saved to PATH (or out/).
+    """
+    import contextlib
+    import io
+    import json
+    from scoring import ring_radius_mm
+    result = {"found": False}
+    with contextlib.redirect_stdout(io.StringIO()):
+        gray = acquire(a)
+        g8 = np.clip(gray, 0, 255).astype(np.uint8)
+        result.update(width=int(gray.shape[1]), height=int(gray.shape[0]),
+                      brightness=round(float(g8.mean()), 1),
+                      saturated_pct=round(float((g8 >= 254).mean() * 100), 2))
+        tf, info = establish(gray, spec, verbose=False)
+    vis = cv2.cvtColor(g8, cv2.COLOR_GRAY2BGR)
+    if tf is None:
+        result["reason"] = info.get("reason", "the aiming mark was not found")
+    else:
+        draw_rings(vis, tf, spec)
+        fw = info.get("flat_worst_mm")
+        result.update(
+            found=True, target=a.target,
+            view_deg=round(tf.tilt_deg, 1),
+            edge_rms_px=round(info["edge_rms_px"], 2) if info.get("refined") else None,
+            perspective=bool(info.get("perspective")),
+            perspective_reason=None if info.get("perspective") else info.get("reason"),
+            ring_rms_mm=round(info["rms_mm"], 3) if info.get("rms_mm") is not None else None,
+            rings=len(info.get("rings", {})),
+            flat_worst_mm=round(fw, 2) if fw is not None else None,
+            flat_worst_at=info.get("flat_worst_at"),
+            mm_per_px=round(tf.mm_per_px, 4),
+            centre_px=[round(tf.cx, 1), round(tf.cy, 1)],
+            ring1_offscreen=offscreen_sides(tf, ring_radius_mm(spec, 1), gray.shape))
+    path = Path(a.overlay) if a.overlay else OUT / "p1_locate.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(path), vis)
+    result["overlay"] = str(path)
+    print(json.dumps(result))
 
 
 def cmd_score(a):
@@ -1392,6 +1446,8 @@ def cmd_listen(a):
     import audio
     OUT.mkdir(exist_ok=True)
     wav = OUT / "listen.wav"
+    if a.json:
+        return _listen_json(a, audio, wav)
     print(f"\n  listening on '{a.mic}' for {a.seconds:.0f} s (Ctrl+C to stop).")
     print("  Stay quiet for the first 3 s while the room's noise floor is "
           "measured,")
@@ -1417,6 +1473,42 @@ def cmd_listen(a):
           f"{audio.dbfs(np.abs(x).max()):.1f} dBFS, "
           f"{len(events)} event(s) over +{a.ratio_db:.0f} dB")
     print(f"  recording -> {wav}\n")
+
+
+def _listen_json(a, audio, wav):
+    """
+    `listen --json`: the sound check for the web app's rig setup page. One JSON
+    line per event as it happens - start (with the trigger settings), each
+    sound (marked would_trigger against TRIGGER_DB / TRIGGER_MS, exactly as
+    `shot --auto` decides), and end (noise floor, silence = no permission).
+    """
+    import json
+
+    def emit(obj):
+        print(json.dumps(obj), flush=True)
+
+    emit({"type": "start", "mic": a.mic, "seconds": a.seconds,
+          "trigger_db": TRIGGER_DB, "trigger_ms": TRIGGER_MS})
+
+    def show(e, evs):
+        gap = (e["t"] - evs[-2]["t"]) * 1000.0 if len(evs) > 1 else None
+        length = max(0.0, e["len_ms"])
+        emit({"type": "sound", "n": len(evs), "t": round(e["t"], 2),
+              "gap_ms": round(gap) if gap is not None else None,
+              "peak_dbfs": round(e["peak_db"], 1), "over_db": round(e["over_db"], 1),
+              "len_ms": round(length),
+              "would_trigger": e["over_db"] >= TRIGGER_DB and length >= TRIGGER_MS})
+
+    try:
+        events, floor_db, x, rate = audio.listen(a.seconds, a.mic, a.ratio_db,
+                                                 on_event=show, wav_path=wav)
+    except SystemExit as e:                       # no such microphone
+        emit({"type": "error", "message": str(e)})
+        return
+    silent = len(x) == 0 or float(np.abs(x).max()) == 0.0
+    emit({"type": "end", "silent": silent, "events": len(events),
+          "floor_dbfs": round(floor_db, 1) if floor_db is not None else None,
+          "loudest_dbfs": None if silent else round(audio.dbfs(np.abs(x).max()), 1)})
 
 
 def _scale_tf(tf, k):
@@ -1567,6 +1659,11 @@ def main():
         s.add_argument("--expect", type=int, default=None)
         s.add_argument("--image", default=None,
                        help="score a saved image instead of the camera")
+        if name == "locate":
+            s.add_argument("--json", action="store_true",
+                           help="print one JSON result (the web app's camera check)")
+            s.add_argument("--overlay", default=None,
+                           help="with --json: where to save the ring overlay")
         if name == "shot":
             s.add_argument("--before", default=None,
                            help="replay: baseline frame (with --image = after)")
@@ -1585,9 +1682,9 @@ def main():
             s.add_argument("--mic", default="Kiyo")
             # 2026-11: shots +48..+65 dB, 204-370 ms; other sounds (card
             # change, magnet clang) up to +57 dB but at most 160 ms
-            s.add_argument("--trigger-db", type=float, default=45.0,
+            s.add_argument("--trigger-db", type=float, default=TRIGGER_DB,
                            help="auto: loudness over the room floor")
-            s.add_argument("--trigger-ms", type=float, default=180.0,
+            s.add_argument("--trigger-ms", type=float, default=TRIGGER_MS,
                            help="auto: minimum sound length")
             s.add_argument("--settle", type=float, default=1.0,
                            help="auto: seconds after impact before capture")
@@ -1618,6 +1715,8 @@ def main():
         s.add_argument("--detect-scale", type=float, default=0.5,
                        help="live: downscale factor for the solve")
         if name == "listen":
+            s.add_argument("--json", action="store_true",
+                           help="one JSON line per event (the web app's sound check)")
             s.add_argument("--seconds", type=float, default=60.0)
             s.add_argument("--mic", default="Kiyo",
                            help="input device name to match")
