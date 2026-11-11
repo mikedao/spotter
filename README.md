@@ -63,7 +63,7 @@ crescent rather than taking its centroid).
 
 ```bash
 python3 -m venv .venv
-./.venv/bin/python -m pip install opencv-python numpy
+./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python probe.py        # check camera access
 ./.venv/bin/python cameras.py      # find your camera's index
 ```
