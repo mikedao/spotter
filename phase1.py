@@ -115,38 +115,55 @@ def establish(gray, spec, verbose=True):
 
 def report(holes, tf, spec, vis=None, quiet=False, rule="gauge"):
     """
-    rule "gauge":   official - a pellet-sized circle at the hole centre must
+    rule "pellet":  DEFAULT for `shot`. How the shooter actually judges: the
+                    pellet's own mark (tears folded back) touching the line.
+                    Position = region centroid; the mark is PELLET_MARK_MM
+                    across. Matched 20/20 shooter calls (2026-11). If the hole
+                    overlaps an earlier one, the centroid is dragged into the
+                    old hole, so the circle-fit position is used instead.
+    rule "gauge":   official - a 4.5 mm circle at the circle-fit centre must
                     touch the line (the ISSF plug gauge; tears do not count).
-    rule "visible": the visible hole, tears included, touching the line
-                    counts. Chosen by the shooter as the default for `shot`
-                    because it favours the shooter, as touch rules do.
+    rule "visible": the visible hole, tears included (18/20: a tear reaching
+                    a line the pellet did not counted as a touch).
     """
-    from scoring import score as _score
+    from scoring import score as _score, PELLET_MARK_MM, ring_radius_mm, \
+        LINE_CALL_MM
     rows = []
     for h in holes:
-        if h.get("x_mm") is not None:          # circle-fitted pellet centre
-            x_mm, y_mm = h["x_mm"], h["y_mm"]
+        cx, cy = tf.to_mm(h["xw"], h["yw"])        # region centroid
+        if h.get("x_mm") is not None:              # circle-fitted pellet
+            fx, fy = h["x_mm"], h["y_mm"]
         else:
-            x_mm, y_mm = tf.to_mm(h["xw"], h["yw"])
-        s = score_xy(x_mm, y_mm, spec)
-        s["rule"] = "gauge"
-        if rule == "visible" and h.get("vis_r_edge") is not None:
-            g = s
-            s = _score(h["vis_r_edge"], spec, pellet_mm=0.0)
-            s.update(x_mm=x_mm, y_mm=y_mm, r_mm=g["r_mm"], rule="visible",
-                     gauge_decimal=g["decimal"])
-        # On torn paper the circle fit and the region centroid can disagree
-        # by 1-2 mm, and neither is reliably right (2026-11: one real shot each
-        # way). When they land in different rings, the ring is not known.
-        # Flag when the span between the two estimates (plus the line-call
-        # margin) crosses a ring line: then the ring itself is not known.
+            fx, fy = cx, cy
+        alt = None
+        if rule == "pellet":
+            use_fit = h.get("overlap", False)
+            x_mm, y_mm = (fx, fy) if use_fit else (cx, cy)
+            s = score_xy(x_mm, y_mm, spec, pellet_mm=PELLET_MARK_MM)
+            s["rule"] = "pellet"
+            # the other position estimate, scored the same way
+            alt = score_xy(*((cx, cy) if use_fit else (fx, fy)), spec,
+                           pellet_mm=PELLET_MARK_MM)
+        else:
+            x_mm, y_mm = fx, fy
+            s = score_xy(x_mm, y_mm, spec)
+            s["rule"] = "gauge"
+            alt = score_xy(cx, cy, spec)
+            if rule == "visible" and h.get("vis_r_edge") is not None:
+                g = s
+                s = _score(h["vis_r_edge"], spec, pellet_mm=0.0)
+                s.update(x_mm=x_mm, y_mm=y_mm, r_mm=g["r_mm"], rule="visible",
+                         gauge_decimal=g["decimal"])
+                alt = None
+        # The circle fit and the centroid can disagree by 1-2 mm on torn
+        # paper, and neither is always right. When the span between them
+        # (plus the line-call margin) crosses a ring line, the ring itself is
+        # not known: flag it.
         s["ambiguous"] = False
-        if h.get("x_mm") is not None and s["rule"] == "gauge":
-            from scoring import ring_radius_mm, LINE_CALL_MM
-            sc = score_xy(*tf.to_mm(h["xw"], h["yw"]), spec)
-            s["alt_decimal"] = sc["decimal"]
-            lo = min(s["r_edge_mm"], sc["r_edge_mm"]) - LINE_CALL_MM
-            hi = max(s["r_edge_mm"], sc["r_edge_mm"]) + LINE_CALL_MM
+        if alt is not None and h.get("x_mm") is not None:
+            s["alt_decimal"] = alt["decimal"]
+            lo = min(s["r_edge_mm"], alt["r_edge_mm"]) - LINE_CALL_MM
+            hi = max(s["r_edge_mm"], alt["r_edge_mm"]) + LINE_CALL_MM
             s["ambiguous"] = any(lo <= ring_radius_mm(spec, k) <= hi
                                  for k in range(1, 11))
         s["overlap"] = h.get("overlap", False)
@@ -178,9 +195,9 @@ def report(holes, tf, spec, vis=None, quiet=False, rule="gauge"):
         if s["line_call"]:
             flag += f"  LINE ({s['line_mm']:.2f} mm) - check"
         if s["ambiguous"]:
-            flag += f"  RING UNCERTAIN ({s['alt_decimal']} by centroid) - check"
+            flag += f"  RING UNCERTAIN ({s['alt_decimal']} by the other position) - check"
         if s["overlap"]:
-            flag += "  OVERLAPS EARLIER HOLE - gauge rule used, check"
+            flag += "  OVERLAPS EARLIER HOLE - check"
         print(f"  {i:>2} {s['x_mm']:>+8.2f} {s['y_mm']:>+8.2f} {s['r_mm']:>8.2f} "
               f"{s['decimal']:>6.1f} {s['integer']:>5} {s['dia_mm']:>7.2f} "
               f"{s['circ']:>5.2f}{flag}")
@@ -540,28 +557,172 @@ class _LiveCamera:
             self.cap.release()
 
 
+SOUNDS = {"info": "/System/Library/Sounds/Tink.aiff",
+          "ok": "/System/Library/Sounds/Glass.aiff",
+          "check": "/System/Library/Sounds/Sosumi.aiff",
+          "fail": "/System/Library/Sounds/Basso.aiff"}
+
+
+def _announce(kind, text, enabled=True):
+    """
+    Tell the shooter at the firing line what happened, without looking: a
+    distinct sound per outcome (ok / check / fail), then the result spoken
+    with macOS `say`. Non-blocking. Returns (start_time, process) so the
+    caller can ignore its OWN announcement on the trigger microphone for as
+    long as it actually plays: the laptop speaker near the mic measured
+    +52.6 dB for the fail tone - over the shot threshold - so an estimated
+    mute window let it retrigger itself.
+    """
+    import shlex
+    import subprocess
+    import time
+    if not enabled:
+        return None
+    cmd = f"afplay {shlex.quote(SOUNDS[kind])}"
+    if text:
+        cmd += f"; say {shlex.quote(text)}"
+    try:
+        proc = subprocess.Popen(["sh", "-c", cmd], stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+    except OSError:
+        return None
+    return {"start": time.time(), "proc": proc, "end": None}
+
+
+def _track_announcements(announcements):
+    """Record WHEN each announcement finished. Must be called often (every
+    loop pass): stamping the end lazily, at the next sound, marked that sound
+    - usually the next SHOT - as part of the announcement (2026-11: 7 real
+    shots were "ignored: own announcement")."""
+    import time
+    now = time.time()
+    for an in announcements:
+        if an["end"] is None and an["proc"].poll() is not None:
+            an["end"] = now
+
+
+def _muted(announcements, when, tail=0.7):
+    """True if wall-clock time `when` falls while (or just after) one of our
+    own announcements was playing."""
+    import time
+    now = time.time()
+    for an in announcements:
+        if an["end"] is None and an["proc"].poll() is not None:
+            # finished but never stamped: we do not know when, so do NOT
+            # assume it was still playing
+            an["end"] = an["start"]
+        end = an["end"] if an["end"] is not None else now + 1e9
+        if an["start"] - 0.1 <= when <= end + tail:
+            return True
+    return False
+
+
+def _spoken(r, res):
+    """The result as a short phrase for `say`."""
+    words = f"{r['decimal']:.1f}" + (", inner ten" if r["inner_ten"] else "")
+    why = []
+    if r.get("line_call"):
+        why.append("line call")
+    if r.get("ambiguous"):
+        why.append("ring uncertain")
+    if r.get("overlap"):
+        why.append("overlaps a hole")
+    if not res["fit_ok"] and r.get("rule") == "gauge":
+        why.append("rough hole")
+    return words, why
+
+
+def _same_card(old_img, old_tf, new_img, new_tf, holes_mm, r_mm=1.5):
+    """
+    After the target vanished and came back: is it the same card (someone
+    just blocked the view) or a new one? Look at where the earlier holes
+    were. Lit through the diffuser they are bright; on a fresh card those
+    spots are plain paper or black. Same card if most holes are still there.
+    """
+    if not holes_mm:
+        return True
+    still = 0
+    for x, y in holes_mm:
+        vals = []
+        for img, tf in ((old_img, old_tf), (new_img, new_tf)):
+            px, py = tf.from_mm(x, y)
+            rr = max(2, int(r_mm / tf.local_mm_per_px(px, py)))
+            px, py = int(round(px)), int(round(py))
+            patch = img[max(0, py - rr):py + rr + 1, max(0, px - rr):px + rr + 1]
+            vals.append(float(np.mean(patch)) if patch.size else 0.0)
+        if vals[1] > vals[0] - 40.0:       # still about as bright: still there
+            still += 1
+    return still >= 0.5 * len(holes_mm)
+
+
+def _scene_moving(f0, t0, f1, t1, spec, thresh=30.0, frac=0.01):
+    """
+    Did a large part of the card change between two frames? A person, a hand
+    or a swinging card changes a big area; a new pellet hole is ~0.05% of it.
+
+    Measured only INSIDE RING 1, where the geometry is fitted. The card's own
+    outer edge lies beyond the outermost ring, so its registration is an
+    extrapolation that shifts 2-3 px between frames minutes apart (lens terms
+    vary slightly per frame): on 2026-11 data the card outline alone made a
+    still scene read 2.1% changed, which would reject a real shot as
+    "movement". Real shot pairs read 0.10-0.46%.
+    """
+    from geometry import register, new_light
+    from scoring import ring_radius_mm
+    H, W = f1.shape[:2]
+    th = np.linspace(0, 2 * np.pi, 180, endpoint=False)
+    r1 = ring_radius_mm(spec, 1)
+    xs, ys = t1.from_mm(r1 * np.cos(th), r1 * np.sin(th))
+    x0, x1 = int(max(0, np.min(xs))), int(min(W, np.max(xs)))
+    y0, y1 = int(max(0, np.min(ys))), int(min(H, np.max(ys)))
+    if x1 <= x0 or y1 <= y0:
+        return True
+    mask = np.zeros((y1 - y0, x1 - x0), np.uint8)
+    poly = np.stack([xs - x0, ys - y0], 1).astype(np.int32)
+    cv2.fillPoly(mask, [poly], 1)
+    reg = register(f0, t0, t1, f1.shape)
+    # Changes beyond everything nearby, both ways (new_light both directions):
+    # a plain |difference| counted every printed line that shifted with focus
+    # or scale as "movement" - and then a real hole triggered a re-baseline
+    # that swallowed it.
+    a, b = f1[y0:y1, x0:x1], reg[y0:y1, x0:x1]
+    d = np.maximum(new_light(a, b), new_light(b, a))
+    inside = mask > 0
+    return float((d[inside] > thresh).mean()) > frac
+
+
 def _shot_auto(a, spec):
     """
-    Hands-free: the camera's microphone triggers each capture.
+    Hands-free scoring. Two ways a shot is noticed, one way it is scored:
 
-    A shot is a loud, sustained impulse on the mic (measured 2026-11: shots at
-    -1 to 0 dBFS, +59 to +65 dB over the room floor, 280-370 ms of ringing;
-    the loudest non-shot was +43 dB). After a trigger we wait for the paper
-    and trap to settle (a faint secondary sound follows ~0.7 s later), take
-    the after frame, score it, and it becomes the next baseline.
+      SOUND   the camera's microphone hears the impact (measured 2026-11:
+              shots +59 to +65 dB over the room floor, 280-370 ms of ringing;
+              loudest non-shot +43 dB). Fast: scored ~1 s after impact.
+      CAMERA  every --watch seconds the camera compares the card with the
+              baseline. A hole-sized new region that is still there on the
+              next check is scored as a shot "found without a sound". This is
+              the safety net: one real shot (2026-11) made no trigger and was
+              lumped into the next shot's comparison and dropped.
 
-    A false trigger is harmless: if vision finds no new hole the shot is
-    discarded and the baseline is kept, so a hole can never be absorbed into
-    the baseline without being scored.
+    The same camera check watches for MOVEMENT: if a large part of the card
+    changed (a person mounting a card, a hand, a swinging card) nothing is
+    scored and no baseline is taken until the view is still. A baseline taken
+    with the shooter in frame (2026-11) turned a magnet's clang into a
+    phantom shot.
+
+    A trigger with no new hole is harmless: not scored, baseline kept, so a
+    hole can never be absorbed into the baseline without being scored.
     """
+    import contextlib
+    import io
     import queue
     import time
     import sounddevice as sd
     import audio
+    from geometry import register, new_light
+    from scoring import PELLET_MM
 
-    # Each trigger compares the frame just before a shot with the frame just
-    # after it, so there is exactly one new hole per comparison.
-    if a.expect is None:
+    if a.expect is None:      # one new hole per before/after comparison
         a.expect = 1
     idx, info = audio.find_input(a.mic)
     rate = int(info["default_samplerate"])
@@ -570,18 +731,117 @@ def _shot_auto(a, spec):
     def cb(indata, frames, t, status):
         q.put(indata.mean(axis=1).astype(np.float32).copy())
 
+    def silent():
+        return (contextlib.nullcontext() if a.verbose
+                else contextlib.redirect_stdout(io.StringIO()))
+
+    def locate(img):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return establish(img, spec, verbose=False)[0]
+
     print(f"\n  AUTO: listening on '{info['name']}', camera {a.device}. "
           "Ctrl+C to finish.")
-    print(f"  trigger: > +{a.trigger_db:.0f} dB over the room, "
-          f">= {a.trigger_ms:.0f} ms long; capture {a.settle:.1f} s after impact.")
+    print(f"  sound trigger: > +{a.trigger_db:.0f} dB over the room, "
+          f">= {a.trigger_ms:.0f} ms; capture {a.settle:.1f} s after impact.")
+    print(f"  camera check every {a.watch:.0f} s: catches shots without a "
+          "sound, card changes, people in view.")
     cam = _LiveCamera(a.device)
-    scored = 0
-    prior = []          # hole centres on this card, this session
+    st = {"prior": [], "scored": 0, "card_no": 1, "ann": [],
+          "last_fail_say": -1e9, "dirty": False}
+
+    def say(kind, text):
+        an = _announce(kind, text, a.speak)
+        if an:
+            st["ann"].append(an)
+            st["ann"][:] = st["ann"][-5:]
+
+    def score_now(label):
+        """Capture the after frame, score it against the baseline, report.
+        Returns True if a shot was scored (and the baseline moved on)."""
+        after = cam.grab(a.frames)
+        n = _next_shot_number()
+        print(f"  ===== shot {n:03d}  ({label})")
+        # A real shot changes a hole-sized patch. If large parts of the card
+        # changed, something moved (the 2026-11 phantom: a magnet's clang
+        # while the shooter, in the baseline frame, was mounting the card).
+        tf_a = locate(after)
+        if tf_a is not None and _scene_moving(st["before"], st["tf_b"], after,
+                                              tf_a, spec):
+            stamp = time.strftime("%H%M%S")  # never silent, never lose frames
+            for tag, img in (("before", st["before"]), ("after", after)):
+                cv2.imwrite(str(OUT / "shots" / f"unscored_{stamp}_{tag}.png"),
+                            np.clip(img, 0, 255).astype(np.uint8))
+            print("  view changed too much (person / card moving) - NOT scored;"
+                  " new baseline once the view is still. Frames: "
+                  f"{OUT / 'shots'}/unscored_{stamp}_*.png\n", flush=True)
+            st["dirty"] = True
+            if time.time() - st["last_fail_say"] > 10.0:
+                say("fail", "not scored, view moving")
+                st["last_fail_say"] = time.time()
+            return False
+        with silent():
+            res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
+                              verbose=a.verbose, prior=st["prior"])
+        if res is None:
+            time.sleep(0.5)                  # something in the way - retry
+            after = cam.grab(a.frames)
+            with silent():
+                res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
+                                  verbose=a.verbose, prior=st["prior"])
+        sdir = OUT / "shots"
+        if res is None or not res.get("found"):
+            stamp = time.strftime("%H%M%S")  # never lose frames
+            for tag, img in (("before", st["before"]), ("after", after)):
+                cv2.imwrite(str(sdir / f"unscored_{stamp}_{tag}.png"),
+                            np.clip(img, 0, 255).astype(np.uint8))
+            why = ("could NOT LOCATE THE TARGET in the after frame"
+                   if res is None else "no new hole on the card")
+            print(f"  {why} - not scored, baseline kept. Frames: "
+                  f"{sdir}/unscored_{stamp}_*.png\n", flush=True)
+            if time.time() - st["last_fail_say"] > 10.0:   # loop backstop
+                say("fail", "shot not scored")
+                st["last_fail_say"] = time.time()
+            return False
+        for tag, img in (("before", st["before"]), ("after", after)):
+            cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
+                        np.clip(img, 0, 255).astype(np.uint8))
+        r = res["row"]
+        print(f"  >>> {r['decimal']}   ring {r['integer']}   "
+              f"x {r['x_mm']:+.1f}  y {r['y_mm']:+.1f} mm"
+              + ("   INNER TEN" if r["inner_ten"] else "")
+              + ("" if res["fit_ok"] or r.get("rule") != "gauge"
+                 else "   (rough hole - check)")
+              + (f"   LINE CALL ({r['line_mm']:.2f} mm) - check by eye"
+                 if r["line_call"] else "")
+              + (f"   RING UNCERTAIN (or {r['alt_decimal']}) - check by eye"
+                 if r["ambiguous"] else "")
+              + ("   OVERLAPS EARLIER HOLE - check by eye" if r["overlap"] else "")
+              + "\n", flush=True)
+        words, flags = _spoken(r, res)
+        if label.startswith("camera"):
+            flags = ["found without a sound"] + flags
+        _log_shot(res)
+        st["prior"].append((r["x_mm"], r["y_mm"]))
+        full = a.per_card and len(st["prior"]) == a.per_card
+        tail = f". {a.per_card} shots, change the card" if full else ""
+        if flags:
+            say("check", f"check shot {n}. " + ", ".join(flags) + f". {words}"
+                + tail)
+        else:
+            say("ok", words + tail)
+        if full:
+            print(f"  -- {a.per_card} shots on card {st['card_no']}: change the "
+                  "card (it will say 'card off', then 'new card, ready') --\n",
+                  flush=True)
+        st["scored"] += 1
+        st["before"], st["tf_b"] = after, res["tf"]
+        return True
+
     try:
         time.sleep(1.0)                          # let exposure settle
-        before = cam.grab(a.frames)
-        tf_b, _ = establish(before, spec, verbose=False)
-        if tf_b is None:
+        st["before"] = cam.grab(a.frames)
+        st["tf_b"] = locate(st["before"])
+        if st["tf_b"] is None:
             print("  could not locate the target - check framing and lighting")
             return
         print("  baseline taken. Ready - fire when you like.\n")
@@ -592,17 +852,153 @@ def _shot_auto(a, spec):
                             callback=cb):
             t_audio0 = time.time()
             last_trig = -1e9
+            w = {"card_on": True, "misses": 0, "still": 0, "cand": None,
+                 "last": None, "next": time.time() + a.watch}
+
+            def new_hole(frame, tf_now):
+                """Position (mm) of the strongest hole-sized new region against
+                the baseline, or None."""
+                d = new_light(frame, register(st["before"], st["tf_b"], tf_now,
+                                              frame.shape))
+                hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0,
+                                                min_circularity=0.30)
+                hd, _ = _keep_on_card(hd, tf_now, spec)
+                nominal = np.pi * (PELLET_MM / 2.0 / tf_now.mm_per_px) ** 2
+                hd = [h for h in hd if h["peak"] >= 40 and
+                      h["area_px"] >= 0.5 * nominal]
+                if not hd:
+                    return None
+                h = max(hd, key=lambda h: h["peak"] * h["area_px"])
+                return tf_now.to_mm(h["xw"], h["yw"])
+
+            def watch():
+                """Card present? View still? New hole without a sound?"""
+                nonlocal last_trig
+                frame = cam.grab(2)
+                tf_now = locate(frame)
+                if tf_now is None:
+                    w["still"], w["cand"], w["last"] = 0, None, None
+                    w["misses"] += 1
+                    if w["card_on"] and w["misses"] >= 2:
+                        w["card_on"] = False
+                        print("  -- target out of view (card off?) --", flush=True)
+                        say("info", "card off")
+                    return
+                w["misses"] = 0
+                moving = (w["last"] is not None and
+                          _scene_moving(w["last"][0], w["last"][1], frame,
+                                        tf_now, spec))
+                w["last"] = (frame, tf_now)
+                if moving:
+                    w["still"], w["cand"] = 0, None
+                    st["dirty"] = True
+                    if a.verbose:
+                        print("    (movement in view - waiting)", flush=True)
+                    return
+                if w["card_on"] and st["dirty"]:
+                    # something moved in view: once still for two checks,
+                    # take a fresh baseline so a person caught in the old one
+                    # cannot turn into a phantom shot later
+                    w["still"] += 1
+                    if w["still"] < 2:
+                        return
+                    w["still"], st["dirty"] = 0, False
+                    # never let a re-baseline swallow a shot: if a hole-sized
+                    # new region is there against the OLD baseline, score it
+                    if new_hole(frame, tf_now) is not None:
+                        last_trig = time.time() - t_audio0
+                        if score_now("camera - no sound heard"):
+                            return
+                        # could not score it: keep the OLD baseline (2026-11:
+                        # re-baselining here swallowed a real shot). Give up
+                        # after 3 tries so a person caught in the baseline
+                        # cannot block scoring forever - the frames are saved.
+                        st["rebase_tries"] = st.get("rebase_tries", 0) + 1
+                        if st["rebase_tries"] < 3:
+                            st["dirty"] = True
+                            return
+                        print("  ! re-baselining over an unscored change - "
+                              "check the saved unscored_* frames", flush=True)
+                    st["rebase_tries"] = 0
+                    new = cam.grab(a.frames)
+                    tf_new = locate(new)
+                    if tf_new is not None:
+                        if st["prior"] and not _same_card(
+                                st["before"], st["tf_b"], new, tf_new,
+                                st["prior"]):
+                            st["prior"].clear()
+                            st["card_no"] += 1
+                            print(f"  -- new card (card {st['card_no']}) --",
+                                  flush=True)
+                            say("info", "new card, ready")
+                        st["before"], st["tf_b"] = new, tf_new
+                        print("  -- view still again, new baseline --\n",
+                              flush=True)
+                    return
+                if not w["card_on"]:
+                    # card back: wait for TWO still checks, then a baseline
+                    w["still"] += 1
+                    if w["still"] < 2:
+                        return
+                    w["card_on"], w["still"], st["dirty"] = True, 0, False
+                    new = cam.grab(a.frames)
+                    tf_new = locate(new)
+                    if tf_new is None:
+                        w["card_on"] = False
+                        return
+                    same = _same_card(st["before"], st["tf_b"], new, tf_new,
+                                      st["prior"])
+                    st["before"], st["tf_b"] = new, tf_new
+                    if not st["prior"]:
+                        msg = "card back, ready"
+                    elif same:
+                        msg = "same card, ready"
+                    else:
+                        st["prior"].clear()
+                        st["card_no"] += 1
+                        msg = "new card, ready"
+                    print(f"  -- {msg} (card {st['card_no']}, new baseline) --\n",
+                          flush=True)
+                    say("info", msg)
+                    return
+                # safety net: a hole-sized new region, stable over two checks
+                pos = new_hole(frame, tf_now)
+                if pos is None:
+                    w["cand"] = None
+                    return
+                if w["cand"] is not None and np.hypot(pos[0] - w["cand"][0],
+                                                      pos[1] - w["cand"][1]) < 3:
+                    w["cand"] = None
+                    last_trig = time.time() - t_audio0   # mute its late sound
+                    score_now("camera - no sound heard")
+                else:
+                    w["cand"] = pos
+
             while True:
                 try:
-                    blk = q.get(timeout=1.0)
+                    blk = q.get(timeout=0.2)
                 except queue.Empty:
+                    blk = None
+                _track_announcements(st["ann"])
+                if time.time() >= w["next"] and q.qsize() < 5:
+                    w["next"] = time.time() + a.watch
+                    watch()
+                if blk is None:
                     continue
                 for e in det.feed(blk):
-                    why = ("too quiet" if e["over_db"] < a.trigger_db else
+                    # Muting our own announcements only matters if they come
+                    # out of a speaker near the camera (--speaker). With
+                    # earbuds it only risked muting real shots.
+                    why = ("own announcement"
+                           if a.speaker and _muted(st["ann"], t_audio0 + e["t"])
+                           else
+                           "too quiet" if e["over_db"] < a.trigger_db else
                            "too short" if e["len_ms"] < a.trigger_ms else
                            "echo of last shot" if e["t"] - last_trig < 2.0
                            else None)
-                    if a.verbose:
+                    if a.verbose or (e["over_db"] >= a.trigger_db - 12 and why):
+                        # near-misses are always shown: a quiet real shot is
+                        # exactly what we need to see if one is ever missed
                         print(f"    sound +{e['over_db']:.1f} dB "
                               f"{max(0.0, e['len_ms']):.0f} ms at {e['t']:.2f} s"
                               + (f"  - ignored: {why}" if why else ""),
@@ -613,66 +1009,46 @@ def _shot_auto(a, spec):
                     wait = a.settle - (time.time() - (t_audio0 + e["t"]))
                     if wait > 0:
                         time.sleep(wait)
-                    after = cam.grab(a.frames)
-                    n = _next_shot_number()
-                    print(f"  ===== shot {n:03d}  (sound +{e['over_db']:.0f} dB)")
-                    import contextlib
-                    import io
-                    quiet = (contextlib.nullcontext() if a.verbose
-                             else contextlib.redirect_stdout(io.StringIO()))
-                    with quiet:
-                        res = _score_pair(a, spec, before, tf_b, after, n,
-                                          verbose=a.verbose, prior=prior)
-                    if res is None:
-                        # Target not located in the after frame (something in
-                        # the way, a flap still moving...). Try once more.
-                        time.sleep(0.5)
-                        after = cam.grab(a.frames)
-                        with quiet:
-                            res = _score_pair(a, spec, before, tf_b, after, n,
-                                              verbose=a.verbose, prior=prior)
-                    if res is None or not res.get("found"):
-                        # Never lose a shot: keep both frames for replay.
-                        stamp = time.strftime("%H%M%S")
-                        sdir = OUT / "shots"
-                        for tag, img in (("before", before), ("after", after)):
-                            cv2.imwrite(str(sdir / f"unscored_{stamp}_{tag}.png"),
-                                        np.clip(img, 0, 255).astype(np.uint8))
-                        why = ("could NOT LOCATE THE TARGET in the after frame"
-                               if res is None else "no new hole on the card")
-                        print(f"  sound, but {why} - not scored, baseline kept.")
-                        print(f"  frames saved: {sdir}/unscored_{stamp}_*.png "
-                              "(replay with shot --before ... --image ...)\n")
-                        continue
-                    sdir = OUT / "shots"
-                    for tag, img in (("before", before), ("after", after)):
-                        cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
-                                    np.clip(img, 0, 255).astype(np.uint8))
-                    r = res["row"]
-                    print(f"  >>> {r['decimal']}   ring {r['integer']}   "
-                          f"x {r['x_mm']:+.1f}  y {r['y_mm']:+.1f} mm"
-                          + ("   INNER TEN" if r["inner_ten"] else "")
-                          + ("" if res["fit_ok"] else "   (centroid - check)")
-                          + (f"   LINE CALL ({r['line_mm']:.2f} mm) - check by eye"
-                             if r["line_call"] else "")
-                          + (f"   RING UNCERTAIN (or {r['alt_decimal']}) - check by eye"
-                             if r["ambiguous"] else "")
-                          + ("   OVERLAPS EARLIER HOLE - check by eye"
-                             if r["overlap"] else "")
-                          + "\n", flush=True)
-                    _log_shot(res)
-                    prior.append((r["x_mm"], r["y_mm"]))
-                    scored += 1
-                    # Audio that queued up while scoring is NOT discarded: a
-                    # second shot fired during scoring must still be caught.
-                    # The trap's ringing is handled by the 2 s echo window.
-                    before, tf_b = after, res["tf"]
+                    if score_now(f"sound +{e['over_db']:.0f} dB"):
+                        w["cand"] = None
     except KeyboardInterrupt:
-        pass
+        # The last shot of a session has nothing after it: if its sound was
+        # missed and you stop within the camera check's ~4 s, it would be
+        # lost (2026-11). Look once more before exiting.
+        try:
+            print("\n  final check for an unscored hole (Ctrl+C again to "
+                  "skip)...", flush=True)
+            frames = []
+            for _ in range(6):               # wait up to ~6 s for a still view
+                f = cam.grab(4)
+                t = locate(f)
+                if t is None:
+                    break
+                frames.append((f, t))
+                if len(frames) >= 2 and not _scene_moving(
+                        frames[-2][0], frames[-2][1], f, t, spec):
+                    break
+                time.sleep(1.0)
+            if frames and "tf_b" in st and st.get("tf_b") is not None:
+                f, t = frames[-1]
+                from geometry import register as _reg, new_light as _nl
+                d = _nl(f, _reg(st["before"], st["tf_b"], t, f.shape))
+                hd, _, _ = target0.detect_holes(d, t.mm_per_px, min_mm=2.0,
+                                                min_circularity=0.30)
+                hd, _ = _keep_on_card(hd, t, spec)
+                nominal = np.pi * (PELLET_MM / 2.0 / t.mm_per_px) ** 2
+                if any(h["peak"] >= 40 and h["area_px"] >= 0.5 * nominal
+                       for h in hd):
+                    score_now("camera - found at the end of the session")
+                else:
+                    print("  nothing unscored.", flush=True)
+        except KeyboardInterrupt:
+            pass
     finally:
         cam.close()
-    print(f"\n  session: {scored} shot(s) scored")
-    _print_log(max(scored, 1))
+    print(f"\n  session: {st['scored']} shot(s) scored over "
+          f"{st['card_no']} card(s)")
+    _print_log(max(st["scored"], 1))
 
 
 def cmd_bench(a):
@@ -1019,21 +1395,34 @@ def main():
                                 "after each")
             s.add_argument("--ask", action="store_true",
                            help="ask for your by-eye call on a single shot")
-            s.add_argument("--rule", choices=("visible", "gauge"),
-                           default="visible",
-                           help="touch rule: visible hole incl. tears (default) "
-                                "or official pellet-sized gauge")
+            s.add_argument("--rule", choices=("pellet", "visible", "gauge"),
+                           default="pellet",
+                           help="touch rule: pellet's own mark, tears ignored "
+                                "(default, matches the shooter's calls); "
+                                "visible hole incl. tears; or official gauge")
             s.add_argument("--auto", action="store_true",
                            help="hands-free: the camera mic triggers each shot")
             s.add_argument("--mic", default="Kiyo")
-            s.add_argument("--trigger-db", type=float, default=52.0,
+            # 2026-11: shots +48..+65 dB, 204-370 ms; other sounds (card
+            # change, magnet clang) up to +57 dB but at most 160 ms
+            s.add_argument("--trigger-db", type=float, default=45.0,
                            help="auto: loudness over the room floor")
-            s.add_argument("--trigger-ms", type=float, default=100.0,
+            s.add_argument("--trigger-ms", type=float, default=180.0,
                            help="auto: minimum sound length")
             s.add_argument("--settle", type=float, default=1.0,
                            help="auto: seconds after impact before capture")
             s.add_argument("--verbose", action="store_true",
                            help="auto: print every sound and full reports")
+            s.add_argument("--no-speak", dest="speak", action="store_false",
+                           help="auto: no sounds / spoken scores")
+            s.add_argument("--watch", type=float, default=2.0,
+                           help="auto: seconds between card-change checks")
+            s.add_argument("--speaker", action="store_true",
+                           help="auto: announcements play from a speaker near "
+                                "the camera - ignore the mic while they play")
+            s.add_argument("--per-card", type=int, default=None,
+                           help="auto: announce 'change the card' after this "
+                                "many shots on a card")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")
         s.add_argument("--every", type=int, default=3,

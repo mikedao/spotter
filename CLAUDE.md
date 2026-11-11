@@ -201,6 +201,51 @@ because ISSF awards the higher value when the hole touches the line.
   >= 100 ms, capture 1.0 s after impact, 2 s echo window.
 - A trigger with no new hole is ignored AND the baseline is kept, so a missed
   hole can never be silently absorbed into the baseline.
+- `shot --auto` announces each result (macOS `afplay` + `say`): Glass +
+  spoken score = ok; Sosumi + "check shot N, <reason>" = flagged; Basso +
+  "shot not scored" = failed. `--no-speak` turns it off. Through a laptop
+  speaker near the Kiyo, Basso measured +52.6 dB (over a shot); `--speaker`
+  ignores the mic while an announcement plays. Default is OFF (earbuds).
+  "not scored" is spoken at most once per 10 s as a loop backstop.
+- **The camera is a second trigger** (2026-11: one real shot made no sound
+  trigger; the next comparison held two holes and `--expect 1` dropped one).
+  Every `--watch` s the camera compares the card with the baseline; a
+  hole-sized new region (peak >= 40, area >= half a pellet) still there on the
+  next check is scored and announced "found without a sound". Sounds within
+  12 dB of the trigger threshold are always printed, so a quiet miss is
+  visible next time.
+- **Movement guard** (2026-11 phantom: a magnet's clang while the shooter -
+  caught in the baseline - mounted the card). `_scene_moving` = >1% of the
+  card bbox changed beyond everything nearby, BOTH directions (a plain
+  |difference| counted shifted printed lines as movement, and the resulting
+  re-baseline SWALLOWED a real hole). A capture whose view changed that much
+  is not scored; after movement, once still for two checks, a fresh baseline
+  is taken - but only after checking the old baseline for a new hole first.
+- `_scene_moving` is measured INSIDE RING 1 only: the card's outer edge is
+  beyond the fitted rings, its registration is an extrapolation that shifts
+  2-3 px between frames minutes apart, and the outline alone read 2.1%
+  "changed" on a still scene - enough to reject a real shot. Real shot pairs
+  read 0.10-0.46% against the 1% limit. A movement rejection is announced and
+  its frames saved; it is never silent.
+- Ctrl+C runs a FINAL CHECK for an unscored hole (waits up to ~6 s for a still
+  view): the last shot of a session has no later check to catch a missed
+  sound (2026-11: the 10th shot of a string was lost this way).
+- Sound misses EXPLAINED (2026-11 output): the announcement mute stamped an
+  announcement's end lazily, at the next sound - so the next SHOT was
+  "ignored: own announcement" (7 shots in one string; the camera net rescued
+  most). Fixed (`_track_announcements` every loop pass), and the mute is now
+  OFF unless `--speaker` (the shooter uses earbuds). Shots also ran as quiet
+  as +48.5 dB: trigger is now >= +45 dB AND >= 180 ms (shots 204-370 ms;
+  card-change / magnet sounds at most 160 ms).
+- A re-baseline after movement must not proceed when the hole it found could
+  not be scored (that swallowed the 10th shot); it keeps the old baseline for
+  up to 3 tries, then warns.
+- **Card changes are detected** in `--auto`: every `--watch` s (2) between
+  shots it checks the target is in view. Gone for 2 checks = "card off"; back
+  for 2 checks = new baseline, and `_same_card` decides new vs same card by
+  whether the earlier holes (bright through the diffuser) are still at their
+  positions - new card clears the earlier-hole list used by the overlap check.
+  Validated on saved frames: same card / same card pre-holes / different card.
 - Never discard queued audio after scoring: a shot fired during scoring would
   be lost. The echo window handles the trap's ringing.
 - The camera stays open in a reader thread (`_LiveCamera`); release it only
@@ -244,18 +289,24 @@ because ISSF awards the higher value when the hole touches the line.
   called 8. Ground truth must come from the photo taken right after each
   shot (`out/shots/NNN_after.png`) or a call made before the next shot - the
   shot-by-shot capture sees each hole before later damage.
-- **Touch rule is the VISIBLE hole (shooter's choice, 2026-11)**, default for
-  `shot`; `--rule gauge` gives the official ISSF plug-gauge rule (pellet-sized
-  circle at the hole centre). `target0.visible_edge` reads the PLAIN registered
-  difference (the max-filtered one erodes ~2 px off real edges) inside the
-  detected area, at 30% of peak (50% lost the part of a hole lying over a
-  WHITE ring line in the black - that patch was already bright before), and
-  uses every fragment (one component made it jump). Validated on 9 real shots
-  with known rings: all match, incl. 006 (7) and 013 (6) that the gauge rule
-  missed. If the visible region reaches an EARLIER hole on the card (sessions
-  track them; one card per session), the edge partly belongs to the old hole
-  (a real 7 read as 9), so it falls back to the gauge and flags OVERLAPS
-  EARLIER HOLE.
+- **Touch rule is "pellet" (default for `shot`, 2026-11).** Reviewing shots
+  one by one, the shooter judges by the PELLET'S OWN MARK - folding tears
+  back - not the visible tear. Fitted on 20 shooter-called real shots:
+  position = region CENTROID (the circle fit chose the wrong end of a tear
+  several times; the shooter said the centroid was closer 4 of 6 times), mark
+  diameter `PELLET_MARK_MM` = 4.5 + 2*0.65 mm. Matches 20/20 (plain 4.5 mm
+  gauge 17/20 - it always erred OUTWARD; visible-hole rule 18/20 - a tear
+  reaching a line the pellet did not). 0.65 is mid-window (0.45..0.91), so
+  only ~0.2 mm margin: LINE CALL / RING UNCERTAIN flags stay essential
+  (5 of 19 flagged). Overlapping an earlier hole -> circle-fit position (the
+  centroid is dragged into the old hole). `--rule gauge|visible` remain.
+  The visible rule's implementation notes (`target0.visible_edge`): reads the
+  PLAIN difference at 30% of peak, all fragments - see git history.
+- **Line calls go both ways within ~0.4 mm** - not a bias: 006 and 013 (gauge
+  rule) read 0.03 / 0.36 mm outside lines the shooter saw touched; 021b
+  (visible rule) read 0.10 mm INSIDE a line the shooter saw clear. The 0.5 mm
+  LINE CALL flag caught every one; the shooter's call is final on flagged
+  shots (recorded in `your_call`).
 - **Line calls may lean outward.** Two touching-line shots the shooter called
   (006: 7, 013: 6) the system put just OUTSIDE the line (013: 0.36 mm). Either
   the eye judges the visible torn hole (wider than the 4.5 mm the system and

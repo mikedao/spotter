@@ -390,7 +390,8 @@ def refine_bull_ellipse(gray_flat, tf, n_rays=360, span_in=0.15, span_out=0.15,
         g0 = grad[idx, k]
         gp1 = grad[idx, np.clip(k + 1, 0, grad.shape[1] - 1)]
         denom = (gm1 - 2 * g0 + gp1)
-        delta = np.where(np.abs(denom) > 1e-6, 0.5 * (gm1 - gp1) / denom, 0.0)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            delta = np.where(np.abs(denom) > 1e-6, 0.5 * (gm1 - gp1) / denom, 0.0)
         delta = np.clip(delta, -1.0, 1.0)
         r_edge = rr[idx, k] + delta * (rr[idx, 1] - rr[idx, 0])
 
@@ -510,7 +511,8 @@ def _extract_ring_points(img, w2i, feats, halfw, step_mm, n_rays=360):
         kk = np.clip(k, 1, v.shape[1] - 2)
         vm1, v0, vp1 = v[idx, kk - 1], v[idx, kk], v[idx, kk + 1]
         den = vm1 - 2 * v0 + vp1
-        delta = np.where(np.abs(den) > 1e-9, 0.5 * (vm1 - vp1) / den, 0.0)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            delta = np.where(np.abs(den) > 1e-9, 0.5 * (vm1 - vp1) / den, 0.0)
         delta = np.clip(delta, -1.0, 1.0)
         r_hat = r[0, 0] + (kk + off + delta) * step_mm
         x, y = w2i(r_hat * ct[:, 0], r_hat * st[:, 0])

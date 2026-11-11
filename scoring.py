@@ -30,6 +30,16 @@ PELLET_MM = 4.5  # .177
 # shooter saw it touching, so the margin is widened to 0.5.
 LINE_CALL_MM = 0.5
 
+# The mark a pellet leaves in the target paper, as the shooter judges a touch
+# ("fold the tear back and look at the pellet's ring"). Fitted 2026-11 to 20
+# shooter-called real shots, positions from the region centroid: touch
+# allowance over the 4.5 mm pellet of 0.5-0.8 mm (radius) matched 20/20
+# (none: 17/20; the visible-hole rule: 18/20). 0.45 is the least that counts
+# shot 037 as touching, 0.91 the most before shot 021b would be. 0.65 sits in
+# the middle of that window, ~0.2 mm margin each side - so line calls are
+# still flagged. Re-check as more calls come in.
+PELLET_MARK_MM = PELLET_MM + 2 * 0.65
+
 
 @dataclass(frozen=True)
 class TargetSpec:
