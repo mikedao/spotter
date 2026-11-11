@@ -307,8 +307,9 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
 
     if verbose:
         print(f"\n{spec.name}")
+    geo = {}
     if tf is None:
-        tf, _ = establish(after, spec, verbose=verbose)
+        tf, geo = establish(after, spec, verbose=verbose)
     if tf is None:
         return None
 
@@ -422,7 +423,8 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
     print(f"  difference image -> {OUT/'p1_shot_diff.png'}\n")
     f = hd[0]["fit"]
     return {"n": n, "found": True, "row": best, "fit_ok": f["ok"],
-            "arc_deg": f["arc_deg"], "regions": len(hd), "tf": tf}
+            "arc_deg": f["arc_deg"], "regions": len(hd), "tf": tf,
+            "geo_rms": geo.get("rms_mm"), "geo_persp": geo.get("perspective")}
 
 
 def cmd_shot(a):
@@ -617,9 +619,25 @@ def _muted(announcements, when, tail=0.7):
     return False
 
 
+def _direction(x_mm, y_mm, inner_ten=False):
+    """Where the shot is from the centre, in the shooter's words: high, high
+    right, right, low right, low, low left, left, high left - or centre for an
+    inner ten. Target +y is up (image-up through the centre, see
+    geometry.fit_perspective)."""
+    import math
+    if inner_ten or math.hypot(x_mm, y_mm) < 1.0:
+        return "centre"
+    names = ["right", "high right", "high", "high left",
+             "left", "low left", "low", "low right"]
+    ang = math.degrees(math.atan2(y_mm, x_mm)) % 360.0
+    return names[int(((ang + 22.5) % 360.0) // 45.0)]
+
+
 def _spoken(r, res):
     """The result as a short phrase for `say`."""
-    words = f"{r['decimal']:.1f}" + (", inner ten" if r["inner_ten"] else "")
+    words = (f"{r['decimal']:.1f}, "
+             + _direction(r["x_mm"], r["y_mm"], r["inner_ten"])
+             + (", inner ten" if r["inner_ten"] else ""))
     why = []
     if r.get("line_call"):
         why.append("line call")
@@ -806,7 +824,9 @@ def _shot_auto(a, spec):
             cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
                         np.clip(img, 0, 255).astype(np.uint8))
         r = res["row"]
-        print(f"  >>> {r['decimal']}   ring {r['integer']}   "
+        print(f"  >>> card shot {len(st['prior']) + 1}:  "
+              f"{r['decimal']}   ring {r['integer']}   "
+              f"{_direction(r['x_mm'], r['y_mm'], r['inner_ten']):<10} "
               f"x {r['x_mm']:+.1f}  y {r['y_mm']:+.1f} mm"
               + ("   INNER TEN" if r["inner_ten"] else "")
               + ("" if res["fit_ok"] or r.get("rule") != "gauge"
@@ -817,18 +837,30 @@ def _shot_auto(a, spec):
                  if r["ambiguous"] else "")
               + ("   OVERLAPS EARLIER HOLE - check by eye" if r["overlap"] else "")
               + "\n", flush=True)
+        # Each hole in the black tears up ring lines the geometry is fitted
+        # to; say so if the fit is degrading as the card fills up.
+        if res.get("geo_persp") is False:
+            print("  ! geometry: perspective fit FAILED on this frame - "
+                  "scores are unreliable; consider a fresh card\n", flush=True)
+            say("check", "geometry warning, consider a fresh card")
+        elif res.get("geo_rms") is not None and res["geo_rms"] > 0.25:
+            print(f"  ! geometry: ring fit {res['geo_rms']:.2f} mm (usually "
+                  "~0.1-0.15) - the card is getting torn up\n", flush=True)
         words, flags = _spoken(r, res)
         if label.startswith("camera"):
             flags = ["found without a sound"] + flags
         _log_shot(res)
         st["prior"].append((r["x_mm"], r["y_mm"]))
-        full = a.per_card and len(st["prior"]) == a.per_card
+        k = len(st["prior"])                 # shot number ON THIS CARD
+        full = a.per_card and k == a.per_card
         tail = f". {a.per_card} shots, change the card" if full else ""
+        # Lead with the shot number on this card, so a missed shot is noticed
+        # at once ("shot five" when you expected six).
         if flags:
-            say("check", f"check shot {n}. " + ", ".join(flags) + f". {words}"
+            say("check", f"shot {k}. check. " + ", ".join(flags) + f". {words}"
                 + tail)
         else:
-            say("ok", words + tail)
+            say("ok", f"shot {k}. {words}" + tail)
         if full:
             print(f"  -- {a.per_card} shots on card {st['card_no']}: change the "
                   "card (it will say 'card off', then 'new card, ready') --\n",
