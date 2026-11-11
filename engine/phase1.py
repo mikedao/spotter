@@ -522,6 +522,10 @@ def _print_log(last):
     print()
 
 
+class CameraLost(RuntimeError):
+    """The camera (usually the Pi's stream) stopped delivering frames."""
+
+
 class _LiveCamera:
     """
     Keep the camera open and read continuously in a background thread, so a
@@ -529,25 +533,59 @@ class _LiveCamera:
     (seconds) or getting stale buffered frames.
     """
 
+    LOST_AFTER_S = 3.0      # no frames this long = connection lost
+    RETRY_EVERY_S = 2.0
+
     def __init__(self, device, w=1920, h=1080):
         import threading
+        import time
+        self.device = device
         self.cap = target0.open_camera(device, w, h)
         self.lock = threading.Lock()
         self.frame, self.seq = None, 0
+        self.last_frame_at = time.time()
+        self.lost = False
         self.running = True
         self.th = threading.Thread(target=self._run, daemon=True)
         self.th.start()
 
     def _run(self):
+        """Read forever. A stream from the Pi can drop (Wi-Fi, power): after
+        LOST_AFTER_S without a frame, say so and keep reopening until it is
+        back, so a session survives an outage instead of dying."""
+        import time
         while self.running:
             ok, bgr = self.cap.read()
+            now = time.time()
             if ok:
                 with self.lock:
                     self.frame, self.seq = bgr, self.seq + 1
+                    self.last_frame_at = now
+                if self.lost:
+                    self.lost = False
+                    print("  -- camera connection restored --", flush=True)
+                continue
+            if now - self.last_frame_at < self.LOST_AFTER_S:
+                time.sleep(0.05)
+                continue
+            if not self.lost:
+                self.lost = True
+                print(f"  -- camera connection LOST ({self.device}); "
+                      "reconnecting... --", flush=True)
+            try:
+                self.cap.release()
+            except Exception:
+                pass
+            time.sleep(self.RETRY_EVERY_S)
+            if self.running:
+                self.cap = cv2.VideoCapture(self.device)
 
     def grab(self, n=8, timeout=5.0):
-        """Average the next n frames that arrive AFTER this call."""
+        """Average the next n frames that arrive AFTER this call. Raises
+        CameraLost at once while the connection is down."""
         import time
+        if self.lost:
+            raise CameraLost(f"no frames from {self.device}")
         with self.lock:
             start = self.seq
         acc, last, t0 = [], start, time.time()
@@ -560,7 +598,7 @@ class _LiveCamera:
             else:
                 time.sleep(0.005)
         if not acc:
-            raise RuntimeError("camera delivered no frames")
+            raise CameraLost(f"no frames from {self.device} in {timeout:.0f} s")
         return np.mean(acc, axis=0)
 
     def close(self):
@@ -954,6 +992,15 @@ def _shot_auto(a, spec):
             w = {"card_on": True, "misses": 0, "still": 0, "cand": None,
                  "last": None, "next": time.time() + a.watch}
 
+            def camera_lost():
+                """Say so (once a minute at most); keep the baseline. Shots
+                fired meanwhile are found by the camera check once it's back."""
+                if time.time() - st.get("lost_said", -1e9) > 60.0:
+                    st["lost_said"] = time.time()
+                    print("  ! camera not delivering frames - holding the "
+                          "baseline until it is back\n", flush=True)
+                    say("fail", "camera connection lost")
+
             def new_hole(frame, tf_now):
                 """Position (mm) of the strongest hole-sized new region against
                 the baseline, or None."""
@@ -1087,7 +1134,10 @@ def _shot_auto(a, spec):
                 _track_announcements(st["ann"])
                 if time.time() >= w["next"] and q.qsize() < 5:
                     w["next"] = time.time() + a.watch
-                    watch()
+                    try:
+                        watch()
+                    except CameraLost:
+                        camera_lost()
                 if blk is None:
                     continue
                 for e in det.feed(blk):
@@ -1114,10 +1164,16 @@ def _shot_auto(a, spec):
                     wait = a.settle - (time.time() - (t_audio0 + e["t"]))
                     if wait > 0:
                         time.sleep(wait)
-                    if score_now(f"sound +{e['over_db']:.0f} dB", trigger="sound",
-                                 sound_db=round(e["over_db"], 1),
-                                 at=t_audio0 + e["t"]):
-                        w["cand"] = None
+                    try:
+                        if score_now(f"sound +{e['over_db']:.0f} dB",
+                                     trigger="sound",
+                                     sound_db=round(e["over_db"], 1),
+                                     at=t_audio0 + e["t"]):
+                            w["cand"] = None
+                    except CameraLost:
+                        # the baseline is kept, so when the camera is back the
+                        # camera check still finds this shot's hole
+                        camera_lost()
     except KeyboardInterrupt:
         # The last shot of a session has nothing after it: if its sound was
         # missed and you stop within the camera check's ~4 s, it would be
@@ -1493,7 +1549,9 @@ def main():
         s = sub.add_parser(name, help=h)
         s.set_defaults(func=fn)
         s.add_argument("--target", choices=sorted(SPECS), default="pistol")
-        s.add_argument("--device", type=int, default=0)
+        s.add_argument("--device", type=target0.parse_device, default=0,
+                       help="camera index, or a stream URL from the Pi at the "
+                            "target (http://<pi>:8080/stream)")
         s.add_argument("--frames", type=int, default=8)
         s.add_argument("--expect", type=int, default=None)
         s.add_argument("--image", default=None,

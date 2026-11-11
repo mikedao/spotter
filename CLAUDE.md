@@ -67,6 +67,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `cameras.py` | Enumerate cameras, map OpenCV indices to names |
 | `audio.py` | Camera-mic shot TRIGGER (not positioning): impulse events vs running floor |
 | `report.py` | Posts engine events to the web app (`--report-to`), off the scoring thread |
+| `camstream.py` | Serves a local camera as MJPEG: tests the Pi stream path on the laptop |
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
@@ -142,6 +143,39 @@ Not built yet (agreed order): live MJPEG camera view (`--stream`, from the engin
 only one process can hold the camera), import of the pre-web `engine/out/shots` log,
 session history with trends, match/final timing and a virtual RO (freETarget
 has both), and the model trained from reviewed calls.
+
+## Deployment direction: Pi = camera, laptop = everything else (2026-11)
+
+The shooter has a **Raspberry Pi 3** and shoots alone. Decided: the Pi at the
+target ONLY streams the Kiyo (MJPEG over Wi-Fi; `ustreamer` on the Pi, which
+forwards the camera's own MJPEG without re-encoding); the laptop at the firing
+line runs the engine and the web app. Reasons: a Pi 3 cannot run the engine
+(geometry fit ~0.25 s/frame on the laptop, likely 10-20x slower on a Pi 3, and the
+2 s camera check would not keep up), and a Pi 5 needs 5 V / 5 A, which ordinary
+power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
+3 A). A Pi 3 runs off any power bank.
+
+- `--device` takes a camera index OR a stream URL (`target0.parse_device`).
+  `_LiveCamera` reports "camera connection LOST" after 3 s without frames and
+  reopens every 2 s; `grab` raises `CameraLost` meanwhile. `--auto` keeps its
+  baseline through an outage (a shot fired meanwhile is found by the camera
+  check once frames return) and says "camera connection lost" at most once a
+  minute.
+- `engine/camstream.py` serves a local camera as MJPEG, to test the stream path
+  on the laptop without a Pi. Python's HTTPServer looks up the host's FQDN on
+  bind, which HUNG on macOS: `Server.server_bind` skips it.
+- **JPEG compression does not affect scoring:** re-scoring six real shots from
+  JPEG frames, quality 95/85/75 kept every score; positions moved <= 0.02 mm.
+  1080p at JPEG q95 and 15 fps measured ~32 Mbit/s - too much for a Pi 3's
+  2.4 GHz Wi-Fi (~20-40 Mbit/s real); lower fps or quality on the Pi.
+- Sound trigger options with the Kiyo's mic now at the target: (1) the laptop
+  mic at the firing line hears the GUN (loud, 1 m away; other shooters' guns are
+  rejected by the no-new-hole check), (2) run `audio.py` on the Pi and send only
+  triggers, (3) camera-only (2-4 s per shot). Start with (1); thresholds were
+  tuned on the Kiyo hearing impacts and must be re-measured (`listen --mic`).
+- Not done yet: Pi setup (`pi/`: ustreamer service, v4l2-ctl to LOCK focus and
+  exposure - impossible on macOS, which caused the frame-to-frame focus/scale
+  drift), measuring real fps/bandwidth/latency from the Pi 3.
 
 ## Domain facts (verified against a physical card)
 

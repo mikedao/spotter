@@ -53,7 +53,29 @@ def thresholds(target):
 # --------------------------------------------------------------------------
 # camera
 # --------------------------------------------------------------------------
-def open_camera(device: int, width: int, height: int):
+def parse_device(value):
+    """--device is a camera index (0, 1, ...) or a stream URL - e.g. the Pi at
+    the target, http://<pi>:8080/stream."""
+    value = str(value)
+    return int(value) if value.isdigit() else value
+
+
+def is_stream(device):
+    return isinstance(device, str)
+
+
+def open_camera(device, width: int, height: int):
+    if is_stream(device):
+        # A network stream (the Pi at the target): its own process sets the
+        # resolution and camera controls; we only read.
+        cap = cv2.VideoCapture(device)
+        if not cap.isOpened():
+            sys.exit(f"\nCould not open the camera stream {device}.\n"
+                     "Is the Pi on and streaming, and on the same network?\n")
+        ok, frame = cap.read()
+        h, w = (frame.shape[:2] if ok else (0, 0))
+        print(f"camera stream {device}: {w}x{h}")
+        return cap
     cap = cv2.VideoCapture(device)
     if not cap.isOpened():
         sys.exit(
@@ -809,7 +831,8 @@ def main():
     ):
         s = sub.add_parser(name, help=helptext)
         s.set_defaults(func=fn)
-        s.add_argument("--device", type=int, default=0)
+        s.add_argument("--device", type=parse_device, default=0,
+                       help="camera index, or a stream URL (http://<pi>:8080/stream)")
         s.add_argument("--width", type=int, default=1920)
         s.add_argument("--height", type=int, default=1080)
         s.add_argument("--frames", type=int, default=16,
