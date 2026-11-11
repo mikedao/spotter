@@ -559,7 +559,8 @@ class _LiveCamera:
             self.cap.release()
 
 
-SOUNDS = {"info": "/System/Library/Sounds/Tink.aiff",
+SOUNDS = {"ready": "/System/Library/Sounds/Hero.aiff",
+          "info": "/System/Library/Sounds/Tink.aiff",
           "ok": "/System/Library/Sounds/Glass.aiff",
           "check": "/System/Library/Sounds/Sosumi.aiff",
           "fail": "/System/Library/Sounds/Basso.aiff"}
@@ -877,6 +878,7 @@ def _shot_auto(a, spec):
             print("  could not locate the target - check framing and lighting")
             return
         print("  baseline taken. Ready - fire when you like.\n")
+        say("ready", "ready")
 
         det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
         with sd.InputStream(device=idx, channels=min(2, info["max_input_channels"]),
@@ -964,8 +966,9 @@ def _shot_auto(a, spec):
                                   flush=True)
                             say("info", "new card, ready")
                         st["before"], st["tf_b"] = new, tf_new
-                        print("  -- view still again, new baseline --\n",
+                        print("  -- view still again, new baseline. Ready --\n",
                               flush=True)
+                        say("ready", "ready")
                     return
                 if not w["card_on"]:
                     # card back: wait for TWO still checks, then a baseline
@@ -991,7 +994,7 @@ def _shot_auto(a, spec):
                         msg = "new card, ready"
                     print(f"  -- {msg} (card {st['card_no']}, new baseline) --\n",
                           flush=True)
-                    say("info", msg)
+                    say("ready", msg)
                     return
                 # safety net: a hole-sized new region, stable over two checks
                 pos = new_hole(frame, tf_now)

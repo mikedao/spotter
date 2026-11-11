@@ -300,6 +300,13 @@ because ISSF awards the higher value when the hole touches the line.
   only ~0.2 mm margin: LINE CALL / RING UNCERTAIN flags stay essential
   (5 of 19 flagged). Overlapping an earlier hole -> circle-fit position (the
   centroid is dragged into the old hole). `--rule gauge|visible` remain.
+  OUT-OF-SAMPLE CHECK (2026-11, first 10-shot single card, 044-053, not used
+  for tuning): 9/10 rings right; the miss (049, called 8, scored 9.0) was
+  flagged LINE CALL. Re-fit on all 30 calls: centroid + 0.5-0.8 mm = 29/30;
+  037 (needs >= ~0.45) and 049 (needs <= ~0.25) contradict each other by
+  ~0.2 mm - that is the measurement's precision on torn paper, so line calls
+  stay flagged and the shooter decides. Circle fit vs centroid as the better
+  position: split (shooter picked fit 4x, centroid 3x on that card).
   The visible rule's implementation notes (`target0.visible_edge`): reads the
   PLAIN difference at 30% of peak, all fragments - see git history.
 - **Line calls go both ways within ~0.4 mm** - not a bias: 006 and 013 (gauge
