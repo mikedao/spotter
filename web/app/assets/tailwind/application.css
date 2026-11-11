@@ -1,0 +1,13 @@
+@import "tailwindcss";
+/* Muted versions of Tailwind's colors, copied from fl-shooters (regenerated there by
+   `bin/rails palette:mute[strength]`). */
+@import "./palette.css";
+@source "../../components";
+
+/* Dark mode follows the system setting. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+.turbo-progress-bar {
+  background: var(--color-blue-600);
+  height: 3px;
+}

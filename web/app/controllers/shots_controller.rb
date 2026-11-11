@@ -1,0 +1,29 @@
+# Reviewing one shot: its close-ups and how it was scored, and the shooter's call.
+# The call is stored beside the rules' proposal, never over it (see Shot).
+class ShotsController < ApplicationController
+  before_action :set_shot
+
+  def show
+    @session = @shot.practice_session
+    @next_shot = next_on_card
+  end
+
+  def update
+    @shot.record_call!(**call_params.to_h.symbolize_keys)
+    LiveBroadcast.new(@shot.practice_session).call
+    redirect_to(next_on_card || practice_session_path(@shot.practice_session), notice: "Call saved for shot #{@shot.number}.")
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to shot_path(@shot), alert: e.record.errors.full_messages.to_sentence
+  end
+
+  private
+    def set_shot = @shot = Shot.includes(card: :practice_session).find(params[:id])
+
+    def call_params
+      params.expect(shot: [ :ring, :decimal, :x_mm, :y_mm, :note ])
+    end
+
+    def next_on_card
+      @shot.card.shots.where("fired_at > ?", @shot.fired_at).order(:fired_at).first
+    end
+end

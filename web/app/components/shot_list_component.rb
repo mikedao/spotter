@@ -1,0 +1,54 @@
+# Every capture on a card, newest first: scored shots with their score, direction
+# and flags, and captures the engine could not score (kept so none is lost). Each
+# row opens the shot's review page.
+class ShotListComponent < ApplicationComponent
+  def initialize(shots:, title: "Shots") = (@shots, @title = shots, title)
+
+  def call
+    render(CardComponent.new(title: @title)) do
+      if @shots.empty?
+        tag.p("None yet.", class: "text-gray-600 dark:text-gray-300")
+      else
+        tag.ul(class: "-mx-4 -mb-4 divide-y divide-gray-200 sm:-mx-5 sm:-mb-5 dark:divide-gray-800") do
+          safe_join(@shots.reverse.map { row(it) })
+        end
+      end
+    end
+  end
+
+  private
+    def row(shot)
+      tag.li do
+        link_to(shot_path(shot), class: "flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
+          shot.scored? ? scored_row(shot) : unscored_row(shot)
+        end
+      end
+    end
+
+    def scored_row(shot)
+      safe_join([
+        tag.span("##{shot.number}", class: "w-8 text-gray-600 dark:text-gray-300"),
+        tag.span(format("%.1f", shot.final_decimal), class: "w-12 text-lg font-semibold tabular-nums"),
+        tag.span(shot.direction, class: "w-24"),
+        tag.span(shot.trigger == "sound" ? "heard" : "seen", class: "text-sm text-gray-600 dark:text-gray-300"),
+        badges(shot)
+      ])
+    end
+
+    def unscored_row(shot)
+      safe_join([
+        tag.span("–", class: "w-8 text-gray-600 dark:text-gray-300"),
+        tag.span("Not scored", class: "font-medium text-amber-700 dark:text-amber-300"),
+        tag.span(shot.unscored_reason, class: "text-sm text-gray-600 dark:text-gray-300")
+      ])
+    end
+
+    def badges(shot)
+      list = []
+      list << badge("called #{shot.call_ring}", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200") if shot.called?
+      shot.flags.each { list << badge(it, "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200") } unless shot.called?
+      tag.span(safe_join(list, " "), class: "ml-auto flex flex-wrap gap-1")
+    end
+
+    def badge(text, colours) = tag.span(text, class: classes("rounded px-2 py-0.5 text-sm", colours))
+end

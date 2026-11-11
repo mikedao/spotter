@@ -1,0 +1,33 @@
+<% content_for :title, "Sessions" %>
+
+<h1 class="mb-4 text-2xl font-semibold">Sessions</h1>
+
+<% if @sessions.empty? %>
+  <%= render(CardComponent.new) do %>
+    <p class="text-gray-600 dark:text-gray-300">
+      No sessions yet. Start the engine with
+      <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">phase1.py shot --auto --report-to http://localhost:3000</code>
+      and they appear here as you shoot.
+    </p>
+  <% end %>
+<% else %>
+  <%= render(CardComponent.new(padding: :none)) do %>
+    <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+      <% @sessions.each do |session| %>
+        <% shots = session.cards.flat_map(&:scored_shots) %>
+        <li>
+          <%= link_to practice_session_path(session), class: "flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800" do %>
+            <span class="font-medium">
+              <%= session.title %>
+              <% if session.live? %><span class="ml-2 rounded bg-green-100 px-2 py-0.5 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">live</span><% end %>
+            </span>
+            <span class="tabular-nums text-gray-600 dark:text-gray-300">
+              <%= pluralize(session.cards.size, "card") %> · <%= pluralize(shots.size, "shot") %>
+              <% if shots.any? %> · <%= shots.sum(&:final_ring) %> (<%= shots.sum(&:final_decimal).round(1) %>)<% end %>
+            </span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+<% end %>

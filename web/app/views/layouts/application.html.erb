@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title><%= [ content_for(:title), "Spotter" ].compact.join(" · ") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Spotter">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <header class="bg-gray-900 text-white">
+      <nav class="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
+        <%= link_to "Spotter", root_path, class: "text-lg font-semibold tracking-tight" %>
+        <%= link_to "Sessions", practice_sessions_path, class: "text-gray-300 hover:text-white" %>
+      </nav>
+    </header>
+
+    <main class="mx-auto w-full max-w-6xl px-4 py-6">
+      <% flash.each do |kind, message| %>
+        <div class="<%= kind == "alert" ? "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200" : "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" %> mb-4 rounded-md px-4 py-3"><%= message %></div>
+      <% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

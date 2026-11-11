@@ -1,0 +1,100 @@
+<% spec = @session.target_spec %>
+<% content_for :title, @shot.scored? ? "Shot #{@shot.number}" : "Unscored capture" %>
+
+<div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+  <h1 class="text-2xl font-semibold">
+    <% if @shot.scored? %>
+      Card <%= @shot.card.number %>, shot <%= @shot.number %>
+    <% else %>
+      Card <%= @shot.card.number %>, a capture that was not scored
+    <% end %>
+  </h1>
+  <%= link_to "Back to the session", practice_session_path(@session), class: "text-blue-700 hover:underline dark:text-blue-300" %>
+</div>
+
+<div class="space-y-4"
+     data-controller="shot-call"
+     data-action="closeup:picked->shot-call#picked"
+     data-shot-call-ten-dia-value="<%= spec.spec.ten_dia_mm %>"
+     data-shot-call-step-dia-value="<%= spec.spec.step_dia_mm %>"
+     data-shot-call-inner-ten-dia-value="<%= spec.spec.inner_ten_dia_mm %>"
+     data-shot-call-mark-mm-value="<%= TargetSpec::PELLET_MARK_MM %>">
+
+  <% if @shot.unscored? %>
+    <%= render(CardComponent.new) do %>
+      <p>The engine heard or saw something here but did not score it: <strong><%= @shot.unscored_reason %></strong>.</p>
+      <% if @shot.after_image.attached? %>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <% [ [ "Before", @shot.before_image ], [ "After", @shot.after_image ] ].each do |label, img| %>
+            <% next unless img.attached? %>
+            <figure><%= image_tag url_for(img), alt: label, class: "w-full rounded" %><figcaption class="text-sm text-gray-600 dark:text-gray-300"><%= label %></figcaption></figure>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  <% else %>
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <%= render(CardComponent.new(title: "Close-ups")) do %>
+        <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+          Tap where the pellet went through. <span style="color:#2563eb">Blue</span> was scored,
+          <span style="color:#ec4899">pink</span> is the region's centre, <span style="color:#16a34a">green</span> the circle fit,
+          <span style="color:#b45309">amber</span> your call.
+        </p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <%= render(CloseupComponent.new(shot: @shot, which: :before)) %>
+          <%= render(CloseupComponent.new(shot: @shot, which: :after, tappable: true)) %>
+        </div>
+      <% end %>
+
+      <div class="space-y-4">
+        <%= render(CardComponent.new(title: "Scored")) do %>
+          <div class="flex items-baseline gap-3">
+            <span class="text-5xl font-bold tabular-nums"><%= format("%.1f", @shot.decimal_score) %></span>
+            <span class="text-gray-600 dark:text-gray-300">ring <%= @shot.ring %> · <%= @shot.direction %> · <%= @shot.rule %> rule</span>
+          </div>
+          <% if @shot.flags.any? %>
+            <p class="mt-2 font-medium text-red-700 dark:text-red-300">Flagged: <%= @shot.flags.to_sentence %></p>
+          <% end %>
+          <dl class="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <dt class="text-gray-600 dark:text-gray-300">Edge to nearest line</dt><dd class="tabular-nums"><%= @shot.line_mm ? "#{@shot.line_mm.round(2)} mm" : "–" %></dd>
+            <dt class="text-gray-600 dark:text-gray-300">Picked up by</dt><dd><%= @shot.trigger == "sound" ? "sound (+#{@shot.sound_db&.round} dB)" : @shot.trigger %></dd>
+            <dt class="text-gray-600 dark:text-gray-300">Region</dt><dd class="tabular-nums"><%= (@shot.region || {})["dia_mm"]&.round(1) %> mm across</dd>
+            <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
+          </dl>
+        <% end %>
+
+        <%= render(CardComponent.new(title: "Your call")) do %>
+          <%= form_with model: @shot, url: shot_path(@shot), method: :patch, class: "space-y-4" do |f| %>
+            <fieldset>
+              <legend class="mb-2 text-sm text-gray-600 dark:text-gray-300">Ring</legend>
+              <div class="flex flex-wrap gap-2">
+                <% 10.downto(0) do |n| %>
+                  <label class="cursor-pointer">
+                    <%= f.radio_button :ring, n, checked: (@shot.call_ring || @shot.ring) == n, class: "peer sr-only", data: { shot_call_target: "ring" } %>
+                    <span class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-300 px-3 font-semibold peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= n %></span>
+                  </label>
+                <% end %>
+              </div>
+            </fieldset>
+
+            <p class="text-sm text-gray-700 dark:text-gray-200" data-shot-call-target="preview">
+              <% if @shot.call_x_mm %>Position recorded.<% else %>Tap the "After" close-up to mark where the pellet went through (optional, but the most useful label).<% end %>
+            </p>
+            <%= f.hidden_field :x_mm, value: @shot.call_x_mm, data: { shot_call_target: "x" } %>
+            <%= f.hidden_field :y_mm, value: @shot.call_y_mm, data: { shot_call_target: "y" } %>
+
+            <div>
+              <%= f.label :decimal, "Decimal (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
+              <%= f.number_field :decimal, value: @shot.call_decimal, step: 0.1, min: 0, max: 10.9, class: "w-28 rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
+            </div>
+            <div>
+              <%= f.label :note, "Note (optional)", class: "mb-1 block text-sm text-gray-600 dark:text-gray-300" %>
+              <%= f.text_field :note, value: @shot.call_note, placeholder: "e.g. torn right; pellet ring touches the 8", class: "w-full rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
+            </div>
+            <%= render(ButtonComponent.new(type: :submit, full_width: true)) { @next_shot ? "Save and next shot" : "Save" } %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

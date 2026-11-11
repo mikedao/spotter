@@ -421,10 +421,24 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
         cv2.imwrite(str(OUT / "shots" / f"{n:03d}_overlay.png"), vis)
     print(f"\n  overlay -> {OUT/'p1_shot.png'}")
     print(f"  difference image -> {OUT/'p1_shot_diff.png'}\n")
-    f = hd[0]["fit"]
+    h0 = hd[0]
+    f = h0["fit"]
+    cx0, cy0 = tf.to_mm(h0["xw"], h0["yw"])
+    # Every position estimate and the geometry's health, for the web app's review
+    # page and as training data for the planned model (docs/engine-events.md).
+    estimates = {"centroid": [round(cx0, 3), round(cy0, 3)],
+                 "circle_fit": {"x": f["x_mm"], "y": f["y_mm"], "ok": f["ok"],
+                                "arc_deg": round(f["arc_deg"], 1)},
+                 "visible_edge_r_mm": h0.get("vis_r_edge")}
+    region = {"dia_mm": round(h0["diam_px"] * tf.local_mm_per_px(h0["xw"], h0["yw"]), 2),
+              "circularity": round(h0["circ"], 3), "peak": round(h0["peak"], 1)}
     return {"n": n, "found": True, "row": best, "fit_ok": f["ok"],
             "arc_deg": f["arc_deg"], "regions": len(hd), "tf": tf,
-            "geo_rms": geo.get("rms_mm"), "geo_persp": geo.get("perspective")}
+            "geo_rms": geo.get("rms_mm"), "geo_persp": geo.get("perspective"),
+            "estimates": estimates, "region": region,
+            "geometry": {"ring_rms_mm": geo.get("rms_mm"),
+                         "perspective": geo.get("perspective"),
+                         "k1": geo.get("k1"), "k2": geo.get("k2")}}
 
 
 def cmd_shot(a):
@@ -768,15 +782,35 @@ def _shot_auto(a, spec):
     st = {"prior": [], "scored": 0, "card_no": 1, "ann": [],
           "last_fail_say": -1e9, "dirty": False}
 
+    # The web app (web/), when asked: every event below is also posted there.
+    rep = None
+    if a.report_to:
+        import os
+        from report import Reporter
+        rep = Reporter(a.report_to, target=a.target,
+                       rule=getattr(a, "rule", "pellet"),
+                       token=os.environ.get("SPOTTER_TOKEN"))
+        print(f"  reporting to {a.report_to} (session {rep.session_id})")
+
+    def emit(type_, data=None, files=None, at=None):
+        if rep is not None:
+            rep.send(type_, data, files, at)
+
+    def frames(before, after):
+        from report import png
+        return {"before_image": lambda: ("before.png", png(before), "image/png"),
+                "after_image": lambda: ("after.png", png(after), "image/png")}
+
     def say(kind, text):
         an = _announce(kind, text, a.speak)
         if an:
             st["ann"].append(an)
             st["ann"][:] = st["ann"][-5:]
 
-    def score_now(label):
+    def score_now(label, trigger="camera", sound_db=None, at=None):
         """Capture the after frame, score it against the baseline, report.
         Returns True if a shot was scored (and the baseline moved on)."""
+        at = at if at is not None else time.time()
         after = cam.grab(a.frames)
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
@@ -794,6 +828,9 @@ def _shot_auto(a, spec):
                   " new baseline once the view is still. Frames: "
                   f"{OUT / 'shots'}/unscored_{stamp}_*.png\n", flush=True)
             st["dirty"] = True
+            emit("unscored", {"reason": "view changed too much (person / card "
+                              "moving)", "trigger": trigger},
+                 frames(st["before"], after), at)
             if time.time() - st["last_fail_say"] > 10.0:
                 say("fail", "not scored, view moving")
                 st["last_fail_say"] = time.time()
@@ -817,6 +854,8 @@ def _shot_auto(a, spec):
                    if res is None else "no new hole on the card")
             print(f"  {why} - not scored, baseline kept. Frames: "
                   f"{sdir}/unscored_{stamp}_*.png\n", flush=True)
+            emit("unscored", {"reason": why, "trigger": trigger},
+                 frames(st["before"], after), at)
             if time.time() - st["last_fail_say"] > 10.0:   # loop backstop
                 say("fail", "shot not scored")
                 st["last_fail_say"] = time.time()
@@ -866,6 +905,29 @@ def _shot_auto(a, spec):
             print(f"  -- {a.per_card} shots on card {st['card_no']}: change the "
                   "card (it will say 'card off', then 'new card, ready') --\n",
                   flush=True)
+        if rep is not None:
+            from report import closeup, jpeg
+            b_img, b_tf, a_img, a_tf = st["before"], st["tf_b"], after, res["tf"]
+            centre = (r["x_mm"], r["y_mm"])
+            est = dict(res["estimates"],
+                       closeup={"centre": [round(centre[0], 3), round(centre[1], 3)],
+                                "px_per_mm": 20.0, "size_px": 480})
+            files = frames(b_img, a_img)
+            files["closeup_before"] = lambda: ("closeup_before.jpg", jpeg(
+                closeup(b_img, b_tf, centre)), "image/jpeg")
+            files["closeup_after"] = lambda: ("closeup_after.jpg", jpeg(
+                closeup(a_img, a_tf, centre)), "image/jpeg")
+            emit("shot", {
+                "engine_shot_id": f"{n:03d}", "trigger": trigger,
+                "sound_db": sound_db, "card_shot": k,
+                "x_mm": round(r["x_mm"], 3), "y_mm": round(r["y_mm"], 3),
+                "r_mm": round(r["r_mm"], 3), "decimal": r["decimal"],
+                "ring": r["integer"], "inner_ten": bool(r["inner_ten"]),
+                "rule": r.get("rule"), "line_mm": round(r["line_mm"], 3),
+                "line_call": bool(r["line_call"]),
+                "ambiguous": bool(r["ambiguous"]), "overlap": bool(r["overlap"]),
+                "estimates": est, "region": res["region"],
+                "geometry": res["geometry"]}, files, at)
         st["scored"] += 1
         st["before"], st["tf_b"] = after, res["tf"]
         return True
@@ -878,6 +940,9 @@ def _shot_auto(a, spec):
             print("  could not locate the target - check framing and lighting")
             return
         print("  baseline taken. Ready - fire when you like.\n")
+        emit("session_started", {"target": a.target,
+                                 "rule": getattr(a, "rule", "pellet")})
+        emit("ready")
         say("ready", "ready")
 
         det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
@@ -917,6 +982,7 @@ def _shot_auto(a, spec):
                         w["card_on"] = False
                         print("  -- target out of view (card off?) --", flush=True)
                         say("info", "card off")
+                        emit("card_off")
                     return
                 w["misses"] = 0
                 moving = (w["last"] is not None and
@@ -941,7 +1007,7 @@ def _shot_auto(a, spec):
                     # new region is there against the OLD baseline, score it
                     if new_hole(frame, tf_now) is not None:
                         last_trig = time.time() - t_audio0
-                        if score_now("camera - no sound heard"):
+                        if score_now("camera - no sound heard", trigger="camera"):
                             return
                         # could not score it: keep the OLD baseline (2026-11:
                         # re-baselining here swallowed a real shot). Give up
@@ -968,6 +1034,7 @@ def _shot_auto(a, spec):
                         st["before"], st["tf_b"] = new, tf_new
                         print("  -- view still again, new baseline. Ready --\n",
                               flush=True)
+                        emit("ready")
                         say("ready", "ready")
                     return
                 if not w["card_on"]:
@@ -992,9 +1059,12 @@ def _shot_auto(a, spec):
                         st["prior"].clear()
                         st["card_no"] += 1
                         msg = "new card, ready"
+                        emit("new_card")
                     print(f"  -- {msg} (card {st['card_no']}, new baseline) --\n",
                           flush=True)
                     say("ready", msg)
+                    if msg != "new card, ready":
+                        emit("ready")
                     return
                 # safety net: a hole-sized new region, stable over two checks
                 pos = new_hole(frame, tf_now)
@@ -1005,7 +1075,7 @@ def _shot_auto(a, spec):
                                                       pos[1] - w["cand"][1]) < 3:
                     w["cand"] = None
                     last_trig = time.time() - t_audio0   # mute its late sound
-                    score_now("camera - no sound heard")
+                    score_now("camera - no sound heard", trigger="camera")
                 else:
                     w["cand"] = pos
 
@@ -1044,7 +1114,9 @@ def _shot_auto(a, spec):
                     wait = a.settle - (time.time() - (t_audio0 + e["t"]))
                     if wait > 0:
                         time.sleep(wait)
-                    if score_now(f"sound +{e['over_db']:.0f} dB"):
+                    if score_now(f"sound +{e['over_db']:.0f} dB", trigger="sound",
+                                 sound_db=round(e["over_db"], 1),
+                                 at=t_audio0 + e["t"]):
                         w["cand"] = None
     except KeyboardInterrupt:
         # The last shot of a session has nothing after it: if its sound was
@@ -1074,13 +1146,17 @@ def _shot_auto(a, spec):
                 nominal = np.pi * (PELLET_MM / 2.0 / t.mm_per_px) ** 2
                 if any(h["peak"] >= 40 and h["area_px"] >= 0.5 * nominal
                        for h in hd):
-                    score_now("camera - found at the end of the session")
+                    score_now("camera - found at the end of the session",
+                              trigger="final_check")
                 else:
                     print("  nothing unscored.", flush=True)
         except KeyboardInterrupt:
             pass
     finally:
         cam.close()
+        if rep is not None:
+            emit("session_ended")
+            rep.close()
     print(f"\n  session: {st['scored']} shot(s) scored over "
           f"{st['card_no']} card(s)")
     _print_log(max(st["scored"], 1))
@@ -1452,6 +1528,10 @@ def main():
                            help="auto: no sounds / spoken scores")
             s.add_argument("--watch", type=float, default=2.0,
                            help="auto: seconds between card-change checks")
+            s.add_argument("--report-to", default=None, metavar="URL",
+                           help="auto: also post every event to the web app at "
+                                "URL, e.g. http://localhost:3000 "
+                                "(docs/engine-events.md)")
             s.add_argument("--speaker", action="store_true",
                            help="auto: announcements play from a speaker near "
                                 "the camera - ignore the mic while they play")

@@ -1,0 +1,14 @@
+<figure class="space-y-1">
+  <div class="relative <%= "cursor-crosshair" if @tappable %>" <%= tag.attributes(data: data) %>>
+    <%= image_tag url_for(attachment), alt: "Shot #{@shot.number} #{@which}", class: "block h-auto w-full select-none rounded", draggable: false %>
+    <svg viewBox="0 0 <%= @size %> <%= @size %>" class="pointer-events-none absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
+      <% marks.each do |kind, u, v| %>
+        <circle cx="<%= u.round(1) %>" cy="<%= v.round(1) %>" r="<%= pellet_r_px.round(1) %>" fill="none" stroke="<%= COLOURS[kind] %>" stroke-width="2.5" opacity="0.9" />
+      <% end %>
+      <% cu, cv = call_mark %>
+      <circle data-closeup-tap-target="mark" cx="<%= cu&.round(1) || -100 %>" cy="<%= cv&.round(1) || -100 %>" r="<%= pellet_r_px.round(1) %>"
+              fill="none" stroke="<%= COLOURS[:call] %>" stroke-width="3.5" />
+    </svg>
+  </div>
+  <figcaption class="text-sm text-gray-600 dark:text-gray-300"><%= @which == :after ? "After" : "Before" %></figcaption>
+</figure>

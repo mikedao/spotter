@@ -61,6 +61,9 @@ fitted to every printed ring, per frame:
 | `selftest.py` | Synthetic validation of detector AND off-axis geometry. No camera. |
 | `cameras.py` | Enumerate cameras, map OpenCV indices to names |
 | `audio.py` | Camera-mic shot TRIGGER (not positioning): impulse events vs running floor |
+| `report.py` | Posts engine events to the web app (`--report-to`), off the scoring thread |
+| `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
+| `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
 
 ### The central design idea
@@ -103,6 +106,36 @@ Rig: Razer Kiyo on **OpenCV device index 0** on the laptop (`cameras.py`
 re-checks this; it was 2 on the previous machine).
 macOS blocks camera access until Terminal/VS Code is granted it in
 System Settings > Privacy & Security > Camera, then fully restarted.
+
+## Web app (`web/`, 2026-11)
+
+Rails 8.1 · Ruby 4.0.9 · **SQLite** (a range device, later a Pi: no DB server) ·
+Hotwire · Tailwind v4 · ViewComponent · RSpec + FactoryBot. Follows fl-shooters'
+conventions (`../fl-shooters`; button/card/base components and palette copied
+from there). The user commits; don't commit unless asked.
+
+- Engine and web app are separate processes in one repo. The engine POSTs every
+  event (`shot --auto --report-to http://localhost:3000`) from a background thread
+  and never waits on the web app; the web app stores it and pushes it live
+  (Turbo Streams; `LiveBroadcast` replaces whole panels).
+- Events API: localhost-only unless `SPOTTER_TOKEN` is set (then Bearer token).
+- **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,
+  every estimate, geometry health, frames, straightened close-ups) and the
+  shooter's call (ring, decimal, TAPPED POSITION, note) in separate columns; their
+  difference is the training label for the planned model that will replace the
+  hand-written rules (fl-shooters stores proposal vs final holes the same way).
+  Displayed scores go through `Shot#final_*` (the call wins).
+- Close-ups are straightened top-down at 20 px/mm (`report.closeup`), so a tap is
+  a position in target mm and the patches are uniform for training.
+- `TargetSpec` (Ruby) and `shot_call_controller.js` re-implement `scoring.py`'s
+  arithmetic; `spec/models/target_spec_spec.rb` pins the same values. Change all
+  three together. Positions are mm, x right, **y UP** (fl-shooters stores y down).
+- Time zone defaults to Eastern (`SPOTTER_TIME_ZONE` overrides).
+
+Not built yet (agreed order): live MJPEG camera view (`--stream`, from the engine:
+only one process can hold the camera), import of the pre-web `out/shots` log,
+session history with trends, match/final timing and a virtual RO (freETarget
+has both), and the model trained from reviewed calls.
 
 ## Domain facts (verified against a physical card)
 
