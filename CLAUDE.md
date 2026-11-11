@@ -1,8 +1,11 @@
-# CLAUDE.md
+# CLAUDE.md — spotter
 
 Camera-based electronic scoring target for **air pistol / air rifle training**.
 A webcam photographs a paper target, finds the pellet hole, and scores it to
 ISSF decimal precision.
+
+Named for the spotter at a range: the thing that tells you where your shot
+landed.
 
 ## Why this exists
 

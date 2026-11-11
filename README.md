@@ -1,4 +1,6 @@
-# Camera Target Scorer
+# spotter
+
+*A spotter tells you where your shot landed.*
 
 An electronic scoring target for air pistol and air rifle **training**, built
 from a webcam and a sheet of paper. No custom electronics.
