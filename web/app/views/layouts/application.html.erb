@@ -21,7 +21,14 @@
     <header class="bg-gray-900 text-white">
       <nav class="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
         <%= link_to "Spotter", root_path, class: "text-lg font-semibold tracking-tight" %>
-        <%= link_to "Sessions", practice_sessions_path, class: "text-gray-300 hover:text-white" %>
+        <% if current_user %>
+          <%= link_to "Practice", practice_sessions_path, class: "text-gray-300 hover:text-white" %>
+          <span class="ml-auto text-gray-300"><%= current_user.name %></span>
+          <%= button_to "Sign out", session_path, method: :delete, class: "cursor-pointer text-gray-300 hover:text-white" %>
+        <% else %>
+          <%= link_to "Sign in", new_session_path, class: "ml-auto text-gray-300 hover:text-white" %>
+          <%= link_to "Sign up", new_registration_path, class: "rounded-md bg-white px-3 py-1.5 font-medium text-gray-900 hover:bg-gray-100" %>
+        <% end %>
       </nav>
     </header>
 

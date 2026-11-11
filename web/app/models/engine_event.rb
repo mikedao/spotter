@@ -1,7 +1,10 @@
 # Applies one event from the spotter engine (contract: docs/engine-events.md at the
 # repo root) to the database, then pushes the change to every open range screen.
 #
-#   EngineEvent.new(payload_hash, files).apply!
+#   EngineEvent.new(payload_hash, files, session:).apply!
+#
+# The session exists already: the web app creates it when the user presses Start
+# (EngineRunner) and the engine reports into it.
 #
 # Idempotent per shot: the engine's shot id is unique within a session, so a
 # retried POST updates instead of duplicating.
@@ -13,7 +16,8 @@ class EngineEvent
 
   attr_reader :type, :session_id, :at, :data, :files
 
-  def initialize(payload, files = {})
+  def initialize(payload, files = {}, session: nil)
+    @session = session
     @type = payload["type"].to_s
     @session_id = payload["session_id"].to_s
     @at = Time.iso8601(payload["at"].to_s) rescue Time.current
@@ -24,21 +28,13 @@ class EngineEvent
   end
 
   def apply!
-    session = find_or_start_session
+    session = @session || PracticeSession.find_by!(engine_session_id: session_id)
     record = ActiveRecord::Base.transaction { send("apply_#{type}", session) }
     LiveBroadcast.new(session.reload).call
     record
   end
 
   private
-    def find_or_start_session
-      PracticeSession.find_or_create_by!(engine_session_id: session_id) do |s|
-        s.started_at = at
-        s.target = data["target"].presence || "pistol"
-        s.rule = data["rule"]
-      end
-    end
-
     def apply_session_started(session)
       session.update!(target: data["target"].presence || session.target, rule: data["rule"] || session.rule,
                       status: "ready")

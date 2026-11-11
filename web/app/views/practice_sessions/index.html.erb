@@ -1,14 +1,12 @@
-<% content_for :title, "Sessions" %>
+<% content_for :title, "Practice" %>
 
-<h1 class="mb-4 text-2xl font-semibold">Sessions</h1>
+<h1 class="mb-4 text-2xl font-semibold">Practice</h1>
+
+<div class="mb-4"><%= render(StartSessionComponent.new(running: @running, user: Current.user)) %></div>
 
 <% if @sessions.empty? %>
   <%= render(CardComponent.new) do %>
-    <p class="text-gray-600 dark:text-gray-300">
-      No sessions yet. Start the engine with
-      <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">cd engine &amp;&amp; ./.venv/bin/python phase1.py shot --auto --report-to http://localhost:3000</code>
-      and they appear here as you shoot.
-    </p>
+    <p class="text-gray-600 dark:text-gray-300">No sessions yet. Start one above; it appears here and updates live as you shoot.</p>
   <% end %>
 <% else %>
   <%= render(CardComponent.new(padding: :none)) do %>

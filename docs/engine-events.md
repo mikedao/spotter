@@ -3,6 +3,11 @@
 The spotter engine (`engine/phase1.py shot --auto --report-to URL`) reports everything it
 does to the web app (`web/`) as it happens. This file is the contract between them.
 
+The web app starts the engine itself when a signed-in user presses Start
+(`web/app/models/engine_runner.rb`): it creates the practice session first, then
+runs the engine with `--session-id <its id>` and `SPOTTER_TOKEN=<that session's
+one-time run token>`.
+
 ## Transport
 
 `POST {URL}/api/events`, `multipart/form-data`:
@@ -13,8 +18,10 @@ does to the web app (`web/`) as it happens. This file is the contract between th
 | `before_image`, `after_image` | full frames, PNG (shot and unscored events) |
 | `closeup_before`, `closeup_after` | straightened close-ups, JPEG (shot events) |
 
-Auth: `Authorization: Bearer <SPOTTER_TOKEN>` when the web app has `SPOTTER_TOKEN`
-set; without it the web app accepts only requests from its own machine.
+Auth: every event must name a session the web app created (`session_id`) and send
+`Authorization: Bearer <that session's run token>` (the engine sends
+`SPOTTER_TOKEN`). Anything else is 401: an engine can only write into the session
+it was started for.
 
 The engine posts from a background thread and never lets the web app slow or stop
 scoring: if the web app is down, events are logged and dropped, and the shot log
@@ -26,7 +33,8 @@ scoring: if the web app is down, events are logged and dropped, and the shot log
 { "type": "shot", "session_id": "20261111-153102-4f2a", "at": "2026-11-11T15:31:10.412Z", "data": { } }
 ```
 
-`session_id` is made by the engine once per run. `at` is when it happened (for a
+`session_id` is the web app's id for the session (`--session-id`); an engine run
+by hand without it makes its own, which the web app will refuse. `at` is when it happened (for a
 shot: the impact). Positions are **millimetres from the target centre, x right,
 y UP**.
 

@@ -1,0 +1,32 @@
+<%= render(CardComponent.new(title: "Start a session")) do %>
+  <% if @running %>
+    <p class="text-gray-700 dark:text-gray-200">
+      <% if @running.user == @user %>
+        Your session is running.
+        <%= link_to "Go to the range screen", helpers.practice_session_path(@running), class: "text-blue-700 underline dark:text-blue-300" %>
+      <% else %>
+        <strong><%= @running.user.name %></strong> is shooting (since <%= @running.started_at.strftime("%H:%M") %>). One session at a time on this rig.
+      <% end %>
+    </p>
+  <% else %>
+    <%= form_with model: PracticeSession.new, url: helpers.practice_sessions_path, class: "flex flex-wrap items-end gap-4" do |f| %>
+      <fieldset>
+        <legend class="mb-1 text-sm font-medium">Target</legend>
+        <div class="flex gap-2">
+          <% TargetSpec::SPECS.each_value do |spec| %>
+            <label class="cursor-pointer">
+              <%= f.radio_button :target, spec.key, checked: spec.key == "pistol", class: "peer sr-only" %>
+              <span class="inline-flex min-h-11 items-center rounded-md border border-gray-300 px-3 font-medium peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= spec.name %></span>
+            </label>
+          <% end %>
+        </div>
+      </fieldset>
+      <div>
+        <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
+        <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+      </div>
+      <%= render(ButtonComponent.new(type: :submit, size: :lg)) { "Start" } %>
+    <% end %>
+    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Starts the engine on this computer's camera and microphone. Wait for "ready" before your first shot.</p>
+  <% end %>
+<% end %>

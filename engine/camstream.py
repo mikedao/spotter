@@ -24,14 +24,19 @@ BOUNDARY = "spotterframe"
 
 
 class Camera:
-    """Reads continuously; keeps only the latest JPEG."""
+    """Reads continuously; keeps only the latest JPEG. With `image`, serves that
+    still picture as if it were a live camera (testing and demos without one)."""
 
-    def __init__(self, device, width, height, quality):
-        self.cap = cv2.VideoCapture(device)
-        if not self.cap.isOpened():
-            raise SystemExit(f"could not open camera {device} (camera permission?)")
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    def __init__(self, device, width, height, quality, image=None):
+        self.still = cv2.imread(image) if image else None
+        if image and self.still is None:
+            raise SystemExit(f"could not read {image}")
+        if self.still is None:
+            self.cap = cv2.VideoCapture(device)
+            if not self.cap.isOpened():
+                raise SystemExit(f"could not open camera {device} (camera permission?)")
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.quality = quality
         self.jpeg, self.seq = None, 0
         self.cond = threading.Condition()
@@ -39,7 +44,11 @@ class Camera:
 
     def _run(self):
         while True:
-            ok, frame = self.cap.read()
+            if self.still is not None:
+                ok, frame = True, self.still
+                time.sleep(1 / 30)
+            else:
+                ok, frame = self.cap.read()
             if not ok:
                 time.sleep(0.05)
                 continue
@@ -104,10 +113,12 @@ def main():
     p.add_argument("--height", type=int, default=1080)
     p.add_argument("--fps", type=float, default=15.0)
     p.add_argument("--quality", type=int, default=95)
+    p.add_argument("--image", default=None,
+                   help="serve this still image instead of a camera (testing, demos)")
     a = p.parse_args()
-    cam = Camera(a.device, a.width, a.height, a.quality)
+    cam = Camera(a.device, a.width, a.height, a.quality, a.image)
     srv = Server(("0.0.0.0", a.port), make_handler(cam, a.fps))
-    print(f"streaming camera {a.device} at http://<this machine>:{a.port}/stream "
+    print(f"streaming {a.image or f'camera {a.device}'} at http://<this machine>:{a.port}/stream "
           f"({a.fps:g} fps, JPEG quality {a.quality}). Ctrl+C to stop.")
     try:
         srv.serve_forever()

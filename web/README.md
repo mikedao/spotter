@@ -7,27 +7,50 @@ palette are copied from there).
 
 ## Run it
 
-Two terminals, from the repo root:
-
 ```bash
-cd web && bin/dev                                   # http://localhost:3000
-cd engine && ./.venv/bin/python phase1.py shot --auto --per-card 10 --report-to http://localhost:3000
+cd web && bin/dev            # http://localhost:3000
 ```
 
-Open http://localhost:3000. A session appears as soon as the engine starts, and
-updates live as you shoot (Turbo Streams; nothing to refresh).
+Sign up (open sign-up; each shooter sees only their own sessions), then press
+**Start** on the Practice page: the web app launches the engine
+(`EngineRunner`, from `../engine` with its `.venv`) and the range screen updates
+live as you shoot. **Stop** is Ctrl+C for the engine: it makes a last check for an
+unscored hole, then ends the session. One session at a time (one camera): while
+someone shoots, Start says who. If the engine dies (no camera, no mic), the range
+screen shows the last lines it printed.
+
+The rig, set in the environment of `bin/dev`:
+
+| | default | |
+|---|---|---|
+| `SPOTTER_CAMERA` | `0` | camera index, or the Pi's stream URL (`http://<pi>:8080/stream`) |
+| `SPOTTER_MIC` | `Kiyo` | microphone name to match (`MacBook` for the laptop's own) |
+| `SPOTTER_ENGINE_DIR` | `../engine` | where `phase1.py` and `.venv` are |
+| `SPOTTER_WEB_URL` | `http://127.0.0.1:$PORT` | where the engine posts its events |
+| `SPOTTER_TIME_ZONE` | Eastern | shown times |
+
+Start `bin/dev` from a terminal that has macOS camera and microphone permission:
+the engine inherits it.
+
+Forgotten password (the app sends no email):
+`bin/rails users:reset_password EMAIL=... PASSWORD=...`
+
+To test without a camera: `cd ../engine && ./.venv/bin/python camstream.py
+--image out/shots/053_after.png --port 8090`, then `SPOTTER_CAMERA=http://127.0.0.1:8090/stream
+SPOTTER_MIC=MacBook bin/dev`.
 
 From your phone on the same Wi-Fi: start the web app with
 `bin/rails server -b 0.0.0.0` (plus `bin/rails tailwindcss:watch` if editing styles)
 and open `http://<laptop's address>:3000`. Anyone on that network can then see
-and change calls - fine at home, think twice elsewhere. The events API still only
-accepts the engine on this machine unless `SPOTTER_TOKEN` is set (then the
-engine must send it, and does when the same variable is set in its shell).
+and change calls - fine at home, think twice elsewhere. The events API only accepts an engine the web app started (each session's own
+run token).
 
 ## What's where
 
 | | |
 |---|---|
+| `User`, `Session`, `Current` | Rails 8 authentication; open sign-up (`RegistrationsController`) |
+| `EngineRunner` | starts / stops the engine for a user, one session at a time, notices a dead engine |
 | `EngineEvent` | applies one engine event (contract: `../docs/engine-events.md`) |
 | `LiveBroadcast` | pushes a session's status line and live panel to open screens |
 | `PracticeSession` → `Card` → `Shot` | the data; a shot keeps the rules' PROPOSAL and the shooter's CALL in separate columns |

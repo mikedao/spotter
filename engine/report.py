@@ -80,10 +80,12 @@ def closeup(img, tf, centre_mm, size_px=480, px_per_mm=20.0):
 
 class Reporter:
     def __init__(self, base_url, target="pistol", rule="pellet", token=None,
-                 timeout=5.0):
+                 timeout=5.0, session_id=None):
         self.url = base_url.rstrip("/") + "/api/events"
-        self.session_id = (time.strftime("%Y%m%d-%H%M%S") + "-"
-                           + uuid.uuid4().hex[:4])
+        # The web app creates the session and passes its id (and token) when it
+        # starts the engine; a run started by hand makes its own.
+        self.session_id = session_id or (time.strftime("%Y%m%d-%H%M%S") + "-"
+                                         + uuid.uuid4().hex[:4])
         self.target, self.rule, self.token, self.timeout = target, rule, token, timeout
         self.q = queue.Queue(maxsize=200)
         self.failures = 0

@@ -1,6 +1,8 @@
 # One run of the engine's hands-free scorer (`phase1.py shot --auto`). Created by
 # the first event the engine sends; cards and shots arrive live after that.
 class PracticeSession < ApplicationRecord
+  belongs_to :user
+  has_secure_token :run_token   # the engine's events must present it (Api::EventsController)
   has_many :cards, -> { order(:number) }, dependent: :destroy, inverse_of: :practice_session
   has_many :shots, through: :cards
 

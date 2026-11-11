@@ -17,7 +17,12 @@ class ShotsController < ApplicationController
   end
 
   private
-    def set_shot = @shot = Shot.includes(card: :practice_session).find(params[:id])
+    # Only the owner's shots: another user's id is a 404, not a peek.
+    def set_shot
+      @shot = Shot.joins(card: :practice_session)
+                  .where(practice_sessions: { user_id: Current.user.id })
+                  .includes(card: :practice_session).find(params[:id])
+    end
 
     def call_params
       params.expect(shot: [ :ring, :decimal, :x_mm, :y_mm, :note ])

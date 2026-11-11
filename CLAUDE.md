@@ -122,10 +122,26 @@ conventions (`../fl-shooters`; button/card/base components and palette copied
 from there). The user commits; don't commit unless asked.
 
 - Engine and web app are separate processes in one repo. The engine POSTs every
-  event (`shot --auto --report-to http://localhost:3000`) from a background thread
-  and never waits on the web app; the web app stores it and pushes it live
-  (Turbo Streams; `LiveBroadcast` replaces whole panels).
-- Events API: localhost-only unless `SPOTTER_TOKEN` is set (then Bearer token).
+  event from a background thread and never waits on the web app; the web app
+  stores it and pushes it live (Turbo Streams; `LiveBroadcast` replaces whole panels).
+- **Users** (2026-11): Rails 8 authentication, OPEN sign-up, each user sees only
+  their own sessions (every query goes through `Current.user`; another user's id
+  is a 404). No password-reset email (the app sends none):
+  `bin/rails users:reset_password`. Sign in/up at `/sign_in`, `/sign_up`;
+  practice sessions at `/practice` (the login `Session` model is unrelated to
+  `PracticeSession`).
+- **The web app starts the engine** (decided over per-user tokens): Start creates
+  the `PracticeSession` and `EngineRunner` spawns `phase1.py shot --auto` with
+  `--session-id` and `SPOTTER_TOKEN=<session.run_token>`; the events API accepts
+  only a session the web app created, with its own token. Stop = SIGINT = Ctrl+C
+  (final check, then `session_ended`). One session at a time (one camera;
+  `EngineRunner::Busy` says who). A watcher thread (and `reconcile!` on page load)
+  ends a session whose engine died and keeps the log's tail in `engine_error`,
+  shown live in `SessionStatusComponent`. Rig settings are env vars
+  (`SPOTTER_CAMERA`, `SPOTTER_MIC`, ...; see web/README.md). Verified end to end:
+  start -> ready -> stop -> ended, and a missing mic -> ended with the error.
+- `engine/camstream.py --image FILE` streams a still photo as a camera: tests
+  and demos without the rig.
 - **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,
   every estimate, geometry health, frames, straightened close-ups) and the
   shooter's call (ring, decimal, TAPPED POSITION, note) in separate columns; their

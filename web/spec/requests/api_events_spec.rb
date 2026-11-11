@@ -1,11 +1,14 @@
 require "rails_helper"
 
 RSpec.describe "Engine events API" do
-  let(:sid) { "20261111-153102-4f2a" }
+  # The web app creates the session (EngineRunner) before the engine reports into it.
+  let!(:session) { create(:practice_session, engine_session_id: "20261111-153102-4f2a", status: "starting") }
+  let(:sid) { session.engine_session_id }
+  let(:auth) { { "Authorization" => "Bearer #{session.run_token}" } }
   let(:png) { Rack::Test::UploadedFile.new(StringIO.new("\x89PNG fake"), "image/png", original_filename: "after.png") }
 
-  def post_event(type, data = {}, at: "2026-11-11T15:31:10Z", files: {}, headers: {})
-    post "/api/events", params: { event: { type:, session_id: sid, at:, data: }.to_json, **files }, headers:
+  def post_event(type, data = {}, at: "2026-11-11T15:31:10Z", files: {}, headers: auth, session_id: sid)
+    post "/api/events", params: { event: { type:, session_id:, at:, data: }.to_json, **files }, headers:
   end
 
   def shot_data(id, x, y, **extra)
@@ -16,7 +19,7 @@ RSpec.describe "Engine events API" do
       region: { dia_mm: 9.4 }, geometry: { ring_rms_mm: 0.11 } }.merge(extra)
   end
 
-  it "builds a session, cards and shots from the engine's events" do
+  it "fills the session with cards and shots from the engine's events" do
     post_event("session_started", { target: "pistol", rule: "pellet" })
     expect(response).to have_http_status(:created)
     post_event("ready")
@@ -26,7 +29,7 @@ RSpec.describe "Engine events API" do
     post_event("new_card", at: "2026-11-11T15:33:00Z")
     post_event("shot", shot_data("046", 1.0, 1.0, line_call: true), at: "2026-11-11T15:33:20Z")
 
-    session = PracticeSession.find_by!(engine_session_id: sid)
+    session.reload
     expect(session.cards.map(&:number)).to eq [ 1, 2 ]
     expect(session.cards.first.shots.map(&:number)).to eq [ 1, 2 ]
     expect(session.cards.second.shots.first).to have_attributes(number: 1, line_call: true, engine_shot_id: "046")
@@ -51,20 +54,19 @@ RSpec.describe "Engine events API" do
     expect(response).to have_http_status(:unprocessable_entity)
   end
 
-  context "with SPOTTER_TOKEN set" do
-    before { Rails.configuration.x.engine_token = "s3cret" }
-    after { Rails.configuration.x.engine_token = nil }
+  it "needs the session's own run token" do
+    post_event("ready", headers: {})
+    expect(response).to have_http_status(:unauthorized)
 
-    it "requires the token" do
-      post_event("ready")
-      expect(response).to have_http_status(:unauthorized)
-      post_event("ready", headers: { "Authorization" => "Bearer s3cret" })
-      expect(response).to have_http_status(:created)
-    end
+    other = create(:practice_session)
+    post_event("ready", headers: { "Authorization" => "Bearer #{other.run_token}" })
+    expect(response).to have_http_status(:unauthorized)
+    expect(session.reload.status).to eq "starting"
   end
 
-  it "refuses other machines when no token is set" do
-    post "/api/events", params: { event: { type: "ready", session_id: sid }.to_json }, env: { "REMOTE_ADDR" => "192.168.1.50" }
-    expect(response).to have_http_status(:forbidden)
+  it "refuses a session the web app never started" do
+    post_event("ready", session_id: "made-up-by-someone")
+    expect(response).to have_http_status(:unauthorized)
+    expect(PracticeSession.count).to eq 1
   end
 end

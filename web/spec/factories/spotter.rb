@@ -1,5 +1,6 @@
 FactoryBot.define do
   factory :practice_session do
+    user
     sequence(:engine_session_id) { "20261111-1530#{it.to_s.rjust(2, '0')}-test" }
     target { "pistol" }
     rule { "pellet" }

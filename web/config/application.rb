@@ -43,10 +43,6 @@ module Web
       g.helper false
     end
 
-    # Bearer token the spotter engine must send to the events API. Unset means the
-    # API only accepts requests from this machine (the engine and the web app run
-    # side by side); set SPOTTER_TOKEN once the engine posts from another device.
-    config.x.engine_token = ENV["SPOTTER_TOKEN"].presence
 
     # Shot times are shown in the range's local time (the engine reports UTC).
     config.time_zone = ENV.fetch("SPOTTER_TIME_ZONE", "Eastern Time (US & Canada)")

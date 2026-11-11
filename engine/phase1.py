@@ -827,7 +827,8 @@ def _shot_auto(a, spec):
         from report import Reporter
         rep = Reporter(a.report_to, target=a.target,
                        rule=getattr(a, "rule", "pellet"),
-                       token=os.environ.get("SPOTTER_TOKEN"))
+                       token=os.environ.get("SPOTTER_TOKEN"),
+                       session_id=a.session_id)
         print(f"  reporting to {a.report_to} (session {rep.session_id})")
 
     def emit(type_, data=None, files=None, at=None):
@@ -1586,6 +1587,10 @@ def main():
                            help="auto: no sounds / spoken scores")
             s.add_argument("--watch", type=float, default=2.0,
                            help="auto: seconds between card-change checks")
+            s.add_argument("--session-id", default=None,
+                           help="auto: the web app's id for this session (it "
+                                "passes this, and SPOTTER_TOKEN, when it starts "
+                                "the engine)")
             s.add_argument("--report-to", default=None, metavar="URL",
                            help="auto: also post every event to the web app at "
                                 "URL, e.g. http://localhost:3000 "
