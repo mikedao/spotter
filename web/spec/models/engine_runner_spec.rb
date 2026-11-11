@@ -25,6 +25,27 @@ RSpec.describe EngineRunner do
     end
   end
 
+  it "uses the camera the shooter picked, and remembers it" do
+    allow(Process).to receive(:spawn).and_return(999_999)
+    allow(described_class).to receive(:watch)
+
+    session = described_class.start!(user:, target: "pistol", per_card: nil, camera: "http://192.168.1.40:8080/stream")
+
+    expect(session.camera).to eq "http://192.168.1.40:8080/stream"
+    expect(user.reload.last_camera).to eq "http://192.168.1.40:8080/stream"
+    expect(Process).to have_received(:spawn) do |_env, *cmd, **|
+      expect(cmd.each_cons(2)).to include([ "--device", "http://192.168.1.40:8080/stream" ])
+    end
+  end
+
+  it "refuses anything that isn't a camera number or a stream URL" do
+    [ "0; rm -rf /", "--help", "file:///etc/passwd", "1 2" ].each do |bad|
+      expect { described_class.start!(user:, target: "pistol", per_card: nil, camera: bad) }
+        .to raise_error(EngineRunner::BadCamera)
+    end
+    expect(PracticeSession.count).to eq 0
+  end
+
   it "runs one session at a time and says who is shooting" do
     running = create(:practice_session, user:, engine_pid: Process.pid, ended_at: nil)
     expect { described_class.start!(user: create(:user), target: "pistol", per_card: nil) }

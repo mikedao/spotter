@@ -142,6 +142,14 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
+- **Camera picker** on the Start form: "Find cameras" runs `cameras.py --json DIR`
+  (`CameraProbe`, ~5 s, refused while a session runs) and shows a preview per
+  camera - pick by PICTURE, names are only a hint. Or a stream URL. Remembered as
+  `users.last_camera`, recorded as `practice_sessions.camera`. `EngineRunner`
+  accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
+  the engine's command line.
+- Browser specs: `spec/system` (Capybara + Cuprite, as fl-shooters) for screens
+  request specs can't see; `SCREENSHOTS=1` saves tmp/screenshots/.
 - **Proposal vs call:** a `Shot` keeps the rules' proposal (position, score, flags,
   every estimate, geometry health, frames, straightened close-ups) and the
   shooter's call (ring, decimal, TAPPED POSITION, note) in separate columns; their

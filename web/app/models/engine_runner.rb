@@ -16,6 +16,8 @@
 # last lines of its log on the range screen; `reconcile!` does the same on page
 # load for a process that vanished while the web app was down.
 class EngineRunner
+  class BadCamera < StandardError; end
+
   class Busy < StandardError
     attr_reader :session
 
@@ -28,8 +30,15 @@ class EngineRunner
   class << self
     def engine_dir = Pathname(ENV.fetch("SPOTTER_ENGINE_DIR", Rails.root.join("..", "engine").to_s)).expand_path
     def python = ENV.fetch("SPOTTER_PYTHON", engine_dir.join(".venv/bin/python").to_s)
-    # The rig: which camera (index or the Pi's stream URL) and microphone.
+    # The rig: the default camera (index or the Pi's stream URL), and the
+    # microphone. The shooter picks the camera on the Start form.
     def camera = ENV.fetch("SPOTTER_CAMERA", "0")
+
+    # A camera is an OpenCV index or a stream URL - nothing else reaches the
+    # engine's command line.
+    CAMERA = %r{\A(\d{1,2}|(https?|rtsp)://[^\s"']+)\z}
+
+    def valid_camera?(value) = CAMERA.match?(value.to_s)
     def mic = ENV.fetch("SPOTTER_MIC", "Kiyo")
     def web_url = ENV.fetch("SPOTTER_WEB_URL", "http://127.0.0.1:#{ENV.fetch('PORT', 3000)}")
 
@@ -42,15 +51,18 @@ class EngineRunner
       nil
     end
 
-    def start!(user:, target:, per_card:)
+    def start!(user:, target:, per_card:, camera: nil)
       if (busy = running)
         raise Busy, busy
       end
+      camera = camera.to_s.strip.presence || self.camera
+      raise BadCamera, "that isn't a camera number or a stream URL" unless valid_camera?(camera)
 
       session = user.practice_sessions.create!(
         engine_session_id: "#{Time.current.strftime('%Y%m%d-%H%M%S')}-#{SecureRandom.hex(2)}",
-        target:, per_card: per_card.presence, rule: "pellet", status: "starting", started_at: Time.current
+        target:, per_card: per_card.presence, camera:, rule: "pellet", status: "starting", started_at: Time.current
       )
+      user.update!(last_camera: camera)
       log = Rails.root.join("log", "engine", "#{session.engine_session_id}.log")
       FileUtils.mkdir_p(log.dirname)
 
@@ -70,7 +82,7 @@ class EngineRunner
 
     def command(session)
       [ python, "phase1.py", "shot", "--auto",
-        "--target", session.target, "--device", camera, "--mic", mic,
+        "--target", session.target, "--device", session.camera.presence || camera, "--mic", mic,
         "--report-to", web_url, "--session-id", session.engine_session_id,
         *([ "--per-card", session.per_card.to_s ] if session.per_card) ]
     end

@@ -61,3 +61,10 @@ group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
 end
+
+group :test do
+  # Browser specs (spec/system) in headless Chrome, as in fl-shooters: for screens
+  # that request specs cannot see (Stimulus, pictures, layout).
+  gem "capybara"
+  gem "cuprite"
+end

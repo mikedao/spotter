@@ -23,11 +23,16 @@ The rig, set in the environment of `bin/dev`:
 
 | | default | |
 |---|---|---|
-| `SPOTTER_CAMERA` | `0` | camera index, or the Pi's stream URL (`http://<pi>:8080/stream`) |
+| `SPOTTER_CAMERA` | `0` | default camera; the shooter picks on the Start form (index or a stream URL), and their last pick is remembered |
 | `SPOTTER_MIC` | `Kiyo` | microphone name to match (`MacBook` for the laptop's own) |
 | `SPOTTER_ENGINE_DIR` | `../engine` | where `phase1.py` and `.venv` are |
 | `SPOTTER_WEB_URL` | `http://127.0.0.1:$PORT` | where the engine posts its events |
 | `SPOTTER_TIME_ZONE` | Eastern | shown times |
+
+**Find cameras** on the Start form runs the engine's `cameras.py --json` (~5 s)
+and shows a preview picture from each camera, so you pick the one pointed at the
+target by what it sees (macOS's names are only a hint: their order doesn't always
+match the camera numbers).
 
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.
@@ -71,6 +76,7 @@ when you can: it is the most precise label.
 ## Tests
 
 ```bash
-bundle exec rspec
+bundle exec rspec                      # includes spec/system (Capybara + Cuprite: needs Chrome)
+SCREENSHOTS=1 bundle exec rspec spec/system   # also saves tmp/screenshots/*.png
 bin/rubocop
 ```

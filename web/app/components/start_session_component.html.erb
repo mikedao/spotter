@@ -9,24 +9,72 @@
       <% end %>
     </p>
   <% else %>
-    <%= form_with model: PracticeSession.new, url: helpers.practice_sessions_path, class: "flex flex-wrap items-end gap-4" do |f| %>
+    <%= form_with model: PracticeSession.new, url: helpers.practice_sessions_path, id: "start_session", class: "space-y-5" do |f| %>
       <fieldset>
-        <legend class="mb-1 text-sm font-medium">Target</legend>
-        <div class="flex gap-2">
-          <% TargetSpec::SPECS.each_value do |spec| %>
+        <legend class="mb-2 text-sm font-medium">Camera</legend>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <% cameras.each do |cam| %>
             <label class="cursor-pointer">
-              <%= f.radio_button :target, spec.key, checked: spec.key == "pistol", class: "peer sr-only" %>
-              <span class="inline-flex min-h-11 items-center rounded-md border border-gray-300 px-3 font-medium peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= spec.name %></span>
+              <%= f.radio_button :camera, cam.value, checked: cam.value == chosen, class: "peer sr-only" %>
+              <span class="block overflow-hidden rounded-md border-2 border-gray-300 peer-checked:border-blue-600 dark:border-gray-700">
+                <%= image_tag helpers.camera_preview_path(cam.index, v: @probe.found_at.to_i), alt: "What camera #{cam.index} sees", class: "aspect-video w-full bg-black object-cover" %>
+                <span class="block px-3 py-2">
+                  <span class="font-medium"><%= cam.label %></span>
+                  <span class="text-sm text-gray-600 dark:text-gray-300"> · camera <%= cam.index %></span>
+                  <% if cam.dark? %><span class="block text-sm text-amber-700 dark:text-amber-300">Dark - covered, off, or not sharing</span><% end %>
+                </span>
+              </span>
             </label>
           <% end %>
+
+          <% if cameras.empty? || (!default_listed? && !chosen_url?) %>
+            <label class="cursor-pointer">
+              <%= f.radio_button :camera, chosen_url? ? EngineRunner.camera : chosen, checked: !chosen_url?, class: "peer sr-only" %>
+              <span class="flex h-full min-h-24 flex-col justify-center rounded-md border-2 border-gray-300 px-3 py-2 peer-checked:border-blue-600 dark:border-gray-700">
+                <span class="font-medium">Camera <%= chosen_url? ? EngineRunner.camera : chosen %></span>
+                <span class="text-sm text-gray-600 dark:text-gray-300"><%= @user.last_camera.present? ? "used last time" : "the default" %> - press Find cameras to see what each one shows</span>
+              </span>
+            </label>
+          <% end %>
+
+          <label class="cursor-pointer">
+            <%= f.radio_button :camera, "url", checked: chosen_url?, class: "peer sr-only" %>
+            <span class="flex h-full min-h-24 flex-col justify-center gap-2 rounded-md border-2 border-gray-300 px-3 py-2 peer-checked:border-blue-600 dark:border-gray-700">
+              <span class="font-medium">Stream URL</span>
+              <%= f.url_field :camera_url, value: (chosen if chosen_url?), placeholder: "http://<pi>:8080/stream", class: TextFieldComponent::INPUT %>
+            </span>
+          </label>
         </div>
       </fieldset>
-      <div>
-        <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
-        <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+
+      <div class="flex flex-wrap items-end gap-4">
+        <fieldset>
+          <legend class="mb-1 text-sm font-medium">Target</legend>
+          <div class="flex gap-2">
+            <% TargetSpec::SPECS.each_value do |spec| %>
+              <label class="cursor-pointer">
+                <%= f.radio_button :target, spec.key, checked: spec.key == "pistol", class: "peer sr-only" %>
+                <span class="inline-flex min-h-11 items-center rounded-md border border-gray-300 px-3 font-medium peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= spec.name %></span>
+              </label>
+            <% end %>
+          </div>
+        </fieldset>
+        <div>
+          <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
+          <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+        </div>
       </div>
-      <%= render(ButtonComponent.new(type: :submit, size: :lg)) { "Start" } %>
     <% end %>
-    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Starts the engine on this computer's camera and microphone. Wait for "ready" before your first shot.</p>
+
+    <div class="mt-5 flex flex-wrap items-center gap-3">
+      <%= render(ButtonComponent.new(type: :submit, size: :lg, form: "start_session")) { "Start" } %>
+      <%= button_to "Find cameras", helpers.refresh_cameras_path,
+            class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",
+            data: { turbo_submits_with: "Looking for cameras…" } %>
+      <span class="text-sm text-gray-600 dark:text-gray-300">
+        <% if @probe %>Cameras checked <%= helpers.time_ago_in_words(@probe.found_at) %> ago.<% else %>Takes a few seconds; shows what each camera sees.<% end %>
+      </span>
+    </div>
+    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Wait for "ready" before your first shot.</p>
   <% end %>
 <% end %>

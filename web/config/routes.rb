@@ -13,6 +13,10 @@ Rails.application.routes.draw do
   end
   resources :shots, only: %i[ show update ]
 
+  # The Start form's camera picker.
+  post "cameras/refresh", to: "cameras#refresh", as: :refresh_cameras
+  get "cameras/:index/preview", to: "cameras#preview", as: :camera_preview, constraints: { index: /\d+/ }
+
   namespace :api do
     post "events", to: "events#create"
   end

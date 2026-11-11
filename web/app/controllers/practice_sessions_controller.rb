@@ -14,8 +14,11 @@ class PracticeSessionsController < ApplicationController
   # Start: create the session and launch the engine for it.
   def create
     params = start_params
-    session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card])
+    camera = params[:camera] == "url" ? params[:camera_url] : params[:camera]
+    session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card], camera:)
     redirect_to practice_session_path(session)
+  rescue EngineRunner::BadCamera => e
+    redirect_to practice_sessions_path, alert: "Camera: #{e.message}."
   rescue EngineRunner::Busy => e
     redirect_to practice_sessions_path, alert: "#{e.message} - one session at a time on this rig."
   rescue ActiveRecord::RecordInvalid => e
@@ -34,6 +37,6 @@ class PracticeSessionsController < ApplicationController
     end
 
     def start_params
-      params.expect(practice_session: [ :target, :per_card ])
+      params.expect(practice_session: [ :target, :per_card, :camera, :camera_url ])
     end
 end

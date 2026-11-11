@@ -11,6 +11,12 @@ name list, then probe each index and save a snapshot you can eyeball.
 Then look at out/cam_<N>.png and use the winning index:
 
     ./.venv/bin/python target0.py preview --device 2
+
+For the web app's camera picker:
+
+    ./.venv/bin/python cameras.py --json DIR
+
+prints JSON on stdout and writes a small preview JPEG per camera into DIR.
 """
 import json
 import signal
@@ -75,10 +81,10 @@ def probe(idx):
             "path": path,
         }
     except Timeout:
-        print(f"  index {idx}: timed out after {PER_CAM_TIMEOUT}s, skipping")
+        print(f"  index {idx}: timed out after {PER_CAM_TIMEOUT}s, skipping", file=sys.stderr)
         return None
     except Exception as e:
-        print(f"  index {idx}: error {e}")
+        print(f"  index {idx}: error {e}", file=sys.stderr)
         return None
     finally:
         signal.alarm(0)
@@ -86,7 +92,34 @@ def probe(idx):
             cap.release()
 
 
+def json_mode(out_dir):
+    """For the web app's camera picker: probe every index, write a small preview
+    per camera into out_dir, print JSON. macOS's names are only a hint - their
+    order usually, not always, matches OpenCV's indices - so the web app shows
+    the PICTURES and the shooter picks the one pointed at the target."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    names = system_names()
+    cams = []
+    for i in range(MAX_INDEX):
+        r = probe(i)
+        if not r:
+            continue
+        frame = cv2.imread(str(r["path"]))
+        thumb = cv2.resize(frame, (640, int(640 * frame.shape[0] / frame.shape[1])))
+        name = f"cam_{i}.jpg"
+        cv2.imwrite(str(out_dir / name), thumb, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        cams.append({"index": i, "width": r["w"], "height": r["h"],
+                     "brightness": round(r["mean"], 1),
+                     "name_hint": names[i] if i < len(names) else None,
+                     "preview": name})
+    print(json.dumps({"names": names, "cameras": cams}))
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--json":
+        json_mode(sys.argv[2])
+        return
     print("\nCamera names known to macOS")
     print("-" * 62)
     names = system_names()
