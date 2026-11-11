@@ -62,6 +62,7 @@ crescent rather than taking its centroid).
 ## Setup
 
 ```bash
+cd engine
 python3 -m venv .venv
 ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python probe.py        # check camera access
@@ -74,6 +75,7 @@ Camera** to Terminal or VS Code, then fully restart that app.
 ## Usage
 
 ```bash
+cd engine
 ./.venv/bin/python phase1.py live              # real-time HUD for aiming the camera
 ./.venv/bin/python phase1.py locate            # show derived geometry + overlay
 ./.venv/bin/python phase1.py score             # find and score every hole
@@ -97,6 +99,7 @@ you which way to move things:
 ## Validation
 
 ```bash
+cd engine
 ./.venv/bin/python selftest.py     # synthetic frames, no camera needed
 ./.venv/bin/python scoring.py      # ring tables and scoring boundary checks
 ```

@@ -1,6 +1,6 @@
 # Engine → web events
 
-The spotter engine (`phase1.py shot --auto --report-to URL`) reports everything it
+The spotter engine (`engine/phase1.py shot --auto --report-to URL`) reports everything it
 does to the web app (`web/`) as it happens. This file is the contract between them.
 
 ## Transport
@@ -18,7 +18,7 @@ set; without it the web app accepts only requests from its own machine.
 
 The engine posts from a background thread and never lets the web app slow or stop
 scoring: if the web app is down, events are logged and dropped, and the shot log
-(`out/shots/calls.csv`) and frames on disk remain the record.
+(`engine/out/shots/calls.csv`) and frames on disk remain the record.
 
 ## Event JSON
 

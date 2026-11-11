@@ -1,7 +1,7 @@
 # spotter web
 
-The range screen and shot review for the spotter engine (the Python app in the repo
-root). Rails 8.1 · Ruby 4.0 · SQLite · Hotwire · Tailwind v4 · ViewComponent · RSpec,
+The range screen and shot review for the spotter engine (the Python app in
+`../engine`). Rails 8.1 · Ruby 4.0 · SQLite · Hotwire · Tailwind v4 · ViewComponent · RSpec,
 following fl-shooters' conventions (its button, card and base components and colour
 palette are copied from there).
 
@@ -10,8 +10,8 @@ palette are copied from there).
 Two terminals, from the repo root:
 
 ```bash
-cd web && bin/dev                                                   # http://localhost:3000
-./.venv/bin/python phase1.py shot --auto --per-card 10 --report-to http://localhost:3000
+cd web && bin/dev                                   # http://localhost:3000
+cd engine && ./.venv/bin/python phase1.py shot --auto --per-card 10 --report-to http://localhost:3000
 ```
 
 Open http://localhost:3000. A session appears as soon as the engine starts, and

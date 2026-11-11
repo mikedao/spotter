@@ -52,6 +52,11 @@ fitted to every printed ring, per frame:
 
 ## Architecture
 
+The repo has two halves: **`engine/`** (Python: camera, mic, geometry, scoring;
+its own `.venv`, its run data in `engine/out/`) and **`web/`** (Rails). Shared
+things stay at the root: `docs/` (the contract between them), this file, README.
+The engine files below live in `engine/`; run engine commands from there.
+
 | file | role |
 |---|---|
 | `scoring.py` | ISSF ring geometry + score. Pure maths, no OpenCV. |
@@ -88,6 +93,7 @@ any other way (no `cx + r/mm_per_px`, no `cv2.ellipse` of a ring).
 ## Running it
 
 ```bash
+cd engine
 ./.venv/bin/python phase1.py live          # real-time HUD for aiming the camera
 ./.venv/bin/python phase1.py locate        # derived geometry + ring overlay
 ./.venv/bin/python phase1.py score         # find and score every hole
@@ -133,7 +139,7 @@ from there). The user commits; don't commit unless asked.
 - Time zone defaults to Eastern (`SPOTTER_TIME_ZONE` overrides).
 
 Not built yet (agreed order): live MJPEG camera view (`--stream`, from the engine:
-only one process can hold the camera), import of the pre-web `out/shots` log,
+only one process can hold the camera), import of the pre-web `engine/out/shots` log,
 session history with trends, match/final timing and a virtual RO (freETarget
 has both), and the model trained from reviewed calls.
 

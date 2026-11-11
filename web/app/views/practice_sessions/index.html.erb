@@ -6,7 +6,7 @@
   <%= render(CardComponent.new) do %>
     <p class="text-gray-600 dark:text-gray-300">
       No sessions yet. Start the engine with
-      <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">phase1.py shot --auto --report-to http://localhost:3000</code>
+      <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">cd engine &amp;&amp; ./.venv/bin/python phase1.py shot --auto --report-to http://localhost:3000</code>
       and they appear here as you shoot.
     </p>
   <% end %>
