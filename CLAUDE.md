@@ -145,7 +145,13 @@ from there). The user commits; don't commit unless asked.
 - **Camera picker** on the Start form: "Find cameras" runs `cameras.py --json DIR`
   (`CameraProbe`, ~5 s, refused while a session runs) and shows a preview per
   camera - pick by PICTURE, names are only a hint. Or a stream URL. Remembered as
-  `users.last_camera`, recorded as `practice_sessions.camera`. `EngineRunner`
+  `users.last_camera`, recorded as `practice_sessions.camera`. The same probe
+  lists microphones; picking a camera selects its own mic (`CameraProbe.pair`:
+  same device name minus "camera"/"microphone"; `device_pair_controller.js`).
+  `--mic none` = camera only: no sound trigger, every shot found by the camera
+  check (2-4 s), and NOT flagged "found without a sound". The mic goes to the
+  engine as one `--mic=NAME` argument; `valid_mic?` refuses control chars and a
+  leading "-". `EngineRunner`
   accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
   the engine's command line.
 - Browser specs: `spec/system` (Capybara + Cuprite, as fl-shooters) for screens

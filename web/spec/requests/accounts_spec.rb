@@ -1,6 +1,11 @@
 require "rails_helper"
 
 RSpec.describe "Accounts" do
+  it "says it works with an iPhone, and who is responsible if you shoot it" do
+    get new_registration_path
+    expect(response.body).to include("Continuity Camera", "out of the line of fire", "isn't responsible if you shoot your camera")
+  end
+
   it "signs up and is signed straight in" do
     post registration_path, params: { user: { name: "Mike", email_address: " Mike@Example.com ",
                                                password: "range-day-10", password_confirmation: "range-day-10" } }

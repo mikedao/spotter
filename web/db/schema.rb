@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_11_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_11_221500) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -66,6 +66,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_220000) do
     t.string "engine_log"
     t.text "engine_error"
     t.string "camera"
+    t.string "mic"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["run_token"], name: "index_practice_sessions_on_run_token", unique: true
     t.index ["user_id"], name: "index_practice_sessions_on_user_id"
@@ -123,6 +124,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_220000) do
     t.datetime "updated_at", null: false
     t.string "name", default: "", null: false
     t.string "last_camera"
+    t.string "last_mic"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 

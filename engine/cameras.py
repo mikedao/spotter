@@ -113,7 +113,19 @@ def json_mode(out_dir):
                      "brightness": round(r["mean"], 1),
                      "name_hint": names[i] if i < len(names) else None,
                      "preview": name})
-    print(json.dumps({"names": names, "cameras": cams}))
+    print(json.dumps({"names": names, "cameras": cams, "microphones": microphones()}))
+
+
+def microphones():
+    """Audio inputs by name (the engine's --mic matches on the name)."""
+    try:
+        import sounddevice as sd
+        return [{"name": d["name"], "channels": int(d["max_input_channels"]),
+                 "sample_rate": int(d["default_samplerate"])}
+                for d in sd.query_devices() if d["max_input_channels"] > 0]
+    except Exception as e:                      # no audio stack: cameras still work
+        print(f"  (could not list microphones: {e})", file=sys.stderr)
+        return []
 
 
 def main():

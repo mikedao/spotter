@@ -2,6 +2,18 @@
 
 <div class="mx-auto max-w-md">
   <%= render(CardComponent.new(title: "Create an account")) do %>
+    <div class="mb-5 space-y-2 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+      <p>
+        Spotter works with your <strong>iPhone as the camera</strong>, through Continuity Camera,
+        as well as with an ordinary webcam.
+      </p>
+      <p>
+        <strong>Keep your camera out of the line of fire.</strong> Spotter is provided as is, and its maker
+        isn't responsible if you shoot your camera, whether it's an iPhone, a webcam or anything else,
+        or for any other damage near the target.
+      </p>
+    </div>
+
     <%= form_with model: @user, url: registration_path, class: "space-y-4" do |f| %>
       <%= render(TextFieldComponent.new(form: f, field: :name, label: "Name", autofocus: true, autocomplete: "name", hint: "Shown to others while you shoot, e.g. \"Mike is shooting\".")) %>
       <%= render(TextFieldComponent.new(form: f, field: :email_address, label: "Email", type: :email_field, autocomplete: "username", required: true)) %>

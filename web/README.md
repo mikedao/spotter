@@ -24,15 +24,18 @@ The rig, set in the environment of `bin/dev`:
 | | default | |
 |---|---|---|
 | `SPOTTER_CAMERA` | `0` | default camera; the shooter picks on the Start form (index or a stream URL), and their last pick is remembered |
-| `SPOTTER_MIC` | `Kiyo` | microphone name to match (`MacBook` for the laptop's own) |
+| `SPOTTER_MIC` | `Kiyo` | default microphone; the shooter picks on the Start form (or none: camera only) |
 | `SPOTTER_ENGINE_DIR` | `../engine` | where `phase1.py` and `.venv` are |
 | `SPOTTER_WEB_URL` | `http://127.0.0.1:$PORT` | where the engine posts its events |
 | `SPOTTER_TIME_ZONE` | Eastern | shown times |
 
-**Find cameras** on the Start form runs the engine's `cameras.py --json` (~5 s)
-and shows a preview picture from each camera, so you pick the one pointed at the
-target by what it sees (macOS's names are only a hint: their order doesn't always
-match the camera numbers).
+**Find cameras and microphones** on the Start form runs the engine's
+`cameras.py --json` (~5 s) and shows a preview picture from each camera, so you
+pick the one pointed at the target by what it sees (macOS's names are only a
+hint: their order doesn't always match the camera numbers). Picking a camera
+selects its own microphone (Kiyo with Kiyo, iPhone with iPhone) when there is
+one; "No microphone - camera only" runs the engine with `--mic none`, finding
+each shot with its 2-second camera check instead of the shot's sound.
 
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.

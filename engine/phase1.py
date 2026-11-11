@@ -795,7 +795,15 @@ def _shot_auto(a, spec):
 
     if a.expect is None:      # one new hole per before/after comparison
         a.expect = 1
-    idx, info = audio.find_input(a.mic)
+    # --mic none: camera only. No sound trigger; the camera check every
+    # --watch seconds finds each shot (2-4 s instead of ~1 s). For a camera
+    # with no usable microphone, e.g. a stream from the Pi.
+    camera_only = str(a.mic).lower() == "none"
+    if camera_only:
+        idx, info = None, {"name": "no microphone (camera only)",
+                           "default_samplerate": 16000, "max_input_channels": 1}
+    else:
+        idx, info = audio.find_input(a.mic)
     rate = int(info["default_samplerate"])
     q = queue.Queue()
 
@@ -926,7 +934,8 @@ def _shot_auto(a, spec):
             print(f"  ! geometry: ring fit {res['geo_rms']:.2f} mm (usually "
                   "~0.1-0.15) - the card is getting torn up\n", flush=True)
         words, flags = _spoken(r, res)
-        if label.startswith("camera"):
+        if label.startswith("camera") and not camera_only:
+            # a missed sound is worth a look; with no microphone it is normal
             flags = ["found without a sound"] + flags
         _log_shot(res)
         st["prior"].append((r["x_mm"], r["y_mm"]))
@@ -985,9 +994,10 @@ def _shot_auto(a, spec):
         say("ready", "ready")
 
         det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
-        with sd.InputStream(device=idx, channels=min(2, info["max_input_channels"]),
-                            samplerate=rate, blocksize=int(rate * 0.02),
-                            callback=cb):
+        with (contextlib.nullcontext() if camera_only else
+              sd.InputStream(device=idx, channels=min(2, info["max_input_channels"]),
+                             samplerate=rate, blocksize=int(rate * 0.02),
+                             callback=cb)):
             t_audio0 = time.time()
             last_trig = -1e9
             w = {"card_on": True, "misses": 0, "still": 0, "cand": None,

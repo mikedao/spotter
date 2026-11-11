@@ -6,7 +6,9 @@ class CamerasController < ApplicationController
     end
 
     probe = CameraProbe.run!
-    redirect_to practice_sessions_path, notice: "Found #{helpers.pluralize(probe.cameras.size, 'camera')}. Pick the one pointed at your target."
+    redirect_to practice_sessions_path,
+                notice: "Found #{helpers.pluralize(probe.cameras.size, 'camera')} and #{helpers.pluralize(probe.microphones.size, 'microphone')}. " \
+                        "Pick the camera pointed at your target."
   rescue CameraProbe::Failed => e
     redirect_to practice_sessions_path, alert: "Couldn't look for cameras: #{e.message}"
   end

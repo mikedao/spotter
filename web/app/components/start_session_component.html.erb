@@ -9,13 +9,14 @@
       <% end %>
     </p>
   <% else %>
-    <%= form_with model: PracticeSession.new, url: helpers.practice_sessions_path, id: "start_session", class: "space-y-5" do |f| %>
+    <%= form_with model: PracticeSession.new, url: helpers.practice_sessions_path, id: "start_session", class: "space-y-5",
+                  data: { controller: "device-pair", action: "change->device-pair#cameraChanged" } do |f| %>
       <fieldset>
         <legend class="mb-2 text-sm font-medium">Camera</legend>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <% cameras.each do |cam| %>
             <label class="cursor-pointer">
-              <%= f.radio_button :camera, cam.value, checked: cam.value == chosen, class: "peer sr-only" %>
+              <%= f.radio_button :camera, cam.value, checked: cam.value == chosen, class: "peer sr-only", data: { mic: pairs[cam.value] } %>
               <span class="block overflow-hidden rounded-md border-2 border-gray-300 peer-checked:border-blue-600 dark:border-gray-700">
                 <%= image_tag helpers.camera_preview_path(cam.index, v: @probe.found_at.to_i), alt: "What camera #{cam.index} sees", class: "aspect-video w-full bg-black object-cover" %>
                 <span class="block px-3 py-2">
@@ -47,6 +48,12 @@
         </div>
       </fieldset>
 
+      <div>
+        <%= f.label :mic, "Microphone", class: "mb-1 block text-sm font-medium" %>
+        <%= f.select :mic, mic_options, { selected: chosen_mic }, class: "#{TextFieldComponent::INPUT} max-w-md", data: { device_pair_target: "mic" } %>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Picking a camera picks its own microphone when there is one. The sound of each shot triggers its capture; without a microphone the camera's check finds each shot instead.</p>
+      </div>
+
       <div class="flex flex-wrap items-end gap-4">
         <fieldset>
           <legend class="mb-1 text-sm font-medium">Target</legend>
@@ -68,9 +75,9 @@
 
     <div class="mt-5 flex flex-wrap items-center gap-3">
       <%= render(ButtonComponent.new(type: :submit, size: :lg, form: "start_session")) { "Start" } %>
-      <%= button_to "Find cameras", helpers.refresh_cameras_path,
+      <%= button_to "Find cameras and microphones", helpers.refresh_cameras_path,
             class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",
-            data: { turbo_submits_with: "Looking for cameras…" } %>
+            data: { turbo_submits_with: "Looking…" } %>
       <span class="text-sm text-gray-600 dark:text-gray-300">
         <% if @probe %>Cameras checked <%= helpers.time_ago_in_words(@probe.found_at) %> ago.<% else %>Takes a few seconds; shows what each camera sees.<% end %>
       </span>

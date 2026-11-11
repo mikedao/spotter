@@ -11,7 +11,7 @@ RSpec.describe "Starting a session" do
     CameraProbe.results_path.write({ cameras: [
       { index: 0, width: 1920, height: 1080, brightness: 110, name_hint: "MacBook Neo Camera", preview: "cam_0.jpg" },
       { index: 1, width: 1920, height: 1080, brightness: 95, name_hint: "Razer Kiyo", preview: "cam_1.jpg" }
-    ] }.to_json)
+    ], microphones: [ { name: "MacBook Neo Microphone", channels: 1 }, { name: "Razer Kiyo", channels: 2 } ] }.to_json)
   end
 
   after { FileUtils.rm_rf(CameraProbe.dir) }
@@ -28,6 +28,15 @@ RSpec.describe "Starting a session" do
     expect(page).to have_text("Razer Kiyo")
     expect(page).to have_css("img[src*='/cameras/0/preview']")
     expect(find("input[value='1']", visible: :all)).to be_checked
+    expect(page).to have_select("Microphone", selected: "Razer Kiyo")
     page.save_screenshot(Rails.root.join("tmp/screenshots/start_session.png")) if ENV["SCREENSHOTS"]
+  end
+
+  it "switches to the chosen camera's own microphone" do
+    sign_in_as(user)
+    find("img[src*='/cameras/0/preview']").click
+    expect(page).to have_select("Microphone", selected: "MacBook Neo Microphone")
+    find("img[src*='/cameras/1/preview']").click
+    expect(page).to have_select("Microphone", selected: "Razer Kiyo")
   end
 end

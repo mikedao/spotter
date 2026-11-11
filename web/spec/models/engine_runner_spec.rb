@@ -38,6 +38,26 @@ RSpec.describe EngineRunner do
     end
   end
 
+  it "uses the microphone the shooter picked, as one argument, and remembers it" do
+    allow(Process).to receive(:spawn).and_return(999_999)
+    allow(described_class).to receive(:watch)
+
+    session = described_class.start!(user:, target: "pistol", per_card: nil, camera: "1", mic: "Michael's iPhone Microphone")
+
+    expect(session.mic).to eq "Michael's iPhone Microphone"
+    expect(user.reload.last_mic).to eq "Michael's iPhone Microphone"
+    expect(Process).to have_received(:spawn) do |_env, *cmd, **|
+      expect(cmd).to include("--mic=Michael's iPhone Microphone")
+    end
+  end
+
+  it "refuses a microphone name that could be read as an option" do
+    [ "--help", "-x", "a\nb" ].each do |bad|
+      expect { described_class.start!(user:, target: "pistol", per_card: nil, camera: "0", mic: bad) }
+        .to raise_error(EngineRunner::BadCamera, /microphone/)
+    end
+  end
+
   it "refuses anything that isn't a camera number or a stream URL" do
     [ "0; rm -rf /", "--help", "file:///etc/passwd", "1 2" ].each do |bad|
       expect { described_class.start!(user:, target: "pistol", per_card: nil, camera: bad) }
