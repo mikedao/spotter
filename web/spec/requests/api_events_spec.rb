@@ -37,6 +37,27 @@ RSpec.describe "Engine events API" do
     expect(session.status).to eq "shooting"
   end
 
+  it "says Stopping live from Stop until the engine has ended, even if the final check finds a shot" do
+    user = session.user
+    post session_path, params: { email_address: user.email_address, password: "range-day-10" }
+    session.update!(status: "shooting", engine_pid: 999_999)
+    allow(EngineRunner).to receive(:alive?).and_return(true)
+    allow(EngineRunner).to receive(:reconcile!)
+    allow(Process).to receive(:kill)
+
+    post stop_practice_session_path(session)
+    expect(Process).to have_received(:kill).with("INT", 999_999)
+    follow_redirect!
+    expect(response.body).to include("Stopping – a last check")
+    expect(response.body).not_to include("Stop session", "the engine does a last check")   # no flash that never goes
+
+    post_event("shot", shot_data("053", 9.0, 10.5))   # found by the final check
+    expect(session.reload.status).to eq "stopping"
+
+    post_event("session_ended")
+    expect(session.reload).to have_attributes(status: "ended", live?: false)
+  end
+
   it "does not duplicate a shot the engine posts twice" do
     2.times { post_event("shot", shot_data("044", -20.5, 2.8)) }
     expect(Shot.count).to eq 1

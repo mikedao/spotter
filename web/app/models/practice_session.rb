@@ -7,7 +7,8 @@ class PracticeSession < ApplicationRecord
   has_many :shots, through: :cards
 
   # What the range screen's status line says; set from the engine's events.
-  STATUSES = %w[ starting ready card_off new_card shooting ended ].freeze
+  # "stopping" = Stop was pressed; the engine makes its final check, then ends.
+  STATUSES = %w[ starting ready card_off new_card shooting stopping ended ].freeze
 
   validates :engine_session_id, presence: true, uniqueness: true
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }
@@ -31,6 +32,13 @@ class PracticeSession < ApplicationRecord
 
   def start_new_card!(at:)
     cards.create!(number: (cards.maximum(:number) || 0) + 1, started_at: at)
+  end
+
+  # A status from the engine - except that once Stop is pressed the screen keeps
+  # saying so (a shot found by the final check must not read "ready") until the
+  # engine's session_ended.
+  def show_status!(value)
+    update!(status: value) unless status == "stopping"
   end
 
   def title = "#{target_spec.name} · #{started_at.strftime('%b %-d, %H:%M')}"

@@ -7,6 +7,7 @@ class SessionStatusComponent < ApplicationComponent
     "shooting" => [ "Ready for the next shot", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" ],
     "card_off" => [ "Card off – put up the next card", "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" ],
     "new_card" => [ "New card – ready", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" ],
+    "stopping" => [ "Stopping – a last check for an unscored hole…", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ],
     "ended" => [ "Session ended", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ]
   }.freeze
 
@@ -40,7 +41,7 @@ class SessionStatusComponent < ApplicationComponent
               tag.span(text)
             ].compact)
           end,
-          (@session.live? ? stop_button : delete_button)
+          (@session.live? ? (stop_button unless @session.status == "stopping") : delete_button)
         ].compact)
       end
     end

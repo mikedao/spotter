@@ -41,11 +41,11 @@ class EngineEvent
       session
     end
 
-    def apply_ready(session) = session.tap { it.update!(status: "ready") }
-    def apply_card_off(session) = session.tap { it.update!(status: "card_off") }
+    def apply_ready(session) = session.tap { it.show_status!("ready") }
+    def apply_card_off(session) = session.tap { it.show_status!("card_off") }
 
     def apply_new_card(session)
-      session.update!(status: "new_card")
+      session.show_status!("new_card")
       session.start_new_card!(at:)
     end
 
@@ -65,7 +65,7 @@ class EngineEvent
       )
       shot.save!
       attach_images(shot)
-      session.update!(status: "shooting")
+      session.show_status!("shooting")
       shot
     end
 

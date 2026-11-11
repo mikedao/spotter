@@ -31,7 +31,7 @@ class PracticeSessionsController < ApplicationController
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.
   def stop
     EngineRunner.stop!(@session)
-    redirect_to practice_session_path(@session), notice: "Stopping - the engine does a last check for an unscored hole first."
+    redirect_to practice_session_path(@session)   # the header says "Stopping…" until it has
   end
 
   # Delete a finished session and everything in it (cards, shots, your calls,

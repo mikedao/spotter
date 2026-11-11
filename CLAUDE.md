@@ -155,6 +155,11 @@ from there). The user commits; don't commit unless asked.
   leading "-". `EngineRunner`
   accepts only `\d{1,2}` or an http(s)/rtsp URL (`BadCamera`), since it goes on
   the engine's command line.
+- **Stop shows "Stopping" live, not as a flash** (a flash never went away):
+  `EngineRunner.stop!` sets status `stopping` + broadcasts, then SIGINT. Engine
+  events go through `PracticeSession#show_status!`, which never overwrites
+  `stopping` (a shot found by the final check would read "Ready"); only
+  `session_ended` (or `reconcile!`) ends it. Verified in Chrome.
 - **Deleting a session** (list and range screen, with a confirm): cards, shots,
   calls, pictures (purged at once - `dependent: :purge`, no job worker needed) and
   the engine log go too. Refused while live (`before_destroy ..., prepend: true`,

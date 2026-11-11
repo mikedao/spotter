@@ -120,8 +120,14 @@ class EngineRunner
       nil
     end
 
+    # = Ctrl+C: the engine makes a final check, then ends the session. The header
+    # says "Stopping…" meanwhile, live (LiveBroadcast), until session_ended.
     def stop!(session)
-      Process.kill("INT", session.engine_pid) if alive?(session)
+      return unless alive?(session)
+
+      session.update!(status: "stopping")
+      LiveBroadcast.new(session).call
+      Process.kill("INT", session.engine_pid)
     end
 
     def alive?(session)
