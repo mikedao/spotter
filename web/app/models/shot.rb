@@ -70,10 +70,39 @@ class Shot < ApplicationRecord
   # Did the call change the ring the rules proposed? (The headline training signal.)
   def corrected? = called? && call_ring.present? && call_ring != ring
 
+  # Delete a shot that wasn't one (a phantom, a double count): its pictures and
+  # call go with it, and everything after it moves up a number - the card still
+  # reads 1, 2, 3..., and in a match or final so do the competition shots, with a
+  # match's 10-shot series recounted (a final's series are its timed windows, so
+  # they stay). The engine matches its events by engine_shot_id, not number.
+  def remove!
+    transaction do
+      destroy!
+      card.shots.where("number > ?", number).update_all("number = number - 1") if number
+      renumber_competition_shots_after(match_number) if match_number
+    end
+  end
+
+  # The series a competition shot is in, counted from its number (a match: every
+  # 10), or nil when series aren't counted by number (finals: timed windows).
+  def self.series_for(session, match_number)
+    size = session.course_info&.series_size
+    size && ((match_number - 1) / size) + 1
+  end
+
   # Record the shooter's call. A tapped position, when given, is the most precise
   # label; the ring is still stored as said, since that is what the shooter judged.
   def record_call!(ring:, decimal: nil, x_mm: nil, y_mm: nil, note: nil)
     update!(call_ring: ring, call_decimal: decimal.presence, call_x_mm: x_mm.presence,
             call_y_mm: y_mm.presence, call_note: note.presence, called_at: Time.current)
   end
+
+  private
+    def renumber_competition_shots_after(gone)
+      session = practice_session
+      session.shots.where("match_number > ?", gone).order(:match_number).each do |shot|
+        n = shot.match_number - 1
+        shot.update_columns(match_number: n, series: Shot.series_for(session, n) || shot.series)
+      end
+    end
 end

@@ -60,6 +60,7 @@ class EngineEvent
     def apply_shot(session)
       card = session.card_for_new_shot(at:)
       shot = card.shots.find_or_initialize_by(engine_shot_id: data["engine_shot_id"].presence)
+      course = course_fields(session, shot)
       shot.assign_attributes(
         status: "scored", fired_at: at, number: shot.number || card.next_shot_number,
         trigger: data["trigger"], sound_db: data["sound_db"],
@@ -68,7 +69,7 @@ class EngineEvent
         rule: data["rule"], line_mm: data["line_mm"], line_call: data["line_call"] || false,
         ambiguous: data["ambiguous"] || false, overlap: data["overlap"] || false,
         estimates: data["estimates"], region: data["region"], geometry: data["geometry"],
-        **course_fields
+        **course
       )
       shot.save!
       attach_images(shot)
@@ -76,10 +77,14 @@ class EngineEvent
       shot
     end
 
-    # Where the shot fell in a match or final (nil fields in practice).
-    def course_fields
+    # Where the shot fell in a match or final (nil fields in practice). The
+    # competition number is the web app's own count (the engine's counts shots
+    # the shooter has since deleted); a match's series follows from it.
+    def course_fields(session, shot)
       c = data["course"] || {}
-      { stage: c["stage"], series: c["series"], match_number: c["number"], penalty: c["penalty"] }
+      number = c["number"] && (shot.match_number || (session.shots.maximum(:match_number) || 0) + 1)
+      series = (number && Shot.series_for(session, number)) || c["series"]
+      { stage: c["stage"], series:, match_number: number, penalty: c["penalty"] }
     end
 
     def apply_unscored(session)

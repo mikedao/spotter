@@ -24,7 +24,7 @@
   <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100"
         data-controller="drawer" data-action="keydown.esc@window->drawer#close">
     <% if current_user %>
-      <% here = { "practice_sessions" => :practice, "session_setup" => :practice, "shots" => :practice, "shotmetrix" => :practice, "journals" => :journal, "gear" => :gear, "guns" => :gear, "pellets" => :gear, "settings" => :settings }[controller_name] %>
+      <% here = { "practice_sessions" => :practice, "session_setup" => :practice, "shots" => :practice, "shotmetrix" => :practice, "cards" => :practice, "journals" => :journal, "gear" => :gear, "guns" => :gear, "pellets" => :gear, "settings" => :settings }[controller_name] %>
       <% item = "flex min-h-11 items-center gap-3 rounded-md px-3 text-gray-300 hover:bg-white/10 hover:text-white" %>
       <% current = "bg-white/10 font-medium text-white" %>
 

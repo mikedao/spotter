@@ -18,6 +18,18 @@ class ShotsController < ApplicationController
     redirect_to shot_path(@shot), alert: e.record.errors.full_messages.to_sentence
   end
 
+  # Delete a shot that wasn't a real one; the card renumbers, a live range
+  # screen updates.
+  def destroy
+    session = @shot.practice_session
+    card_number = @shot.card.number
+    label = "card #{card_number}, shot #{@shot.number}"
+    @shot.remove!
+    LiveBroadcast.new(session.reload).call if session.live?
+    back = params[:back] == "card" ? practice_session_card_path(session, card_number) : practice_session_path(session)
+    redirect_to back, notice: "Deleted #{label}.", status: :see_other
+  end
+
   private
     # Only the owner's shots: another user's id is a 404, not a peek.
     def set_shot

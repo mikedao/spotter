@@ -2,7 +2,8 @@
 # and flags, and captures the engine could not score (kept so none is lost). Each
 # row opens the shot's review page.
 class ShotListComponent < ApplicationComponent
-  def initialize(shots:, title: "Shots") = (@shots, @title = shots, title)
+  # deletable: a Delete button on each row (the card page), back to that page after.
+  def initialize(shots:, title: "Shots", deletable: false) = (@shots, @title, @deletable = shots, title, deletable)
 
   def call
     render(CardComponent.new(title: @title)) do
@@ -18,10 +19,22 @@ class ShotListComponent < ApplicationComponent
 
   private
     def row(shot)
-      tag.li do
-        link_to(shot_path(shot), class: "flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
-          shot.scored? ? scored_row(shot) : unscored_row(shot)
-        end
+      tag.li(class: "flex items-center") do
+        safe_join([
+          link_to(shot_path(shot), class: "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
+            shot.scored? ? scored_row(shot) : unscored_row(shot)
+          end,
+          (delete_button(shot) if @deletable)
+        ].compact)
+      end
+    end
+
+    def delete_button(shot)
+      what = shot.scored? ? "shot #{shot.number}" : "this unscored capture"
+      tag.div(class: "shrink-0 px-2") do
+        button_to("Delete", shot_path(shot, back: "card"), method: :delete, "aria-label": "Delete #{what}",
+                  form: { data: { turbo_confirm: "Delete #{what}? Its pictures and your call go too, and the later shots on this card move up a number. This can't be undone." } },
+                  class: "min-h-11 cursor-pointer rounded-md px-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-300")
       end
     end
 

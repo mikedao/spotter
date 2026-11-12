@@ -31,8 +31,9 @@ Rails.application.routes.draw do
     get :camera, on: :member   # the live camera picture, relayed from the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)
+    resources :cards, only: :show, param: :number   # any card of the session, its shots deletable
   end
-  resources :shots, only: %i[ show update ]
+  resources :shots, only: %i[ show update destroy ]
 
   # The journal: trends across sessions, against the shooter's goal.
   resource :journal, only: %i[ show update ] do

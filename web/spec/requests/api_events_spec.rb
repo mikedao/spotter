@@ -116,6 +116,17 @@ RSpec.describe "Engine events API" do
       expect(response.body).to match(%r{Total</dt>\s*<dd[^>]*>10</dd>})   # whole rings; the sighter and the late shot add nothing
     end
 
+    it "numbers a new competition shot from its own count, so a deleted shot leaves no gap" do
+      (1..3).each do |n|
+        post_event("shot", shot_data("07#{n}", n.to_f, 1.0, ring: 9, decimal: 9.3,
+                                     course: { stage: "match", label: "Match", series: 1, number: n }))
+      end
+      session.shots.find_by(match_number: 2).remove!
+      post_event("shot", shot_data("074", 4.0, 1.0, ring: 10, decimal: 10.2,
+                                   course: { stage: "match", label: "Match", series: 1, number: 4 }))   # the engine still counts 4
+      expect(session.shots.order(:match_number).pluck(:engine_shot_id, :match_number)).to eq [ [ "071", 1 ], [ "073", 2 ], [ "074", 3 ] ]
+    end
+
     it "ends sighting time early when asked" do
       sign_in(session.user)
       allow(EngineRunner).to receive(:start_match!)

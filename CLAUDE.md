@@ -136,7 +136,7 @@ brew install python@3.13 && voice/setup.sh
 voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 181 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 190 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -281,6 +281,20 @@ from there). The user commits; don't commit unless asked.
   back to the session; if all were already called, it steps on in order.
   `after_save` must be asked BEFORE `record_call!`. Shot page shows "Shot N of M"
   and previous/next links.
+- **Deleting a shot** (shot page, with a confirm; 2026-11-12): `Shot#remove!` -
+  pictures and call go, and EVERYTHING after it renumbers (the shooter: "always
+  renumber"): card numbers, and in a match / final the competition numbers, with
+  a match's 10-shot series recounted (`Shot.series_for`; a final's series are
+  timed windows and stay). New competition shots take `match_number` from the WEB
+  APP's count, not the engine's, so a deletion leaves no gap (the engine matches
+  events by `engine_shot_id`, so this is safe). Left as is: the ENGINE still
+  counted the deleted shot, so in a live match its spoken "shot N" runs one
+  ahead, and its "extra shot" penalty (a final's window over its count) may fire
+  one shot early.
+  Any card of a session has its own page, `/practice/:id/cards/:number`
+  (`CardsController`; linked from "Earlier cards this session"; prev / next card):
+  target, card numbers, and `ShotListComponent(deletable: true)` with a Delete on
+  each row that comes back to the card (`back=card`). Not broadcast: a static page.
 - **Deleting a session** (list and range screen, with a confirm): cards, shots,
   calls, pictures (purged at once - `dependent: :purge`, no job worker needed) and
   the engine log go too. Refused while live (`before_destroy ..., prepend: true`,
