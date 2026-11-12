@@ -139,7 +139,7 @@ Also built: guns and pellets, a session diary, a journal with trends against a
 goal (default 565 for air pistol), printable session and journal reports (save
 as PDF), and a Shotmetrix QR export.
 
-Not yet built: CSV export, announcements played in the browser, Raspberry Pi
+Not yet built: CSV export, announcer personalities, Raspberry Pi
 deployment (Pi as camera only).
 
 See [CLAUDE.md](CLAUDE.md) for architecture, domain details, and the gotchas

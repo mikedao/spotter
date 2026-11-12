@@ -91,6 +91,16 @@ RSpec.describe "Engine events API" do
     expect(PracticeSession.count).to eq 1
   end
 
+  it "hands an announcement to the range screen without redrawing it" do
+    allow(Announcement).to receive(:new).and_call_original
+    allow(LiveBroadcast).to receive(:new).and_call_original
+    post_event("announce", { kind: "ok", plain_kind: "ok", gaps: { sentence: 0.55, comma: 0.25 },
+                             sentences: [ { pieces: [ "ready" ], diagnostic: false } ] })
+    expect(response).to have_http_status(:created)
+    expect(Announcement).to have_received(:new)
+    expect(LiveBroadcast).not_to have_received(:new)
+  end
+
   context "in a match" do
     before { session.update!(course: "match", status: "ready") }
 

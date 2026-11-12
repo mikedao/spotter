@@ -3,6 +3,8 @@ require "rails_helper"
 RSpec.describe EngineRunner do
   let(:user) { create(:user, name: "Mike") }
 
+  before { allow(Voice).to receive(:prewarm!) }   # the voice's background pre-render: a process of its own
+
   # A real short-lived process stands in for the engine, so liveness checks are
   # exercised for real without a camera.
   def finished_pid

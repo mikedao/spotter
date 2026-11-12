@@ -41,10 +41,41 @@ RSpec.describe "Announcer voice" do
     FileUtils.rm_f(wav)
   end
 
-  it "starts the engine with the user's voice when the voices are set up" do
-    user.update!(voice: "am_michael")
-    allow(Voice).to receive(:available?).and_return(true)
+  it "has the engine hand its announcements to the range screen instead of speaking them" do
     session = create(:practice_session, user:, camera: "0")
-    expect(EngineRunner.command(session).each_cons(2)).to include([ "--voice", "am_michael" ])
+    command = EngineRunner.command(session)
+    expect(command.each_cons(2)).to include([ "--announce", "web" ])
+    expect(command).not_to include("--voice")
+  end
+
+  it "serves one announcement piece in a voice, and refuses what isn't a piece" do
+    wav = Rails.root.join("tmp", "voice-piece-spec.wav")
+    File.binwrite(wav, "RIFFfake")
+    allow(Voice).to receive(:piece!).and_call_original
+    allow(Voice).to receive(:piece!).with("af_heart", "shot 4").and_return(wav)
+    get voice_piece_path("af_heart", text: "shot 4")
+    expect(response).to have_http_status(:ok)
+    expect(response.media_type).to eq "audio/wav"
+
+    get voice_piece_path("af_heart", text: "$(rm -rf /)")
+    expect(response).to have_http_status(:not_found)
+    get voice_piece_path("nobody", text: "shot 4")
+    expect(response).to have_http_status(:not_found)
+  ensure
+    FileUtils.rm_f(wav)
+  end
+
+  it "names a cached piece the way the voice helper does" do
+    expect(Voice.piece_path("af_heart", "that's 10").basename.to_s).to eq("that_s_10.wav")
+    expect(Voice.piece_path("af_heart", "10.9").basename.to_s).to eq("10_9.wav")
+  end
+
+  it "turns diagnostic mode on and off in Settings" do
+    get settings_path
+    expect(response.body).to include("Diagnostic mode")
+    patch settings_path, params: { user: { diagnostic_announcements: "1" } }
+    expect(user.reload.diagnostic_announcements).to be(true)
+    patch settings_path, params: { user: { diagnostic_announcements: "0" } }
+    expect(user.reload.diagnostic_announcements).to be(false)
   end
 end

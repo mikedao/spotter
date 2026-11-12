@@ -47,6 +47,7 @@ y UP**.
 | `shot` | see below |
 | `unscored` | `reason`, `trigger`, `engine_shot_id` (optional) |
 | `session_ended` | — |
+| `announce` | only with `--announce web` (sessions the web app starts): what the engine would say, for the web app to play in the browser. `kind` (tone: "ok" / "check" / "fail" / "ready" / "info" / "ro"), `plain_kind` (the tone when diagnostic sentences are left out; null = say nothing then), `sentences` [{`pieces` [normalized voice pieces, voicelines.split], `diagnostic` (true: line call, overlaps, found without a sound... - said only in diagnostic mode)}], `gaps` {`sentence`, `comma`} seconds of silence |
 | `course` | the range officer's latest call (match / final only): `phase` ("command" / "window" / "pause" / "done"), `label` (the command said, or "Sighting" / "Match" / "Series 2" / "Shot 13"), `ends_at` (ISO time the window or pause ends), and for a window `stage` ("sighting" / "match"), `shots` (allowed, or null), `skippable` |
 
 `shot`:

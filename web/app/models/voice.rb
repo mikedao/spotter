@@ -44,7 +44,11 @@ class Voice
 
     def dir = EngineRunner.engine_dir.join("voice")
     def python = dir.join(".venv", "bin", "python")
-    def cache = Pathname(ENV.fetch("SPOTTER_VOICE_CACHE", dir.join("cache").to_s))
+    # The web app's audio: rendered pieces (not in git, storage/) and the picker's
+    # samples (in git, public/). The renderer (speak.py) is told where to write.
+    def cache = Pathname(ENV.fetch("SPOTTER_VOICE_CACHE", Rails.root.join("storage", "voices").to_s))
+    def samples_dir = Rails.root.join("public", "voice-samples")
+    def render_env = { "SPOTTER_VOICE_CACHE" => cache.to_s, "SPOTTER_VOICE_SAMPLES" => samples_dir.to_s }
     def available? = python.exist? && dir.join("models", "kokoro-v1.0.onnx").exist?
 
     # The voice reading the sample lines, made on first request (~20 s for a new
@@ -52,12 +56,15 @@ class Voice
     def sample_path(id)
       raise ArgumentError, "unknown voice" unless valid?(id)
 
+      committed = samples_dir.join("#{id}.m4a")   # in git (32 kbps AAC): a fresh clone can audition every voice
+      return committed if committed.exist?
+
       path = cache.join(id.to_s, "sample.wav")
       return path if path.exist?
       raise Failed, "the voice isn't set up (engine/voice/setup.sh)" unless available?
 
       _out, err, status = Timeout.timeout(SAMPLE_TIMEOUT) do
-        Open3.capture3(python.to_s, "speak.py", "sample", "--voice", id.to_s, chdir: dir.to_s)
+        Open3.capture3(render_env, python.to_s, "speak.py", "sample", "--voice", id.to_s, chdir: dir.to_s)
       end
       raise Failed, (err.lines.grep_v(/Warning/).last || "speak.py failed").strip unless status.success? && path.exist?
 
@@ -66,12 +73,37 @@ class Voice
       raise Failed, "making the sample took over #{SAMPLE_TIMEOUT} s"
     end
 
+    # One voice piece ("shot 4", "9.6") as a WAV: the cached one, or rendered now
+    # (~1-3 s, once; then cached for good). The cache file is named the way
+    # speak.py names it. Raises Failed when it can't be made.
+    PIECE = /\A[a-z0-9][a-z0-9 .,'-]{0,79}\z/
+
+    def piece_path(id, text) = cache.join(id.to_s, "pieces", "#{text.gsub(/[^[:alnum:]]/, '_')}.wav")
+
+    def piece!(id, text)
+      raise ArgumentError, "unknown voice" unless valid?(id)
+      raise ArgumentError, "not a voice piece" unless text.to_s.match?(PIECE)
+
+      path = piece_path(id, text)
+      return path if path.exist?
+      raise Failed, "the voice isn't set up (engine/voice/setup.sh)" unless available?
+
+      _out, err, status = Timeout.timeout(SAMPLE_TIMEOUT) do
+        Open3.capture3(render_env, python.to_s, "speak.py", "piece", "--voice", id.to_s, text.to_s, chdir: dir.to_s)
+      end
+      raise Failed, (err.lines.grep_v(/Warning/).last || "speak.py failed").strip unless status.success? && path.exist?
+
+      path
+    rescue Timeout::Error
+      raise Failed, "rendering took over #{SAMPLE_TIMEOUT} s"
+    end
+
     # Render every piece the engine can say in this voice, in the background
     # (~5 min), so the first session in it speaks without delays.
     def prewarm!(id)
       return unless valid?(id) && available?
 
-      pid = Process.spawn("nice", "-n", "10", python.to_s, "speak.py", "prewarm", "--voice", id.to_s,
+      pid = Process.spawn(render_env, "nice", "-n", "10", python.to_s, "speak.py", "prewarm", "--voice", id.to_s,
                           chdir: dir.to_s, out: File::NULL, err: File::NULL, pgroup: true)
       Process.detach(pid)
     end

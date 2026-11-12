@@ -1,7 +1,13 @@
 <% content_for :title, @session.title %>
 <%= turbo_stream_from @session %>
 <div class="space-y-3">
-  <%= render(SessionStatusComponent.new(session: @session)) %>
+  <%# The header (broadcast, replaced on every event) and, beside it, the live
+      announcer's Sound button - outside it, so it keeps playing through every shot,
+      and on the header's line so the column below doesn't grow. %>
+  <div class="flex flex-wrap items-start gap-3">
+    <div class="min-w-0 flex-1"><%= render(SessionStatusComponent.new(session: @session)) %></div>
+    <%= render(AnnouncerComponent.new(session: @session)) %>
+  </div>
 
   <%# Target (sized by the window's height) and a right column capped at 32rem,
       centred together: on a wide screen the spare width becomes even margins

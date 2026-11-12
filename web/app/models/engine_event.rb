@@ -11,7 +11,7 @@
 class EngineEvent
   class Invalid < StandardError; end
 
-  TYPES = %w[ session_started ready card_off new_card shot unscored session_ended course ].freeze
+  TYPES = %w[ session_started ready card_off new_card shot unscored session_ended course announce ].freeze
   IMAGES = %w[ before_image after_image closeup_before closeup_after ].freeze
 
   attr_reader :type, :session_id, :at, :data, :files
@@ -29,6 +29,9 @@ class EngineEvent
 
   def apply!
     session = @session || PracticeSession.find_by!(engine_session_id: session_id)
+    # An announcement changes nothing stored: it is only played on the range screen.
+    return session.tap { Announcement.new(it, data).deliver! } if type == "announce"
+
     record = ActiveRecord::Base.transaction { send("apply_#{type}", session) }
     LiveBroadcast.new(session.reload).call
     record

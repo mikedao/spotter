@@ -133,10 +133,11 @@ cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m
 
 # announcer voice (optional; else the Mac voice): Python 3.13 + ~350 MB model
 brew install python@3.13 && voice/setup.sh
-voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
+# (the picker's 28 samples are in git: web/public/voice-samples; rebuild only after a wording change:
+#  voice/.venv/bin/python voice/speak.py samples)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 192 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 201 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -144,7 +145,8 @@ bin/dev                                          # http://localhost:3000, sign u
   every shot's before/after frames - the real-shot evidence behind "Known
   limits", and `engine/out/shots/044-053`, which `bin/rails spotter:demo` replays),
   `web/storage/*.sqlite3` (users, sessions, the shooter's CALLS - the future
-  training set; else start fresh), `engine/voice/cache/` (regenerates).
+  training set; else start fresh), `web/storage/voices/` (rendered announcer
+  pieces; regenerate by themselves on first use).
 - macOS camera AND microphone permission for the terminal / VS Code that runs
   `bin/dev` (the engine inherits it), then restart that app.
 - Re-check the camera index with `cameras.py` (Kiyo was 2, then 0, on the last
@@ -188,11 +190,11 @@ sticky target, 32rem column, compact match panel so the camera fits a laptop).
 4. The range screen in a live MATCH on the laptop: the camera must be fully
    visible under the clock and latest shot (a spec checks 1322x729).
 
-**Next, in the shooter's order:** CSV export (the one export left; small).
-Then still open: the announcer - pregenerate every voice piece and play in the
-BROWSER (see "Announcer voice", decided, not built); import of the pre-web
-`engine/out/shots` log (53 called shots; would feed the journal and the future
-model); the model trained from reviewed calls; Pi setup.
+**Next:** hear the browser announcer on the rig (Sound on, a few shots, diagnostic
+mode on and off), then announcer PERSONALITIES (lines as pieces, many variations;
+see "Announcer voice"). Still open: CSV export; import of the pre-web
+`engine/out/shots` log (53 called shots); the model trained from reviewed
+calls; Pi setup.
 
 ## Web app (`web/`, 2026-11)
 
@@ -485,31 +487,52 @@ Built and committed:
   laptop rendered all 28 samples in ~2 min). The cache is keyed by the piece's
   TEXT: any wording change needs the samples rebuilt (`rm cache/*/sample.wav &&
   speak.py samples`); stale pieces are just unused.
-- Engine: `shot --auto --voice ID` -> `KokoroVoice` client (helper process,
-  JSON lines with request ids) + `_Speech` (tone, then the WAV; falls back to
-  `say` if the helper is missing/slow). Verified: demo run spoke in af_heart.
+- **The BROWSER plays the announcements** (2026-11-12, built): web-started
+  sessions run the engine with `--announce web` (no `--voice`): `say()` in
+  `phase1.py` takes (phrase, diagnostic) parts and, instead of speaking, emits
+  an `announce` event - sentences of voicelines pieces, each marked
+  `diagnostic`, `kind` / `plain_kind` (tone with / without the diagnostic
+  parts; null = silent then), the gaps (docs/engine-events.md). RO pacing uses
+  `_WebSpeech` (an estimated end; the engine can't hear the browser).
+  `Announcement` (Rails) drops diagnostic sentences unless
+  `users.diagnostic_announcements` (Settings, "What the announcer says"; off by
+  default) and Turbo-APPENDS it to `#announcements`; `announcement_controller.js`
+  hands it to `announcer_controller.js` (`AnnouncerComponent`, the "Sound off /
+  Sound on" button beside Stop - outside every broadcast part): one at a time, a
+  WebAudio tone (made in JS - no Apple sound files in a public repo; none for
+  "ro"), then each piece fetched from `GET /voices/:id/piece?text=` and
+  scheduled gap-exact. No Kokoro on the server -> the browser's own voice.
+  Terminal runs (`--announce local`, default) still speak through `_announce`
+  / `KokoroVoice` / `say`, ALL parts.
+- **Diagnostic mode** (the shooter: "only the shot number, the score and
+  direction"): OFF says lead + score + direction (+ inner ten), the match facts
+  (sighter, "out of time, scores zero") and the end of card; ON adds line call,
+  ring uncertain, overlaps a hole, rough hole, found without a sound, view
+  moving, geometry warning. Every other line (ready, card off, new card, not
+  scored, camera lost, the RO) is always said.
+- **Pieces are rendered ON FIRST USE, cached for good, NOT in git** (decided
+  2026-11-12: the shooter plans announcer PERSONALITIES with hundreds of line
+  variations, and live-written remarks; pre-rendering every voice x line would
+  reach GBs). `Voice.piece!` -> `speak.py piece` (~1-5 s once, incl. model load;
+  0.01 s cached), cache in **`web/storage/voices/<voice>/pieces/*.wav`**
+  (gitignored; Rails passes `SPOTTER_VOICE_CACHE`). Starting a session
+  `Voice.prewarm!`s the user's voice (every `voicelines.pieces()`) in the
+  background, so nothing waits mid-session. Plan for personalities: say lines
+  as pieces; pick variations only among those already cached, render the rest
+  in the background, so the announcer never waits.
+- **The 28 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
+  (32 kbps AAC via macOS `afconvert`, 2.3 MB total; the shooter chose 32 kbps by
+  ear), so a fresh clone can audition every voice without Kokoro.
+  `speak.py samples` rebuilds them (and `SPOTTER_VOICE_SAMPLES`). Measured: all
+  ~300 pieces x 28 voices would be ~370 MB as WAV, ~71 MB as 32 kbps AAC.
 - Web: `users.voice`, `Voice` model (mirrors VOICES; `voice_spec` checks they
-  match), Settings "Announcer voice" picker (`VoicePickerComponent`, play
-  buttons -> `GET /voices/:id/sample`, `PATCH /voice`), `EngineRunner` passes
-  `--voice`.
-- Speech plays ONE announcement at a time (`_Speech.LOCK`), so the RO's
-  "start" never talks over a shot call; RO commands (kind "ro") have no tone.
-
-**Decided next, NOT built yet:**
-1. **Pregenerate EVERY piece for EVERY voice** (no generating on the fly):
-   ~300 x 28 pieces; ~2.5 h on the old laptop, much faster on the 2026-11-11
-   one (not yet run). Then drop the on-the-fly rendering paths.
-2. **Rails plays the sound, not the engine: in the BROWSER on the range
-   screen** (shooter's choice over the laptop speaker): the engine posts events
-   as now; Rails turns each into the announcement (pieces + gaps) and pushes it
-   to the open range screen, which plays the prepared files (works from a phone
-   at the firing line). Needs a "Sound on" tap per visit (browser autoplay
-   rules) and the tones (Glass/Sosumi/Basso/Hero/Tink) shipped as files. The
-   engine's own speech (`_announce`, `KokoroVoice`) then goes away for
-   web-started sessions; keep `say` for terminal use.
-   Open question: the `--speaker` mute assumed the ENGINE knows when its
-   announcement plays; with browser playback it doesn't (default is off:
-   the shooter uses earbuds).
+  match), Settings "Announcer voice" picker (`VoicePickerComponent`).
+- Verified 2026-11-12: real engine + dev server (`spotter:demo`): 33 announce
+  events accepted; real Chrome (spec/system/announcer_spec.rb): Sound on ->
+  pieces fetched, decoded, played in order. NOT yet heard by the shooter.
+- Open: the `--speaker` mic mute assumed the engine plays the sound; with the
+  browser it can't know (off by default: earbuds). After a shot is DELETED in a
+  live match, the engine's spoken "shot N" runs one ahead (it still counted it).
 
 ## Deployment direction: Pi = camera, laptop = everything else (2026-11)
 

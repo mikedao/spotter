@@ -88,6 +88,7 @@ class EngineRunner
         chdir: engine_dir.to_s, out: log.to_s, err: [ :child, :out ], pgroup: true
       )
       session.update!(engine_pid: pid, engine_log: log.to_s)
+      Voice.prewarm!(Voice.for(user).id)   # render this voice's usual pieces now, so none waits mid-session
       watch(session, pid)
       session
     rescue Errno::ENOENT => e
@@ -104,7 +105,7 @@ class EngineRunner
         *([ "--per-card", session.per_card.to_s ] if session.per_card),
         *([ "--course", session.course ] if session.course),
         *([ "--stream-port", session.stream_port.to_s ] if session.stream_port),
-        *([ "--voice", Voice.for(session.user).id ] if Voice.available?) ]
+        "--announce", "web" ]   # the range screen plays the announcements (Announcement), not the engine
     end
 
     # The engine serves the live camera picture on this port (127.0.0.1 only);

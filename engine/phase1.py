@@ -24,6 +24,7 @@ from geometry import (find_target_frame, refine_bull_ellipse, fit_perspective,
                       flatten_illumination, draw_rings, offscreen_sides)
 from scoring import SPECS, PISTOL, score_xy, decimal_step_mm, on_card
 import course as course_mod
+import voicelines
 
 HERE = Path(__file__).resolve().parent
 
@@ -871,6 +872,24 @@ def _announce(kind, text, enabled=True, voice=None):
     return {"start": time.time(), "proc": _Speech(kind, text, voice), "end": None}
 
 
+class _WebSpeech:
+    """An announcement handed to the web app to play (shot --auto --announce
+    web): the engine can't hear when the browser finishes, so poll() goes by an
+    estimate - enough for the range officer to pace its commands."""
+    PIECE_S = 0.75
+
+    def __init__(self, sentences, gaps):
+        import time
+        pieces = sum(len(s["pieces"]) for s in sentences)
+        commas = sum(max(len(s["pieces"]) - 1, 0) for s in sentences)
+        self.end = (time.time() + pieces * self.PIECE_S + commas * gaps["comma"]
+                    + max(len(sentences) - 1, 0) * gaps["sentence"])
+
+    def poll(self):
+        import time
+        return 0 if time.time() >= self.end else None
+
+
 def _track_announcements(announcements):
     """Record WHEN each announcement finished. Must be called often (every
     loop pass): stamping the end lazily, at the next sound, marked that sound
@@ -1095,9 +1114,26 @@ def _shot_auto(a, spec):
                 "after_image": lambda: ("after.png", png(after), "image/png")}
 
     voice = KokoroVoice(a.voice) if (a.speak and a.voice) else None
+    web_speech = getattr(a, "announce", "local") == "web"
+    same = object()
 
-    def say(kind, text):
-        an = _announce(kind, text, a.speak, voice)
+    def say(kind, text, plain_kind=same):
+        """Announce. `text` is a phrase, or a list of (phrase, diagnostic)
+        parts: diagnostic parts (line call, found without a sound...) are left
+        out unless the shooter turned diagnostic mode on. `plain_kind` is the
+        tone without them (None: nothing to say then).
+        --announce web: the web app plays it in the browser (an "announce"
+        event, docs/engine-events.md); else it is spoken here, every part."""
+        parts = [(text, False)] if isinstance(text, str) else text
+        plain_kind = kind if plain_kind is same else plain_kind
+        if web_speech:
+            gaps = {"sentence": voicelines.SENTENCE_GAP_S, "comma": voicelines.COMMA_GAP_S}
+            sentences = [{"pieces": pieces, "diagnostic": diag}
+                         for phrase, diag in parts for pieces in voicelines.split(phrase)]
+            emit("announce", {"kind": kind, "plain_kind": plain_kind,
+                              "sentences": sentences, "gaps": gaps})
+            return _WebSpeech(sentences, gaps)
+        an = _announce(kind, ". ".join(phrase for phrase, _ in parts), a.speak, voice)
         if an:
             st["ann"].append(an)
             st["ann"][:] = st["ann"][-5:]
@@ -1146,7 +1182,7 @@ def _shot_auto(a, spec):
                               "moving)", "trigger": trigger},
                  frames(st["before"], after), at)
             if time.time() - st["last_fail_say"] > 10.0:
-                say("fail", "not scored, view moving")
+                say("fail", [("not scored", False), ("view moving", True)])
                 st["last_fail_say"] = time.time()
             return False
         with silent():
@@ -1196,7 +1232,7 @@ def _shot_auto(a, spec):
         if res.get("geo_persp") is False:
             print("  ! geometry: perspective fit FAILED on this frame - "
                   "scores are unreliable; consider a fresh card\n", flush=True)
-            say("check", "geometry warning, consider a fresh card")
+            say("check", [("geometry warning, consider a fresh card", True)], plain_kind=None)
         elif res.get("geo_rms") is not None and res["geo_rms"] > 0.25:
             print(f"  ! geometry: ring fit {res['geo_rms']:.2f} mm (usually "
                   "~0.1-0.15) - the card is getting torn up\n", flush=True)
@@ -1204,30 +1240,35 @@ def _shot_auto(a, spec):
         if label.startswith("camera") and not camera_only:
             # a missed sound is worth a look; with no microphone it is normal
             flags = ["found without a sound"] + flags
+        # flags: why the shot is worth a look - DIAGNOSTIC (the shooter can
+        # turn them off); a penalty below is scoring, always said.
         _log_shot(res)
         st["prior"].append((r["x_mm"], r["y_mm"]))
         k = len(st["prior"])                 # shot number ON THIS CARD
         full = a.per_card and k == a.per_card
-        tail = f". that's {a.per_card}. new card please" if full else ""
         # In a match or final: sighter or competition shot, and in time or not
         # (the impact time; a camera-found shot was SEEN late, so its window
         # gets the camera check's slack).
         cls = (ro.classify(at, grace=0.0 if trigger == "sound" else 2 * a.watch)
                if ro is not None else None)
-        if cls and cls.get("penalty"):
-            flags = flags + [f"{cls['penalty']}, scores zero"]
+        penalty = cls.get("penalty") if cls else None
         # Lead with the shot's number, so a missed shot is noticed at once
         # ("shot five" when you expected six): on this card in practice, in
         # the match in a match or final; a sighter is "sighter".
         lead = ("sighter" if cls and cls["stage"] == "sighter" else
                 f"shot {cls['number']}" if cls else f"shot {k}")
-        # A flagged shot: the score first (what the shooter is waiting for),
-        # then why it is worth a look. The "check" tone already marks it, so no
-        # spoken "check" (alone, it sounded wrong).
+        # The score first (what the shooter is waiting for), then why it is
+        # worth a look. The "check" tone already marks it, so no spoken "check"
+        # (alone, it sounded wrong).
+        parts = [(lead, False), (words, False)]
         if flags:
-            say("check", f"{lead}. {words}. " + ", ".join(flags) + tail)
-        else:
-            say("ok", f"{lead}. {words}" + tail)
+            parts.append((", ".join(flags), True))
+        if penalty:
+            parts.append((f"{penalty}, scores zero", False))
+        if full:
+            parts += [(f"that's {a.per_card}", False), ("new card please", False)]
+        say("check" if flags or penalty else "ok", parts,
+            plain_kind="check" if penalty else "ok")
         if full:
             print(f"  -- {a.per_card} shots on card {st['card_no']}: change the "
                   "card (it will say 'card off', then 'new card, ready') --\n",
@@ -1974,6 +2015,10 @@ def main():
                            help="auto: also post every event to the web app at "
                                 "URL, e.g. http://localhost:3000 "
                                 "(docs/engine-events.md)")
+            s.add_argument("--announce", choices=["local", "web"], default="local",
+                           help="auto: speak here (local), or hand each "
+                                "announcement to the web app to play in the "
+                                "browser (web; needs --report-to)")
             s.add_argument("--speaker", action="store_true",
                            help="auto: announcements play from a speaker near "
                                 "the camera - ignore the mic while they play")

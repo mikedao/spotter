@@ -7,8 +7,9 @@ engine talks to it as a separate process. Set up with ./setup.sh.
     .venv/bin/python speak.py serve --voice af_heart      # for the engine (below)
     .venv/bin/python speak.py prewarm --voice af_heart    # fill the cache ahead of time
     .venv/bin/python speak.py sample --voice bm_george    # the picker's sample, path printed
-    .venv/bin/python speak.py samples                     # every voice's sample (~10 min)
+    .venv/bin/python speak.py samples                     # every voice's sample (~10 min), + web/public/voice-samples/*.m4a (in git)
     .venv/bin/python speak.py say --voice af_heart "shot 3. 8.5, high left"
+    .venv/bin/python speak.py piece --voice af_heart "shot 4"   # render one piece, path printed
 
 Every announcement is spoken as pieces with real silence between them
 (voicelines.split: longer between sentences, shorter at commas). Each piece is
@@ -35,7 +36,10 @@ sys.path.insert(0, str(HERE.parent))          # the engine dir, for voicelines
 import voicelines                              # noqa: E402
 
 MODELS = HERE / "models"
+# The web app passes both (its storage/voices and public/voice-samples); alone,
+# from a terminal, the cache stays here.
 CACHE = Path(os.environ.get("SPOTTER_VOICE_CACHE", HERE / "cache"))
+SAMPLES = Path(os.environ.get("SPOTTER_VOICE_SAMPLES", HERE.parent.parent / "web" / "public" / "voice-samples"))
 SPEED = 1.1
 ANNOUNCEMENT_GAP_S = 1.2                       # between announcements in a sample
 
@@ -152,7 +156,7 @@ def serve(voice):
 
 def main():
     p = argparse.ArgumentParser(description="Spotter's Kokoro announcer voice")
-    p.add_argument("command", choices=["serve", "prewarm", "sample", "samples", "say", "list"])
+    p.add_argument("command", choices=["serve", "prewarm", "sample", "samples", "say", "piece", "list"])
     p.add_argument("text", nargs="?")
     p.add_argument("--voice", default=voicelines.DEFAULT_VOICE)
     a = p.parse_args()
@@ -165,9 +169,23 @@ def main():
     elif a.command == "sample":
         print(Voice(a.voice).sample())
     elif a.command == "samples":                # every voice's sample, for the picker
+        import shutil
+        import subprocess
+        SAMPLES.mkdir(parents=True, exist_ok=True)
         for v in voicelines.VOICES:
             t = time.time()
-            log(f"  {v}: {Voice(v).sample()} ({time.time() - t:.0f} s)")
+            wav = Voice(v).sample()
+            log(f"  {v}: {wav} ({time.time() - t:.0f} s)")
+            # The copy kept in git (32 kbps AAC, ~80 KB): macOS's afconvert.
+            if shutil.which("afconvert"):
+                subprocess.run(["afconvert", "-f", "m4af", "-d", "aac", "-b", "32000",
+                                str(wav), str(SAMPLES / f"{v}.m4a")], check=True)
+    elif a.command == "piece":                  # for the web app: one piece, cached; path printed
+        v, piece = Voice(a.voice), voicelines.piece(a.text or "")
+        if not piece:
+            raise SystemExit("piece: no text")
+        v.piece(piece)
+        print(v._piece_path(piece))
     elif a.command == "say":
         import subprocess
         subprocess.run(["afplay", str(Voice(a.voice).render(a.text or "ready"))])

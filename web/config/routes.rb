@@ -47,8 +47,10 @@ Rails.application.routes.draw do
 
   # Settings: the announcer voice (pick one, hear each one's sample).
   get "settings", to: "settings#show", as: :settings
+  patch "settings", to: "settings#update"
   resource :voice, only: :update
   get "voices/:id/sample", to: "voices#sample", as: :voice_sample
+  get "voices/:id/piece", to: "voices#piece", as: :voice_piece   # ?text=shot%204: one announcement piece
 
   # The wizard's camera step: look again, and each camera's preview picture.
   post "cameras/refresh", to: "cameras#refresh", as: :refresh_cameras

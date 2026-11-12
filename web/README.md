@@ -72,11 +72,14 @@ first shot:
 Each step stops the previous step's check, so the camera and microphone are free
 for the next; neither check runs during a session.
 
-**Settings** holds the *announcer voice*: each shooter picks one of 28 Kokoro
-voices (play buttons for a sample of real announcements) and the engine speaks
-in it from their next session, with clear pauses between statements. Needs
-`../engine/voice/setup.sh` once; without it, the Mac voice. Being reworked:
-every sound pregenerated, played by the range screen (see CLAUDE.md).
+**Settings** holds the *announcer*: each shooter picks one of 28 Kokoro voices
+(play buttons for a sample of real announcements; the samples are in
+`public/voice-samples`) and turns *diagnostic mode* on or off (off: after a shot
+only its number, score and direction; on: also line calls, overlaps, shots found
+without a sound...). The range screen plays the announcements in the browser
+(tap "Sound off" once per visit), each piece rendered on first use and cached in
+`storage/voices`. Rendering needs `../engine/voice/setup.sh` once; without it,
+the browser's own voice.
 
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.
