@@ -40,17 +40,20 @@ RSpec.describe "Range screen layout" do
 
   def right_column = find("#range_side")
 
-  it "puts the shot list beside the target once the session is over" do
+  it "sums up the whole session once it is over: every shot, the result, every card" do
     session = create(:practice_session, user:, status: "ended", ended_at: Time.current)
+    shoot_a_card(session)
     shoot_a_card(session)
     sign_in_and_visit(session)
 
-    expect(right_column).to have_css("#live_list")
-    expect(page).to have_no_css("[aria-label='Camera']")
-    within("ol[aria-label='Shots on this card']") do
-      expect(page).to have_css("a.ring-amber-500", count: 1, text: "9")   # the latest, amber as on the target
-      expect(page).to have_css("a.border-red-500", text: "7")             # flagged, red as on the target
+    expect(page).to have_text("All 14 shots")
+    within("#session_result") do
+      expect(page).to have_text("Session result")
+      expect(page).to have_text("116")   # whole rings over both cards
     end
+    expect(right_column).to have_css("a[href*='/cards/']", count: 2)   # each card, to its own page
+    expect(page).to have_no_css("#live_list")
+    expect(page).to have_no_css("[aria-label='Camera']")
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_ended.png")) if ENV["SCREENSHOTS"]
   end
 
@@ -61,6 +64,10 @@ RSpec.describe "Range screen layout" do
     sign_in_and_visit(session)
 
     expect(right_column).to have_css("[aria-label='Camera']")
+    within("ol[aria-label='Shots on this card']") do
+      expect(page).to have_css("a.ring-amber-500", count: 1, text: "9")   # the latest, amber as on the target
+      expect(page).to have_css("a.border-red-500", text: "7")             # flagged, red as on the target
+    end
     expect(right_column).to have_css("#live_list")
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_live.png")) if ENV["SCREENSHOTS"]
 

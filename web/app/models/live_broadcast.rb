@@ -7,6 +7,9 @@ class LiveBroadcast
   def initialize(session) = @session = session
 
   def call
+    # Over: every open screen reloads into the finished session's summary.
+    return Turbo::StreamsChannel.broadcast_refresh_to(@session) unless @session.live?
+
     replace("session_status", SessionStatusComponent.new(session: @session))
     replace("live_course", CoursePanelComponent.new(session: @session)) if @session.course
     LivePanelComponent::SECTIONS.each do |section|

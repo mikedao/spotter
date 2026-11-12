@@ -136,7 +136,7 @@ brew install python@3.13 && voice/setup.sh
 voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 190 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 192 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -429,6 +429,15 @@ from there). The user commits; don't commit unless asked.
   makes no sense"): `PracticeSession#whole_rings?` (pistol practice and matches =
   whole rings; rifle and finals = decimals) -> `CardStats#score/score_average`.
   Totals/averages never mix the two. Per-shot decimals still show per shot.
+- **A FINISHED session opens on the whole session** (2026-11-12, the shooter's
+  call, every kind of session): all competition shots on one target, numbered in
+  firing order across cards (`TargetSvgComponent in_order:`; a match's own numbers
+  win), `SessionResultComponent` (match/final total "of 60 shots" via EventStats,
+  else whole rings for pistol / decimals; series with the worst outlined;
+  sighters and out-of-time zeros noted; the session's group) and every card
+  linking to its card page. LIVE is unchanged. When a session ends,
+  `LiveBroadcast` sends a Turbo REFRESH instead of section replaces, so an open
+  range screen reloads into the summary.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

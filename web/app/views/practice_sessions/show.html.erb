@@ -6,18 +6,34 @@
   <%# Target (sized by the window's height) and a right column capped at 32rem,
       centred together: on a wide screen the spare width becomes even margins
       rather than a stretched column. %>
-  <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
-    <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
-    <div id="range_side" class="space-y-3">
-      <%= render(CoursePanelComponent.new(session: @session)) %>
-      <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
-      <%= render(LiveCameraComponent.new(session: @session)) %>
-      <%= render(LivePanelComponent.new(session: @session, section: :stats)) %>
-      <%# The shot list fills the column beside the target: below the camera while
-          live, right under the numbers once the session is over (no camera). %>
-      <%= render(LivePanelComponent.new(session: @session, section: :list)) %>
+  <% if @session.live? %>
+    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
+      <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
+      <div id="range_side" class="space-y-3">
+        <%= render(CoursePanelComponent.new(session: @session)) %>
+        <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
+        <%= render(LiveCameraComponent.new(session: @session)) %>
+        <%= render(LivePanelComponent.new(session: @session, section: :stats)) %>
+        <%# The shot list continues the column below the camera. %>
+        <%= render(LivePanelComponent.new(session: @session, section: :list)) %>
+      </div>
     </div>
-  </div>
+  <% else %>
+    <%# Finished: the whole session - every competition shot on one target, the
+        result, and every card (each its own page). %>
+    <% all = SessionSummary.new(@session).shots %>
+    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
+      <div id="session_target" class="<%= LivePanelComponent::TARGET_SIZE %>">
+        <%= render(CardComponent.new(padding: :none, class: "relative p-2")) do %>
+          <span class="absolute left-4 top-3 text-sm font-semibold text-gray-700">All <%= pluralize(all.size, "shot") %></span>
+          <%= render(TargetSvgComponent.new(spec: @session.target_spec, shots: all, in_order: true, label: "All shots in this session")) %>
+        <% end %>
+      </div>
+      <div id="range_side" class="space-y-3">
+        <%= render(SessionResultComponent.new(session: @session)) %>
+      </div>
+    </div>
+  <% end %>
 
   <%= render(SessionDiaryComponent.new(session: @session)) %>
   <%= render(SessionGearComponent.new(session: @session)) %>

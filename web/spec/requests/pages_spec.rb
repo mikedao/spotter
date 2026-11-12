@@ -10,7 +10,10 @@ RSpec.describe "Pages" do
   end
 
   context "signed in" do
-    before { sign_in(user) }
+    before do
+      sign_in(user)
+      allow(EngineRunner).to receive(:reconcile!)   # the factory's session is live; no engine to find dead
+    end
 
     it "lists the user's sessions with a way to start one" do
       get root_path

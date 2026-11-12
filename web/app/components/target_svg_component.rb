@@ -20,12 +20,15 @@ class TargetSvgComponent < ApplicationComponent
   SIGHTER = "#6b7280"
   LATEST = "#f59e0b"
 
-  def initialize(spec:, shots: [], latest: nil, zoom: :fit, label: "Target")
+  # in_order: number the shots 1, 2, 3... in firing order (a whole session on one
+  # target, where card numbers would repeat); a match's own numbers win.
+  def initialize(spec:, shots: [], latest: nil, zoom: :fit, label: "Target", in_order: false)
     @spec = spec
     @shots = shots.select { |s| s.final_x_mm && s.final_y_mm }
     @latest = latest
     @zoom = zoom
     @label = label
+    @order = in_order ? @shots.sort_by(&:fired_at).each_with_index.to_h { |s, i| [ s.id, i + 1 ] } : {}
   end
 
   def call
@@ -108,7 +111,7 @@ class TargetSvgComponent < ApplicationComponent
         [
           (tag.circle(cx: x, cy: y, r: r + 1.1, fill: "none", stroke: LATEST, "stroke-width": 0.7) if s == @latest),
           tag.circle(cx: x, cy: y, r: r, fill: fill, "fill-opacity": 0.88, stroke: "#fff", "stroke-width": 0.3),
-          tag.text(s.sighter? ? "S" : (s.match_number || s.number), x: x, y: y + 0.95, "text-anchor": "middle", "font-size": 2.7, "font-weight": 700,
+          tag.text(s.sighter? ? "S" : (s.match_number || @order[s.id] || s.number), x: x, y: y + 0.95, "text-anchor": "middle", "font-size": 2.7, "font-weight": 700,
                    fill: "#fff", "font-family": "system-ui, sans-serif")
         ].compact
       end
