@@ -73,13 +73,16 @@ Each step stops the previous step's check, so the camera and microphone are free
 for the next; neither check runs during a session.
 
 **Settings** holds the *announcer*: each shooter picks one of 28 Kokoro voices
-(play buttons for a sample of real announcements; the samples are in
-`public/voice-samples`) and turns *diagnostic mode* on or off (off: after a shot
-only its number, score and direction; on: also line calls, overlaps, shots found
-without a sound...). The range screen plays the announcements in the browser
-(tap "Sound off" once per visit), each piece rendered on first use and cached in
-`storage/voices`. Rendering needs `../engine/voice/setup.sh` once; without it,
-the browser's own voice.
+(play buttons for a sample of real announcements; `public/voice-samples`), turns
+*diagnostic mode* on or off (off: after a shot only its number, score and
+direction; on: also line calls, overlaps, shots found without a sound...) and
+*chatty mode* (commentary: streaks, bests, patterns, pace, a summary every 10
+shots and after a match; also a button on the range screen). The range screen
+plays the announcements in the browser (tap "Sound off" once per visit). Every
+piece the engine says is in git (`public/voice-pieces`, all 28 voices); chatty
+mode's lines (`config/commentary/default.yml`) are rendered on first use and
+cached in `storage/voices`, which needs `../engine/voice/setup.sh` once; without
+it, those lines use the browser's own voice.
 
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.

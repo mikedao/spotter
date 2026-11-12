@@ -131,13 +131,17 @@ Code is in git; everything below is NOT, and has to be rebuilt or copied:
 cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python selftest.py                  # must pass
 
-# announcer voice (optional; else the Mac voice): Python 3.13 + ~350 MB model
+# announcer voice: ALREADY IN GIT for all 28 voices - the picker's samples
+# (web/public/voice-samples) and every piece the engine says (web/public/voice-pieces,
+# 8,344 files, 76 MB), so the range screen talks with no setup. Kokoro (Python 3.13 +
+# ~350 MB model) is only needed to render NEW pieces: chatty mode's commentary lines
+# (rendered at session start, ~40 min once per voice) and anything reworded.
 brew install python@3.13 && voice/setup.sh
-# (the picker's 28 samples are in git: web/public/voice-samples; rebuild only after a wording change:
-#  voice/.venv/bin/python voice/speak.py samples)
+# after a wording change (voicelines.py / course.py): re-export, only new pieces render
+#  voice/.venv/bin/python voice/speak.py export --all     # (and `samples` for the picker)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 214 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 215 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -145,8 +149,8 @@ bin/dev                                          # http://localhost:3000, sign u
   every shot's before/after frames - the real-shot evidence behind "Known
   limits", and `engine/out/shots/044-053`, which `bin/rails spotter:demo` replays),
   `web/storage/*.sqlite3` (users, sessions, the shooter's CALLS - the future
-  training set; else start fresh), `web/storage/voices/` (rendered announcer
-  pieces; regenerate by themselves on first use).
+  training set; else start fresh), `web/storage/voices/` (rendered chatty-mode
+  lines; regenerate by themselves).
 - macOS camera AND microphone permission for the terminal / VS Code that runs
   `bin/dev` (the engine inherits it), then restart that app.
 - Re-check the camera index with `cameras.py` (Kiyo was 2, then 0, on the last
@@ -165,37 +169,43 @@ bin/dev                                          # http://localhost:3000, sign u
 - Restart `bin/dev` after `bundle install` (a new gem, e.g. `rqrcode`, isn't
   loaded by a running server: "uninitialized constant ... RQRCode").
 
-## Where we left off (2026-11-12)
+## Where we left off (2026-11-12, end of day)
 
-All committed. Moving to the faster computer again (see "Setting up a machine";
-nothing extra to copy unless the real-shot evidence / old sessions are wanted).
+All committed. Moving to another computer (see "Setting up a machine"; nothing
+to copy unless the real-shot evidence / old sessions are wanted).
 
-Built 2026-11-12 (all covered by specs; see "Web app" for each): guns + pellets
-(per lot), session diary (exercise tags, problems / fixes / learned), the
-JOURNAL (score per 60 vs the 565 trials benchmark, series, trend + forecast),
-session and journal REPORTS (print to PDF), the SHOTMETRIX QR export, ring-only
-card totals for pistol, and range-screen layout work (zoom, ring numbers,
-sticky target, 32rem column, compact match panel so the camera fits a laptop).
+Built 2026-11-12 (all covered by specs; see "Web app" / "Announcer voice"):
+guns + pellets (per lot), session diary, the JOURNAL (per-60 vs the 565 trials
+benchmark, series, trend + forecast), session + journal REPORTS (print to PDF),
+the SHOTMETRIX QR export, ring-only totals for pistol, card pages + deleting
+shots (always renumbered), the FINISHED-session summary, range-screen layout
+(zoom, ring numbers, sticky target, compact column), toast flash messages - and
+the ANNOUNCER MOVED TO THE BROWSER: the engine hands each announcement to the web
+app, the range screen plays it (Sound on/off), DIAGNOSTIC mode (off = number,
+score, direction only) and CHATTY mode (written commentary, 10 phrasings per
+moment), with every known voice piece for all 28 voices committed.
 
 **Never yet tried for real - check these first:**
-1. **Shotmetrix:** scan a real session's code with the Shotmetrix app (the
-   encoder matches their test vectors byte for byte and the QR decodes, but no
-   code has been redeemed yet). If refused, note the app's message.
-2. **Print to PDF from Chrome** (session and journal reports; checked only as
+1. **The browser announcer on the rig:** Sound on, a few shots; diagnostic mode
+   off and on; chatty mode (streaks, summaries every 10 shots, a match summary).
+   Listen for lines that grate (wording is `config/commentary/default.yml` and,
+   for the engine's own lines, `engine/voicelines.py` / `phase1.py`).
+2. **Shotmetrix:** scan a real session's code with the Shotmetrix app (byte-exact
+   against their test vectors and the QR decodes, but none redeemed yet).
+3. **Print to PDF from Chrome** (session and journal reports; only checked as
    headless-Chrome PDFs).
-3. **The rig items from 2026-11-11, still open:** setup wizard live with the
-   Kiyo and a shot; a match / final end to end through the app (clock, sighters,
-   out-of-time zeros, session ends itself); the range officer's speech by ear
-   (single-word "load" / "start" / "stop"); installing as an app.
-4. The range screen in a live MATCH on the laptop: the camera must be fully
-   visible under the clock and latest shot (a spec checks 1322x729).
+4. **Still open from 2026-11-11:** setup wizard live with the Kiyo and a shot; a
+   match / final end to end (clock, sighters, out-of-time zeros, session ends
+   itself); the range officer's commands by ear ("load" / "start" / "stop");
+   installing as an app; the camera fully visible during a live match on the
+   laptop (a spec checks 1322x729).
 
-**Next:** hear the browser announcer on the rig (Sound on, a few shots, diagnostic
-mode on and off), then listen to chatty mode's commentary in a session, then announcer
-PERSONALITIES to choose from (each a `config/commentary/*.yml`; see "Announcer
-voice"). Still open: CSV export; import of the pre-web
-`engine/out/shots` log (53 called shots); the model trained from reviewed
-calls; Pi setup.
+**Next:** announcer PERSONALITIES to choose from (each a
+`config/commentary/*.yml`; a picker in Settings), then maybe the chatty lines in
+the git export once their wording settles (now 1,935 pieces with the numbers
+filled in, ~40 min to render per voice - or split the numbers out of the lines).
+Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
+shots); the model trained from reviewed calls; Pi setup.
 
 ## Web app (`web/`, 2026-11)
 
@@ -518,9 +528,12 @@ Built and committed:
   shooter, 2026-11-12: generate what we KNOW we need ahead, like the samples).
   `speak.py export --all` renders every `voicelines.pieces()` (~300: numbers,
   "shot N", directions, flags, fixed lines, the RO's commands) for all 28 voices
-  as 32 kbps AAC into **`web/public/voice-pieces/<voice>/<slug>.m4a`** (~3.2 MB a
-  voice, ~90 MB all; re-run after a wording change: only new pieces render,
-  pieces no longer said are removed). `Voice.piece_url` points the browser at
+  as 32 kbps AAC into **`web/public/voice-pieces/<voice>/<slug>.m4a`** (DONE
+  2026-11-12: 298 pieces x 28 voices = 8,344 files, 76 MB, ~2 h on the old
+  laptop; re-run after a wording change: only new pieces render, pieces no
+  longer said are removed). Without Kokoro on a machine, an announcement whose
+  pieces are all exported still plays in the voice (`Announcement#payload`
+  `kokoro`); only then does the browser's own voice stand in. `Voice.piece_url` points the browser at
   that static file; a piece outside the set (future personality lines) goes to
   `GET /voices/:id/piece` -> `Voice.piece!` -> `speak.py piece` (~1-5 s once,
   then cached in `web/storage/voices/`, gitignored). `Voice.prewarm!` at session
@@ -853,9 +866,9 @@ because ISSF awards the higher value when the hole touches the line.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.
-- Not yet built: CSV export, browser-played announcer, piezo auto-trigger,
-  Raspberry Pi deployment (see "Where we left off"; the journal, reports and
-  Shotmetrix export are built).
+- Not yet built: CSV export, announcer personalities, piezo auto-trigger,
+  Raspberry Pi deployment (see "Where we left off"; the journal, reports,
+  Shotmetrix export and the browser announcer are built).
 
 ## Conventions
 

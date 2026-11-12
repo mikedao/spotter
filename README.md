@@ -72,9 +72,10 @@ python3.15 -m venv .venv          # brew install python@3.15
 On macOS, grant camera access in **System Settings > Privacy & Security >
 Camera** to Terminal or VS Code, then fully restart that app.
 
-The announcer voice (Kokoro text-to-speech) has its own Python 3.13 environment,
-because its dependencies have no builds for newer Pythons yet. It downloads a
-~350 MB model; without it, announcements use the Mac voice:
+The announcer's voices come with the repo: every piece it says, in all 28 Kokoro
+voices, is in `web/public/voice-pieces`, and the range screen plays them in the
+browser. Kokoro itself (its own Python 3.13 environment, a ~350 MB model) is only
+needed to render new lines - chatty mode's commentary, or reworded announcements:
 
 ```bash
 brew install python@3.13
