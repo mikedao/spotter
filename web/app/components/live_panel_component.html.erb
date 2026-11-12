@@ -8,7 +8,9 @@
   </div>
 <% when :latest %>
   <div id="<%= dom_id %>">
-    <%= render(CardComponent.new(title: "Latest shot")) do %>
+    <%# No heading: the big score and "shot 10 · high left" say what it is, and the
+        space goes to the camera below (it must fit on a laptop screen while live). %>
+    <%= render(CardComponent.new("aria-label": "Latest shot")) do %>
       <% if latest %>
         <%= link_to shot_path(latest), class: "block" do %>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -38,7 +40,7 @@
         <%# Every shot on this card so far, oldest first, as whole rings (your call wins;
             a penalized shot is 0). Same colours as the target: the latest ringed in
             amber, red = flagged and not yet checked by you; penalized struck through. %>
-        <ol class="mt-4 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
+        <ol class="mt-3 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
           <% scored.each do |shot| %>
             <li>
               <%= link_to (shot.penalized? ? 0 : shot.final_ring), shot_path(shot),

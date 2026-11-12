@@ -23,7 +23,22 @@ RSpec.describe "Range screen layout" do
     visit practice_session_path(session)
   end
 
-  def right_column = find("#live_latest").ancestor("div.space-y-4")
+  it "fits the match clock, the latest shot and the whole camera on a laptop screen" do
+    session = create(:practice_session, user:, course: "match", status: "shooting",
+                                        course_state: { "phase" => "window", "label" => "Sighting", "stage" => "sighting",
+                                                        "skippable" => true, "ends_at" => 14.minutes.from_now.iso8601 })
+    shoot_a_card(session)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    sign_in_and_visit(session)
+    page.driver.resize(1322, 729)
+
+    expect(page).to have_button("Start match")
+    bottom = page.evaluate_script("document.querySelector(\"[aria-label='Camera']\").getBoundingClientRect().bottom")
+    expect(bottom).to be <= 729
+    page.save_screenshot(Rails.root.join("tmp/screenshots/range_match_laptop.png")) if ENV["SCREENSHOTS"]
+  end
+
+  def right_column = find("#range_side")
 
   it "puts the shot list beside the target once the session is over" do
     session = create(:practice_session, user:, status: "ended", ended_at: Time.current)
@@ -31,7 +46,7 @@ RSpec.describe "Range screen layout" do
     sign_in_and_visit(session)
 
     expect(right_column).to have_css("#live_list")
-    expect(page).to have_no_text("Camera")
+    expect(page).to have_no_css("[aria-label='Camera']")
     within("ol[aria-label='Shots on this card']") do
       expect(page).to have_css("a.ring-amber-500", count: 1, text: "9")   # the latest, amber as on the target
       expect(page).to have_css("a.border-red-500", text: "7")             # flagged, red as on the target
@@ -45,7 +60,7 @@ RSpec.describe "Range screen layout" do
     allow(EngineRunner).to receive(:snapshot).and_return(nil)
     sign_in_and_visit(session)
 
-    expect(right_column).to have_text("Camera")
+    expect(right_column).to have_css("[aria-label='Camera']")
     expect(right_column).to have_css("#live_list")
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_live.png")) if ENV["SCREENSHOTS"]
 

@@ -9,7 +9,9 @@ class LiveCameraComponent < ApplicationComponent
   def render? = @session.live?
 
   def call
-    render(CardComponent.new(title: "Camera")) do
+    # No heading and a thin frame like the target's: the picture says what it is,
+    # and it must fit on a laptop screen under the match clock and latest shot.
+    render(CardComponent.new(padding: :none, class: "p-2", "aria-label": "Camera")) do
       tag.div(class: "relative aspect-video overflow-hidden rounded-md bg-gray-900",
               data: { controller: "live-camera", live_camera_url_value: camera_practice_session_path(@session) }) do
         safe_join([

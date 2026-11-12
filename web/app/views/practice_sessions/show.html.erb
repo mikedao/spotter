@@ -8,7 +8,7 @@
       rather than a stretched column. %>
   <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
     <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
-    <div class="space-y-4">
+    <div id="range_side" class="space-y-3">
       <%= render(CoursePanelComponent.new(session: @session)) %>
       <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
       <%= render(LiveCameraComponent.new(session: @session)) %>
