@@ -15,6 +15,11 @@ class User < ApplicationRecord
   normalizes :email_address, with: ->(e) { e.strip.downcase }
   normalizes :name, with: ->(n) { n.squish }
 
+  # The microphone the last passing sound check used (see the migration):
+  # the session wizard won't ask again for it.
+  def sound_checked?(mic) = mic.present? && sound_check.is_a?(Hash) && sound_check["mic"] == mic
+  def sound_checked_at = (Time.zone.parse(sound_check["at"].to_s) if sound_check.is_a?(Hash))
+
   validates :name, presence: true, length: { maximum: 60 }
   validates :username, presence: true, uniqueness: true, length: { in: 3..30 },
                        format: { with: /\A[a-z0-9_.-]+\z/, allow_blank: true,

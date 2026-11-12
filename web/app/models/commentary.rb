@@ -6,10 +6,10 @@
 #                     streak of tens, a run in the nine or better, three in a row
 #                     on one side, a flyer, a 7 or worse, an inner ten
 #   every 10 shots    a summary: the card or series total, how it compares (best
-#                     today, a personal best, up or down on the last), the pace
-#                     against the shooter's goal; in a match also "halfway" and
-#                     "last series"
-#   a match's end     the final score, the best series, the goal reached or not
+#                     today, a personal best, up or down on the last); in a match
+#                     also "halfway" and "last series". No pace or goal talk
+#                     (the shooter: not wanted)
+#   a match's end     the final score and the best series
 #
 # Competition shots only (sighters are left alone), scored as the session is
 # (whole rings for pistol practice and matches, decimals otherwise), calls win.
@@ -41,9 +41,8 @@ class Commentary
 
   # Every piece the commentary can say for this shooter, to render ahead.
   def self.pieces(user, personality: "default")
-    goal = Journal.new(user).goal
     fill = lambda do |line|
-      values = { "n" => (3..10), "d" => (1..30), "dir" => DIRECTIONS, "goal" => [ goal || 565 ] }
+      values = { "n" => (3..10), "d" => (1..30), "dir" => DIRECTIONS }
       keys = line.scan(/\{(\w+)\}/).flatten.uniq
       combos = keys.empty? ? [ {} ] : keys.map { |k| values.fetch(k).map { [ k, it ] } }.reduce(&:product).map { Array(it).flatten.each_slice(2).to_h }
       combos.map { |c| c.reduce(line) { |text, (k, v)| text.gsub("{#{k}}", v.to_s) } }
@@ -73,10 +72,6 @@ class Commentary
 
     out = [ say(:match_done), [ *say(:final_score).first, number(total(shots)) ] ]
     out << [ *say(:best_series_was).first, number(series.max) ] if series.size > 1
-    if goal_applies? && shots.size >= 60
-      d = goal - total(shots)
-      out << (d <= 0 ? say(:goal_reached).first : say(:goal_missed, d:).first)
-    end
     out
   end
 
@@ -94,8 +89,6 @@ class Commentary
     def total(list) = whole? ? list.sum { value(it) } : list.sum { value(it) }.round(1)
     def number(v) = whole? ? v.to_i.to_s : format("%.1f", v)
     def series(list = shots) = list.each_slice(SERIES).select { it.size == SERIES }.map { total(it) }
-    def goal = @goal ||= Journal.new(@session.user, target: @session.target).goal
-    def goal_applies? = whole? && goal.present? && !@session.course.to_s.start_with?("final", "ranking")
     def match? = @session.course == "match"
 
     # One phrasing for a moment, never the same one twice running.
@@ -111,7 +104,7 @@ class Commentary
 
     def cache_key(key) = "commentary/#{@session.id}/#{key}"
 
-    # Every 10 shots: the total, how it compares, the pace; match milestones.
+    # Every 10 shots: the total and how it compares; match milestones.
     # Only the shots up to the n-th count (the moment it is about).
     def summary(n)
       upto = shots.first(n)
@@ -123,13 +116,6 @@ class Commentary
       elsif before.any? && (d = (this - before.last).round(1)) != 0
         d = whole? ? d.to_i : d
         out << (d.positive? ? say(:better_than_last, d:).first : say(:worse_than_last, d: d.abs).first)
-      end
-      if goal_applies?
-        diff = (total(upto) - goal * done.size / 6.0).round
-        out << if diff.abs < 1 then say(:on_pace, goal:).first
-        elsif diff.positive? then say(:above_pace, d: diff, goal:).first
-        else say(:below_pace, d: diff.abs, goal:).first
-        end
       end
       out << [ *say(:halfway).first, number(total(upto)) ] if match? && n == 30
       out += say(:last_series) if match? && n == 50

@@ -140,6 +140,22 @@ class EngineRunner
       Process.kill("USR1", session.engine_pid) if alive?(session)
     end
 
+    # "Re-find target" (the camera got bumped): the engine takes a fresh look and
+    # a new baseline from the card as it sits now, then reports "ready".
+    # Only to an engine that says it understands it (prints "re-find target:
+    # SIGUSR2" at start): to an older one, SIGUSR2 would be fatal.
+    def refind!(session)
+      return false unless alive?(session) && understands_refind?(session)
+
+      Process.kill("USR2", session.engine_pid)
+      true
+    end
+
+    def understands_refind?(session)
+      log = session.engine_log.presence && Pathname(session.engine_log)
+      log&.file? && log.read.include?("re-find target: SIGUSR2")
+    end
+
     def alive?(session)
       return false unless session.engine_pid
 

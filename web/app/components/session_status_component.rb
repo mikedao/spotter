@@ -46,9 +46,16 @@ class SessionStatusComponent < ApplicationComponent
       end
     end
 
+    # Stop, and "Re-find target" for when the camera got bumped: the rings move
+    # to where the card is now (the engine takes a new baseline, then "ready").
     def stop_button
-      tag.div(class: "ml-auto") do
-        render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" }
+      tag.div(class: "ml-auto flex flex-wrap items-center gap-2") do
+        safe_join([
+          render(ButtonComponent.new(href: refind_practice_session_path(@session), method: :post, variant: :secondary,
+                                     title: "Bumped the camera? Find the card again and move the rings to it",
+                                     form: { data: { turbo_submits_with: "Re-finding…" } })) { "⌖ Re-find target" },
+          render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" }
+        ])
       end
     end
 

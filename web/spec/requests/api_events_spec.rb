@@ -153,6 +153,28 @@ RSpec.describe "Engine events API" do
       expect(session.shots.order(:match_number).pluck(:engine_shot_id, :match_number)).to eq [ [ "071", 1 ], [ "073", 2 ], [ "074", 3 ] ]
     end
 
+    it "asks the engine to re-find the target, without a page load" do
+      sign_in(session.user)
+      allow(EngineRunner).to receive(:refind!).and_return(true)
+      post refind_practice_session_path(session)
+      expect(response).to have_http_status(:no_content)
+      expect(EngineRunner).to have_received(:refind!).with(session)
+    end
+
+    it "never signals an engine that doesn't understand re-find (it would die)" do
+      log = Rails.root.join("tmp", "engine-refind-spec.log")
+      log.write("  baseline taken. Ready - fire when you like.\n")   # an older engine: no "re-find target" line
+      session.update!(engine_pid: Process.pid, engine_log: log.to_s)
+      allow(Process).to receive(:kill).and_call_original
+      expect(EngineRunner.refind!(session)).to be(false)
+      expect(Process).not_to have_received(:kill).with("USR2", anything)
+      log.write("  re-find target: SIGUSR2\n")
+      allow(Process).to receive(:kill).with("USR2", Process.pid)
+      expect(EngineRunner.refind!(session)).to be(true)
+    ensure
+      FileUtils.rm_f(log)
+    end
+
     it "ends sighting time early when asked" do
       sign_in(session.user)
       allow(EngineRunner).to receive(:start_match!)

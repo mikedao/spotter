@@ -42,12 +42,12 @@ RSpec.describe Commentary do
     expect(comment_on(fire(9, at: [ -6.0, 2.0 ]))).to eq([])
   end
 
-  it "sums up every 10 shots: the total, the comparison and the pace against the goal" do
+  it "sums up every 10 shots: the total and how it compares - no pace or goal talk" do
     fire(9, 9, 9, 9, 9, 9, 9, 9, 9, at: [ 6.0, 2.0 ])
     first = comment_on(fire(9, at: [ -6.0, 2.0 ]))
     expect(first.first.last).to eq("90")                                  # the card's total, said after the lead
-    expect(said(first)).to match(/\b4\b.*565|565.*\b4\b/)               # 90 vs 94.2 a series: 4 behind 565 pace
-    expect(Commentary.lines["below_pace"].map { it.gsub("{d}", "4").gsub("{goal}", "565") }).to include(said(first).split(". ").last)
+    expect(said(first)).not_to include("565")
+    expect(first.size).to eq(1)                                           # just the card and its total
     fire(10, 10, 9, 10, 10, 9, 10, 10, 9, at: [ 1.0, 1.0 ])
     second = comment_on(fire(10, at: [ 1.0, 1.0 ]))
     expect(second.first.last).to eq("97")
@@ -65,7 +65,7 @@ RSpec.describe Commentary do
 
     summary = c.after_match
     expect(summary.flatten).to include("450")                             # the final score
-    expect(said(summary)).not_to include("565")                           # under 60 shots: no verdict on the goal
+    expect(said(summary)).not_to include("565")                           # no goal talk
   end
 
   it "leaves sighters alone, and stays quiet with chatty mode off" do
@@ -87,7 +87,8 @@ RSpec.describe Commentary do
 
   it "knows every piece it may say, numbers filled in, to render ahead" do
     pieces = Commentary.pieces(user)
-    expect(pieces).to include("3 tens in a row", "10 tens in a row", "low left again", "on 565 pace", "96")
+    expect(pieces).to include("3 tens in a row", "10 tens in a row", "low left again", "96")
+    expect(pieces.grep(/565|pace/)).to eq([])
     expect(pieces).to all(match(/\A[a-z0-9][a-z0-9 .,'-]*\z/))   # each one a valid voice piece
   end
 end

@@ -68,7 +68,10 @@ def log(*args):
 
 
 class Voice:
-    def __init__(self, voice):
+    def __init__(self, voice, threads=None):
+        """threads: cap the CPU cores used (background work - prewarm - must
+        never starve a live session's engine; 2026-11-12 three prewarms at all
+        cores each pushed the load to ~170)."""
         if voice not in voicelines.VOICES:
             raise SystemExit(f"unknown voice {voice!r}; one of {', '.join(voicelines.VOICES)}")
         import numpy as np
@@ -76,7 +79,16 @@ class Voice:
         from kokoro_onnx import Kokoro
         self.np, self.sf = np, sf
         self.voice = voice
-        self.kokoro = Kokoro(str(MODELS / "kokoro-v1.0.onnx"), str(MODELS / "voices-v1.0.bin"))
+        if threads:
+            import onnxruntime as ort
+            opts = ort.SessionOptions()
+            opts.intra_op_num_threads = threads
+            opts.inter_op_num_threads = 1
+            session = ort.InferenceSession(str(MODELS / "kokoro-v1.0.onnx"), sess_options=opts,
+                                           providers=["CPUExecutionProvider"])
+            self.kokoro = Kokoro.from_session(session, str(MODELS / "voices-v1.0.bin"))
+        else:
+            self.kokoro = Kokoro(str(MODELS / "kokoro-v1.0.onnx"), str(MODELS / "voices-v1.0.bin"))
         self.rate = 24000
         self.dir = CACHE / voice
         (self.dir / "pieces").mkdir(parents=True, exist_ok=True)
@@ -216,9 +228,20 @@ def main():
         serve(a.voice)
     elif a.command == "prewarm":
         extra = Path(a.extra).read_text().splitlines() if a.extra else ()
-        Voice(a.voice).prewarm(progress=True, extra=extra)
         if a.extra:
             Path(a.extra).unlink(missing_ok=True)
+        # ONE prewarm per voice at a time (each session start asks for one; a
+        # second would render the same pieces again, in parallel), on 2 cores.
+        import fcntl
+        lock_path = CACHE / a.voice / ".prewarm.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock = open(lock_path, "w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log(f"  {a.voice}: a prewarm is already running - nothing to do")
+            return
+        Voice(a.voice, threads=2).prewarm(progress=True, extra=extra)
     elif a.command == "export":                 # the known pieces, as AAC for git (web/public/voice-pieces)
         for v in (voicelines.VOICES if a.all else [a.voice]):
             Voice(v).export(progress=True)

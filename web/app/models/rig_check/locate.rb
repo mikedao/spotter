@@ -11,7 +11,9 @@ class RigCheck::Locate < RigCheck::LiveProcess
 
   class << self
     def label = "camera check"
-    def dir = Rails.root.join("tmp", "setup")
+    # Specs get their own folder: they clear it, and must never wipe the running
+    # app's latest camera check (it happened, 2026-11-12).
+    def dir = Rails.root.join("tmp", Rails.env.test? ? "setup-test" : "setup")
     def overlay_path(user) = dir.join("locate-#{user.id}.png")
     def result_path(user) = dir.join("locate-#{user.id}.json")
 

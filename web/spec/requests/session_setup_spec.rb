@@ -87,6 +87,37 @@ RSpec.describe "New session setup" do
     expect(response.body).to include("would trigger", %(href="#{setup_start_path}"))
   end
 
+  it "remembers a sound check that heard a shot, and skips it next time for that microphone" do
+    user.update!(last_camera: "1")
+    with_engine("fake_listen.sh") do
+      post setup_microphone_path, params: { mic: "Razer Kiyo" }
+      wait_until_finished(RigCheck::Listen)
+    end
+    get setup_microphone_path
+    expect(user.reload.sound_check).to include("mic" => "Razer Kiyo")
+
+    RigCheck.reset!   # a new session: no check running or remembered in memory
+    get setup_microphone_path
+    expect(response).to redirect_to(setup_start_path)
+    follow_redirect!
+    expect(response.body).to include("✓ heard a shot", "sound check", "check again or change")
+
+    get setup_microphone_path(again: 1)   # asked to: the check, as before
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Does the microphone hear your shots?")
+  end
+
+  it "asks again for a different microphone, or one that isn't connected" do
+    user.update!(last_camera: "1", last_mic: "MacBook Neo Microphone",
+                 sound_check: { "mic" => "Razer Kiyo", "at" => 1.day.ago.iso8601 })
+    get setup_microphone_path
+    expect(response).to have_http_status(:ok)
+
+    user.update!(last_mic: "Old USB Mic", sound_check: { "mic" => "Old USB Mic", "at" => 1.day.ago.iso8601 })
+    get setup_microphone_path   # not in the last device search
+    expect(response).to have_http_status(:ok)
+  end
+
   it "goes camera only without a sound check" do
     user.update!(last_camera: "1")
     post setup_microphone_path, params: { mic: CameraProbe::NO_MIC }

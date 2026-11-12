@@ -141,7 +141,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --all     # (and `samples` for the picker)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 222 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 226 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -236,6 +236,14 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
+- **Live rig checks MORPH** (`RigCheck::LiveProcess#push`: `attributes: { method:
+  :morph }` - a plain `method:` option is silently dropped by turbo-rails 2.0):
+  the camera check's picture is the same `<img>` across updates, so it no longer
+  blanks and jumps every second; it keeps a 16:9 box. Specs use their own
+  `tmp/setup-test` (they used to wipe the running app's camera check).
+- **Voice prewarm: ONE per voice, 2 cores** (`speak.py prewarm` takes a lock in
+  the cache; 2026-11-12 three at once, all cores each, pushed the load to ~170
+  and slowed a live engine).
 - **Flash messages are TOASTS** (`FlashComponent` + `flash_controller.js`, 2026-11-12):
   fixed over the top of the page (no layout shift); a notice fades after 5 s
   (held while hovered), an alert stays until closed (role="alert").
@@ -273,6 +281,15 @@ from there). The user commits; don't commit unless asked.
   can't unlock it. Routes sit BEFORE `resources :practice_sessions`, else
   `practice/new/camera` hits the session's `camera` member route. Voice picker
   moved to Settings (`/settings`). UI says "session", not "match".
+- **A passed sound check is remembered** (2026-11-12, the shooter: don't redo it
+  for a setup that passed before): `users.sound_check` {mic, at, loudest_db,
+  trigger_db, trigger_ms}, written when a check hears a shot that would trigger
+  (`SessionSetupController#remember_sound_check`, on the microphone and start
+  steps). The microphone step then REDIRECTS to Start when the user's mic passed
+  before and is still in the last device search; Start says "✓ heard a shot
+  (sound check Nov 12) - check again or change" -> `?again=1`. A different or
+  missing mic asks again. (Not invalidated by a TRIGGER_DB change - stored for
+  that, unused yet.)
 - **Camera picker** (wizard step 1): New session / "Look again" runs `cameras.py --json DIR`
   (`CameraProbe`, ~5 s, refused while a session runs) and shows a preview per
   camera - pick by PICTURE, names are only a hint. Or a stream URL. Remembered as
@@ -580,10 +597,11 @@ Built and committed:
   in a row in the nine or better, three in a row on one side (+ advice), a flyer
   (> 2.5x mean radius from the group), a 7 or worse, an inner ten; every 10
   shots a SUMMARY (card / series total, best today or personal best or up/down
-  on the last, pace vs the journal goal - pistol whole rings only, not finals);
+  on the last; NO pace or goal talk - the shooter removed it 2026-11-12);
   a match also "halfway" + total at 30 and "last series" at 50; when the RO's
   phase is "done", the MATCH SUMMARY (final score, best series, goal reached or
-  {d} short at 60 shots). Lines: `config/commentary/default.yml` (a
+  {d} short at 60 shots - REMOVED 2026-11-12 with all pace / goal lines, the
+  shooter doesn't want them). Lines: `config/commentary/default.yml` (a
   PERSONALITY = another file like it; `say` never repeats the last phrasing,
   via Rails.cache). Delivered as an Announcement of kind "chat" (no tone).
   `Commentary.pieces(user)` = every line with numbers filled in, pre-rendered at
@@ -757,6 +775,31 @@ because ISSF awards the higher value when the hole touches the line.
   re-baseline SWALLOWED a real hole). A capture whose view changed that much
   is not scored; after movement, once still for two checks, a fresh baseline
   is taken - but only after checking the old baseline for a new hole first.
+- **Every BASELINE is verified** (2026-11-12, camera moved BELOW the card, ~30 deg,
+  looking up: the baseline taken as a card went up fitted badly - inner rings
+  drawn low and squashed for the whole card, on the live view and in the camera
+  check - while frames a moment later fitted all 10 rings to 0.08 mm). `baseline()`
+  in `_shot_auto` (session start, after movement, card back, re-find) tries up to
+  5 frames and keeps the first `_fit_ok` one (perspective model, <= 0.4 mm,
+  >= 1000 ring points; set on all 328 saved frames: genuine <= 0.32 mm from >=
+  3071 points, misfits 0-132 points / no perspective), else the best. After a
+  shot, an after frame that fits poorly also uses the baseline's geometry.
+- **"⌖ Re-find target"** (range screen, beside Stop; the shooter bumps the camera
+  sometimes): `EngineRunner.refind!` -> SIGUSR2 -> the engine takes a new verified
+  baseline from the card as it sits now and says "ready". Only sent to an engine
+  whose log says "re-find target: SIGUSR2" (an older one DIES of SIGUSR2). A shot
+  fired since the last baseline and not yet scored would be absorbed - between
+  shots only.
+- **A hole on the aiming mark's RIM can misfit the after frame** (2026-11-12:
+  two shots ~27 mm out, the black ends at 29.75): the after frame solved 63-69 mm
+  off at ~-88% scale, the frames then read 45% "changed", the movement guard
+  rejected the shot ("not scored, view moving") and the camera check scored it
+  seconds later - the shooter heard "not scored", a pause, then the score.
+  `score_now` now checks `_same_view(tf_after, tf_baseline)` (15 mm / 15%; all
+  144 real pairs differ by <= 4.2 mm / 4%) and on a misfit uses the BASELINE's
+  geometry (the camera can't move in a second; real movement still shows under
+  it) - both shots then scored within 0.1 mm of the later scores. The camera
+  check's own `locate` is unchanged (a misfit there must repeat twice to count).
 - `_scene_moving` is measured INSIDE RING 1 only: the card's outer edge is
   beyond the fitted rings, its registration is an extrapolation that shifts
   2-3 px between frames minutes apart, and the outline alone read 2.1%

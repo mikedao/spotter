@@ -2,13 +2,13 @@
 # picked at random (Commentary). A personality is a file like this one.
 #
 # Each line is spoken as voice pieces: commas and full stops are pauses
-# (voicelines.split). {n} {dir} {goal} {d} are filled in. Lines marked "then the
+# (voicelines.split). {n} {dir} {d} are filled in. Lines marked "then the
 # total" are followed by the number as its own piece ("that's the card" ... "92").
 # Letters, numbers, spaces and . , ' - only (no ! or ?: a voice piece can't hold
 # them). Plain American English; nothing that sounds like a lecture.
 
 name: Default
-description: Friendly and brief - notices streaks, bests, patterns and pace.
+description: Friendly and brief - notices streaks, bests and patterns.
 
 streak_tens:           # 3 or more tens in a row ({n})
   - "{n} tens in a row"
@@ -154,39 +154,6 @@ worse_than_last:       # {d} fewer
   - "{d} short of the last one"
   - "minus {d} on the last"
   - "{d} down, settle in"
-on_pace:               # the running pace is within one point of the goal's
-  - "right on pace for {goal}"
-  - "on {goal} pace"
-  - "tracking {goal}"
-  - "dead on {goal} pace"
-  - "right where you need to be for {goal}"
-  - "holding {goal} pace"
-  - "on schedule for {goal}"
-  - "level with {goal} pace"
-  - "{goal} pace, keep it there"
-  - "exactly on track for {goal}"
-above_pace:            # {d} points over the goal's pace so far
-  - "{d} over {goal} pace"
-  - "{d} ahead of {goal} pace"
-  - "{d} points up on {goal}"
-  - "ahead of {goal} pace by {d}"
-  - "{d} in the bank over {goal} pace"
-  - "running {d} over {goal}"
-  - "{d} clear of {goal} pace"
-  - "{d} above {goal} pace"
-  - "beating {goal} pace by {d}"
-  - "plus {d} on {goal} pace"
-below_pace:            # {d} points under it
-  - "{d} under {goal} pace"
-  - "{d} short of {goal} pace"
-  - "{d} behind {goal} pace"
-  - "{d} points to find for {goal}"
-  - "{d} off {goal} pace"
-  - "chasing {goal}, {d} to make up"
-  - "{d} below {goal} pace"
-  - "need {d} more for {goal} pace"
-  - "{d} back from {goal}"
-  - "minus {d} on {goal} pace"
 halfway:               # 30 shots into a match; then the total
   - "halfway"
   - "thirty shots done"
@@ -232,28 +199,6 @@ final_score:           # then the total
   - "total score"
   - "you shot"
   - "the result is"
-goal_reached:
-  - "{goal} reached, well done"
-  - "over {goal}, great match"
-  - "you made {goal}"
-  - "{goal} or better, excellent"
-  - "that clears {goal}"
-  - "goal reached, {goal} and up"
-  - "{goal}, done"
-  - "you hit your {goal}"
-  - "past {goal}, that's the standard"
-  - "{goal} made, keep it up"
-goal_missed:           # {d} short
-  - "{d} short of {goal}"
-  - "{d} points off {goal}, closing in"
-  - "{d} away from {goal}"
-  - "{d} under {goal}"
-  - "{goal} is {d} away"
-  - "short of {goal} by {d}"
-  - "{d} to go for {goal}"
-  - "{d} from {goal}, getting closer"
-  - "missed {goal} by {d}"
-  - "{d} shy of {goal}"
 best_series_was:       # then the total
   - "best series"
   - "your best series was"
