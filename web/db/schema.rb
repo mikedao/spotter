@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_020000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -47,6 +47,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
     t.datetime "updated_at", null: false
     t.index ["practice_session_id", "number"], name: "index_cards_on_practice_session_id_and_number", unique: true
     t.index ["practice_session_id"], name: "index_cards_on_practice_session_id"
+  end
+
+  create_table "exercises", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "name", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_exercises_on_user_id"
   end
 
   create_table "guns", force: :cascade do |t|
@@ -98,11 +106,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
     t.integer "gun_id"
     t.integer "pellet_id"
     t.text "gun_adjustments"
+    t.text "problems"
+    t.text "fixes"
+    t.text "learned"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["gun_id"], name: "index_practice_sessions_on_gun_id"
     t.index ["pellet_id"], name: "index_practice_sessions_on_pellet_id"
     t.index ["run_token"], name: "index_practice_sessions_on_run_token", unique: true
     t.index ["user_id"], name: "index_practice_sessions_on_user_id"
+  end
+
+  create_table "session_exercises", force: :cascade do |t|
+    t.integer "practice_session_id", null: false
+    t.integer "exercise_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["exercise_id"], name: "index_session_exercises_on_exercise_id"
+    t.index ["practice_session_id", "exercise_id"], name: "index_session_exercises_on_practice_session_id_and_exercise_id", unique: true
+    t.index ["practice_session_id"], name: "index_session_exercises_on_practice_session_id"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -155,7 +176,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
   end
 
   create_table "users", force: :cascade do |t|
-    t.string "username", null: false
     t.string "email_address", null: false
     t.string "pin_digest", null: false
     t.datetime "created_at", null: false
@@ -164,6 +184,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
     t.string "last_camera"
     t.string "last_mic"
     t.string "voice"
+    t.string "username", null: false
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["username"], name: "index_users_on_username", unique: true
   end
@@ -171,11 +192,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_010000) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "cards", "practice_sessions"
+  add_foreign_key "exercises", "users"
   add_foreign_key "guns", "users"
   add_foreign_key "pellets", "users"
   add_foreign_key "practice_sessions", "guns"
   add_foreign_key "practice_sessions", "pellets"
   add_foreign_key "practice_sessions", "users"
+  add_foreign_key "session_exercises", "exercises"
+  add_foreign_key "session_exercises", "practice_sessions"
   add_foreign_key "sessions", "users"
   add_foreign_key "shots", "cards"
 end

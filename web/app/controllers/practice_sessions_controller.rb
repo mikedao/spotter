@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update stop start_match destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -40,6 +40,14 @@ class PracticeSessionsController < ApplicationController
     end
   rescue ActiveRecord::RecordInvalid => e
     redirect_to practice_session_path(@session, anchor: "gear"), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
+  end
+
+  # The session diary: exercise tags, problems, what fixed them, what was learned.
+  def diary
+    DiaryParams.new(Current.user, diary_params).apply!(@session)
+    redirect_to practice_session_path(@session, anchor: "diary"), notice: "Saved the diary.", status: :see_other
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to practice_session_path(@session, anchor: "diary"), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
   end
 
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.
@@ -87,6 +95,10 @@ class PracticeSessionsController < ApplicationController
 
     def start_params
       params.expect(practice_session: [ :target, :per_card, :camera, :mic, :course ])
+    end
+
+    def diary_params
+      params.fetch(:practice_session, {}).permit(:new_exercise, :problems, :fixes, :learned, exercise_ids: [])
     end
 
     def gear_params

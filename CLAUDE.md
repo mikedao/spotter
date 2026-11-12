@@ -352,6 +352,13 @@ from there). The user commits; don't commit unless asked.
   `practice_sessions.gun_adjustments` = what was changed on the gun that day (on
   the SESSION, not a log on the gun); the gun's page lists them as its history.
   Gear page: `/gear` ("Guns and pellets" in the menu).
+- **Session diary** (2026-11-12, the shooter's choices): a Diary card on the session
+  page, filled any time (`SessionDiaryComponent`, `PATCH /practice/:id/diary`,
+  `DiaryParams`). Exercises = TAGS to tap (`Exercise` per user, `SessionExercise`
+  join; typed once, offered after, most used first; a tag no session uses is
+  deleted by `Exercise.tidy!`). Three boxes kept APART so the journal can list
+  problems across sessions: `problems`, `fixes`, `learned`. NO location or weather:
+  Spotter is an at-home rig (the shooter's call).
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

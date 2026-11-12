@@ -1,0 +1,32 @@
+<%= render(CardComponent.new(title: "Diary", id: "diary")) do %>
+  <%= form_with model: session, url: helpers.diary_practice_session_path(session), method: :patch, class: "space-y-4" do |f| %>
+    <fieldset>
+      <legend class="mb-2 text-sm font-medium">Exercises</legend>
+      <%= hidden_field_tag "practice_session[exercise_ids][]", "" %>
+      <div class="flex flex-wrap items-center gap-2">
+        <% exercises.each do |exercise| %>
+          <label class="flex min-h-9 cursor-pointer items-center rounded-full border border-gray-300 px-3 text-sm select-none
+                        has-[:checked]:border-blue-600 has-[:checked]:bg-blue-600 has-[:checked]:text-white
+                        has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-blue-600 dark:border-gray-700">
+            <%= check_box_tag "practice_session[exercise_ids][]", exercise.id, chosen?(exercise), id: "exercise_#{exercise.id}", class: "sr-only" %>
+            <%= exercise.name %>
+          </label>
+        <% end %>
+        <%= f.text_field :new_exercise, value: nil, class: "#{INPUT} max-w-56 py-1.5 text-sm", "aria-label": "New exercise",
+              placeholder: exercises.empty? ? "What did you practice?" : "Add an exercise" %>
+      </div>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Tap to tick. A new one is kept as a tag for next time.</p>
+    </fieldset>
+
+    <div class="grid gap-4 md:grid-cols-3">
+      <% BOXES.each do |field, label, hint| %>
+        <div class="space-y-1">
+          <%= f.label field, label, class: "block text-sm font-medium" %>
+          <%= f.text_area field, rows: 3, class: INPUT, placeholder: hint %>
+        </div>
+      <% end %>
+    </div>
+
+    <%= render(ButtonComponent.new(type: :submit, variant: :secondary)) { "Save diary" } %>
+  <% end %>
+<% end %>

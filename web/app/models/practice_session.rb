@@ -4,6 +4,8 @@ class PracticeSession < ApplicationRecord
   belongs_to :user
   belongs_to :gun, optional: true        # what was shot: optional, pre-selected (GearChoice)
   belongs_to :pellet, optional: true
+  has_many :session_exercises, dependent: :destroy   # the diary's exercise tags
+  has_many :exercises, through: :session_exercises
   has_secure_token :run_token   # the engine's events must present it (Api::EventsController)
   has_many :cards, -> { order(:number) }, dependent: :destroy, inverse_of: :practice_session
   has_many :shots, through: :cards
@@ -16,7 +18,7 @@ class PracticeSession < ApplicationRecord
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }
   validates :status, inclusion: { in: STATUSES }
   validates :course, inclusion: { in: Course::ALL.keys }, allow_nil: true
-  validates :gun_adjustments, length: { maximum: 2000 }
+  validates :gun_adjustments, :problems, :fixes, :learned, length: { maximum: 4000 }
   validate :gear_is_the_users_own
 
   scope :newest_first, -> { order(started_at: :desc) }

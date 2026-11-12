@@ -9,6 +9,7 @@ class User < ApplicationRecord
   has_many :practice_sessions, dependent: :destroy
   has_many :guns, dependent: :destroy        # after the sessions that point at them
   has_many :pellets, dependent: :destroy
+  has_many :exercises, dependent: :destroy
 
   normalizes :username, with: ->(u) { u.strip.downcase }
   normalizes :email_address, with: ->(e) { e.strip.downcase }
