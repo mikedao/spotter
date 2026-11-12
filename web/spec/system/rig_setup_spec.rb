@@ -26,8 +26,8 @@ RSpec.describe "Rig setup" do
 
   it "shows the camera verdicts and which sounds would trigger" do
     visit new_session_path
-    fill_in "Email", with: user.email_address
-    fill_in "Password", with: "range-day-10"
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
     click_button "Sign in"
     click_on "Rig setup"
 

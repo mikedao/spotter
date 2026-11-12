@@ -902,10 +902,22 @@ def _direction(x_mm, y_mm, inner_ten=False):
     return names[int(((ang + 22.5) % 360.0) // 45.0)]
 
 
+def _spoken_direction(r):
+    """The direction as said: "shot low", with how far out in ring steps (so
+    the same for pistol and rifle): "a touch" in the 10 and 9 rings, plain in
+    the 8 and 7, "well" in the 6 or worse. Each phrase is one voice piece
+    (voicelines.DIRECTION_PHRASES): "low" said on its own sounded wrong."""
+    d = _direction(r["x_mm"], r["y_mm"], r["inner_ten"])
+    if d == "centre":
+        return d
+    ring = r["integer"]
+    degree = "a touch " if ring >= 9 else ("" if ring >= 7 else "well ")
+    return f"shot {degree}{d}"
+
+
 def _spoken(r, res):
     """The result as a short phrase for `say`."""
-    words = (f"{r['decimal']:.1f}, "
-             + _direction(r["x_mm"], r["y_mm"], r["inner_ten"])
+    words = (f"{r['decimal']:.1f}, " + _spoken_direction(r)
              + (", inner ten" if r["inner_ten"] else ""))
     why = []
     if r.get("line_call"):
@@ -1166,12 +1178,14 @@ def _shot_auto(a, spec):
         st["prior"].append((r["x_mm"], r["y_mm"]))
         k = len(st["prior"])                 # shot number ON THIS CARD
         full = a.per_card and k == a.per_card
-        tail = f". {a.per_card} shots, change the card" if full else ""
+        tail = f". that's {a.per_card}. new card please" if full else ""
         # Lead with the shot number on this card, so a missed shot is noticed
         # at once ("shot five" when you expected six).
+        # A flagged shot: the score first (what the shooter is waiting for),
+        # then why it is worth a look. The "check" tone already marks it, so no
+        # spoken "check" (alone, it sounded wrong).
         if flags:
-            say("check", f"shot {k}. check. " + ", ".join(flags) + f". {words}"
-                + tail)
+            say("check", f"shot {k}. {words}. " + ", ".join(flags) + tail)
         else:
             say("ok", f"shot {k}. {words}" + tail)
         if full:
@@ -1925,7 +1939,7 @@ def main():
                                 "drawn on, on 127.0.0.1:PORT (the web app's "
                                 "range screen shows it)")
             s.add_argument("--per-card", type=int, default=None,
-                           help="auto: announce 'change the card' after this "
+                           help="auto: announce 'new card please' after this "
                                 "many shots on a card")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")

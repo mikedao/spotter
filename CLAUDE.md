@@ -130,8 +130,9 @@ from there). The user commits; don't commit unless asked.
   stores it and pushes it live (Turbo Streams; `LiveBroadcast` replaces whole panels).
 - **Users** (2026-11): Rails 8 authentication, OPEN sign-up, each user sees only
   their own sessions (every query goes through `Current.user`; another user's id
-  is a 404). No password-reset email (the app sends none):
-  `bin/rails users:reset_password`. Sign in/up at `/sign_in`, `/sign_up`;
+  is a 404). Sign-in is USERNAME + 4-8 digit PIN (`has_secure_password :pin`,
+  username case-insensitive); email is stored, never used to sign in. No
+  PIN-reset email (the app sends none): `bin/rails users:reset_pin LOGIN=... PIN=...`. Sign in/up at `/sign_in`, `/sign_up`;
   practice sessions at `/practice` (the login `Session` model is unrelated to
   `PracticeSession`).
 - **The web app starts the engine** (decided over per-user tokens): Start creates
@@ -209,7 +210,7 @@ from there). The user commits; don't commit unless asked.
   not stop its engine; without the fix the web app's Stop would silently do
   nothing under any service manager. Verified with an inherited ignore.
 - `bin/rails spotter:demo` replays the real 10-shot card 044-053 through the real
-  engine (`camstream.py --playlist`, no mic) into a "Demo" user (or EMAIL=...),
+  engine (`camstream.py --playlist`, no mic) into a "Demo" user (`demo` / PIN 1010, or LOGIN=...),
   writing the engine's files to a temp `SPOTTER_OUT` so the real shot log is never
   touched. Default 10 s per image (>= 7 s enforced; 7 s lost shots while Spotlight
   indexing slowed solves 1.7x): camera-only needs two checks + scoring, and at 5 s
@@ -259,10 +260,19 @@ Apache-2.0): all 28 English voices, each USER picks theirs.
 Built (uncommitted at the move to a faster computer):
 - `engine/voicelines.py` (pure Python, shared): `VOICES` (28 ids), `split(text)`
   -> sentences -> pieces, `pieces()` = every piece the engine can say (~260:
-  "shot 1".."shot 60", "0.0".."10.9", directions, flags, fixed lines, "N shots"),
+  "shot 1".."shot 60", "0.0".."10.9", directions, flags, fixed lines, "that's N"),
   `SENTENCE_GAP_S` 0.55 / `COMMA_GAP_S` 0.25. **The shooter wants clear PAUSES
   between statements** (run-together phrases are hard to take in while shooting):
   each piece is rendered alone and joined with real silence, never one long text.
+- **Wording the shooter chose (2026-11-11), by ear:** a single word rendered as
+  its own piece sounds wrong ("check.", "low."), so: no spoken "check" on a
+  flagged shot (the check TONE marks it; score first, then why: "shot 4. 9.0,
+  shot a touch low. line call"), and the direction is one piece "shot [degree]
+  <dir>", degree by ring so pistol and rifle match: "a touch" 10-9, plain 8-7,
+  "well" 6 or worse (`phase1._spoken_direction`, `voicelines.DIRECTION_PHRASES`).
+  Inner ten stays "centre, inner ten". End of card: "that's 10. new card please"
+  (not "10 shots, change the card"). When Rails takes over the announcement
+  (below), it must build the same text.
 - `engine/voice/`: own **Python 3.13** venv (Kokoro's onnxruntime/scipy have no
   Python 3.15 builds; the engine venv is 3.15). `brew install python@3.13 &&
   engine/voice/setup.sh` (venv + ~350 MB model, both gitignored with `cache/`).

@@ -8,7 +8,7 @@ class RegistrationsController < ApplicationController
   end
 
   def create
-    @user = User.new(params.expect(user: [ :name, :email_address, :password, :password_confirmation ]))
+    @user = User.new(params.expect(user: [ :name, :username, :email_address, :pin, :pin_confirmation ]))
     if @user.save
       start_new_session_for @user
       redirect_to root_path, notice: "Welcome, #{@user.name}."

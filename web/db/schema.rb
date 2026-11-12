@@ -119,8 +119,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_002739) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.string "username", null: false
     t.string "email_address", null: false
-    t.string "password_digest", null: false
+    t.string "pin_digest", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "name", default: "", null: false
@@ -128,6 +129,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_002739) do
     t.string "last_mic"
     t.string "voice"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["username"], name: "index_users_on_username", unique: true
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"

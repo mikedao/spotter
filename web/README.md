@@ -73,14 +73,15 @@ Neither runs during a session, and Start waits while a sound check runs.
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.
 
-Forgotten password (the app sends no email):
-`bin/rails users:reset_password EMAIL=... PASSWORD=...`
+Shooters sign in with a **username and a 4-8 digit PIN**; the email address is
+stored but not used to sign in. Forgotten PIN (the app sends no email):
+`bin/rails users:reset_pin LOGIN=<username> PIN=...` (`LOGIN`, not `USERNAME`,
+which some shells set themselves).
 
 To see it work without a camera or a gun: with `bin/dev` running,
 `bin/rails spotter:demo` replays a real ten-shot card (engine/out/shots/044-053)
 through the real engine - open the link it prints (sign in as
-demo@spotter.local / spotter-demo, or pass `EMAIL=you@...` to use your own
-account) and watch the range screen fill up live. Its shots go to a temporary
+`demo`, PIN `1010`, or pass `LOGIN=<your username>` to use your own account) and watch the range screen fill up live. Its shots go to a temporary
 folder, never the real shot log.
 
 To test without a camera: `cd ../engine && ./.venv/bin/python camstream.py

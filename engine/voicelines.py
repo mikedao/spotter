@@ -3,7 +3,7 @@ What Spotter says, broken into the short pieces a voice speaks - shared by the
 engine (which announces) and voice/speak.py (which renders with Kokoro, on its
 own Python). Pure Python, no dependencies, so both can import it.
 
-An announcement such as "shot 4. check. line call. 9.0, low" is spoken as
+An announcement such as "shot 4. 9.0, low. line call" is spoken as
 pieces with real silence between them: a longer pause between sentences, a
 shorter one at commas (the shooter asked for clear pauses - run-together
 phrases are hard to take in while concentrating on the next shot). Each piece
@@ -36,16 +36,21 @@ DEFAULT_VOICE = "af_heart"
 
 # What the rig check / voice picker plays: a normal shot, a flagged one, the end
 # of a card, and the ready call.
-SAMPLE = ["shot 3. 8.5, high left",
-          "shot 4. check. line call. 9.0, low",
-          "shot 10. 10.3, centre, inner ten. 10 shots, change the card",
+SAMPLE = ["shot 3. 8.5, shot high left",
+          "shot 4. 9.0, shot a touch low. line call",
+          "shot 10. 10.3, centre, inner ten. that's 10. new card please",
           "ready"]
 
 DIRECTIONS = ["centre", "right", "high right", "high", "high left",
               "left", "low left", "low", "low right"]
+# How a direction is said (phase1._spoken_direction): "shot low", with how far
+# out - "a touch" (rings 10-9), plain (8-7), "well" (6 or worse). One piece each,
+# because a direction said on its own ("low.") sounded wrong.
+DEGREES = ["a touch ", "", "well "]
+DIRECTION_PHRASES = ["centre"] + [f"shot {g}{d}" for g in DEGREES for d in DIRECTIONS[1:]]
 FLAGS = ["line call", "ring uncertain", "overlaps a hole", "rough hole",
          "found without a sound"]
-FIXED = ["ready", "check", "inner ten", "change the card", "card off", "new card",
+FIXED = ["ready", "inner ten", "new card please", "card off", "new card",
          "same card", "not scored", "view moving", "shot not scored",
          "camera connection lost", "geometry warning", "consider a fresh card"]
 MAX_SHOTS = 60
@@ -73,11 +78,11 @@ def split(text):
 
 def pieces():
     """Every piece the engine can say, most frequent first (fill order)."""
-    out = ["ready", "check"]
+    out = ["ready"]
     out += [f"shot {n}" for n in range(1, 11)]
     out += [f"{r / 10:.1f}" for r in range(109, -1, -1)]      # 10.9 .. 0.0
-    out += DIRECTIONS + FLAGS + FIXED
-    out += [f"{n} shots" for n in range(1, MAX_SHOTS + 1)]
+    out += DIRECTION_PHRASES + FLAGS + FIXED
+    out += [f"that's {n}" for n in range(1, MAX_SHOTS + 1)]    # end of card
     out += [f"shot {n}" for n in range(11, MAX_SHOTS + 1)]
     seen, ordered = set(), []
     for p in map(piece, out):

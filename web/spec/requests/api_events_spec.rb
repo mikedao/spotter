@@ -39,7 +39,7 @@ RSpec.describe "Engine events API" do
 
   it "says Stopping live from Stop until the engine has ended, even if the final check finds a shot" do
     user = session.user
-    post session_path, params: { email_address: user.email_address, password: "range-day-10" }
+    post session_path, params: { username: user.username, pin: "1010" }
     session.update!(status: "shooting", engine_pid: 999_999)
     allow(EngineRunner).to receive(:alive?).and_return(true)
     allow(EngineRunner).to receive(:reconcile!)

@@ -79,7 +79,7 @@ because its dependencies have no builds for newer Pythons yet. It downloads a
 ```bash
 brew install python@3.13
 engine/voice/setup.sh
-engine/voice/.venv/bin/python engine/voice/speak.py say --voice af_heart "shot 3. 8.5, high left"
+engine/voice/.venv/bin/python engine/voice/speak.py say --voice af_heart "shot 3. 8.5, shot high left"
 ```
 
 ## Usage

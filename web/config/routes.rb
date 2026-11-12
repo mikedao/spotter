@@ -1,8 +1,8 @@
 Rails.application.routes.draw do
   root "practice_sessions#index"
 
-  # Sign in / out (Rails 8 authentication) and open sign-up. No password-reset
-  # route: the app sends no email (bin/rails users:reset_password instead).
+  # Sign in / out (Rails 8 authentication) and open sign-up. No PIN-reset
+  # route: the app sends no email (bin/rails users:reset_pin instead).
   get "sign_in", to: "sessions#new", as: :new_session
   resource :session, only: %i[ create destroy ]
   get "sign_up", to: "registrations#new", as: :new_registration

@@ -4,18 +4,18 @@
   <%= render(CardComponent.new(title: "Sign in")) do %>
     <%= form_with url: session_path, class: "space-y-4" do |f| %>
       <div class="space-y-1">
-        <%= f.label :email_address, "Email", class: "block text-sm font-medium" %>
-        <%= f.email_field :email_address, required: true, autofocus: true, autocomplete: "username", value: params[:email_address], class: TextFieldComponent::INPUT %>
+        <%= f.label :username, "Username", class: "block text-sm font-medium" %>
+        <%= f.text_field :username, required: true, autofocus: true, autocomplete: "username", autocapitalize: "none", spellcheck: false, value: params[:username], class: TextFieldComponent::INPUT %>
       </div>
       <div class="space-y-1">
-        <%= f.label :password, "Password", class: "block text-sm font-medium" %>
-        <%= f.password_field :password, required: true, autocomplete: "current-password", maxlength: 72, class: TextFieldComponent::INPUT %>
+        <%= f.label :pin, "PIN", class: "block text-sm font-medium" %>
+        <%= f.password_field :pin, required: true, autocomplete: "current-password", inputmode: "numeric", pattern: "[0-9]*", maxlength: 8, class: TextFieldComponent::INPUT %>
       </div>
       <%= render(ButtonComponent.new(type: :submit, full_width: true)) { "Sign in" } %>
     <% end %>
     <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">
       New here? <%= link_to "Create an account", new_registration_path, class: "text-blue-700 underline dark:text-blue-300" %>.
-      Forgot your password? Ask whoever runs this spotter to reset it.
+      Forgot your PIN? Ask whoever runs this spotter to reset it.
     </p>
   <% end %>
 </div>

@@ -2,8 +2,8 @@
 # watch the range screen fill up without a camera or a gun.
 #
 #   bin/dev                                  # the web app must be running
-#   bin/rails spotter:demo                   # as a "Demo" user (password printed)
-#   bin/rails spotter:demo EMAIL=you@example.com   # into your own account instead
+#   bin/rails spotter:demo                   # as a "Demo" user (username and PIN printed)
+#   bin/rails spotter:demo LOGIN=you            # into your own account instead
 #
 # camstream.py serves the card's photos in turn (the clean card, then the card
 # after each shot) as if a camera were watching; the engine runs with no
@@ -19,10 +19,10 @@ namespace :spotter do
     missing = frames.reject(&:exist?)
     abort "The demo replays engine/out/shots/044-053, which aren't here: #{missing.first}" if missing.any?
 
-    user = if ENV["EMAIL"].present?
-      User.find_by!(email_address: ENV["EMAIL"].strip.downcase)
+    user = if ENV["LOGIN"].present?
+      User.find_by!(username: ENV["LOGIN"].strip.downcase)
     else
-      User.find_or_create_by!(email_address: "demo@spotter.local") { it.name = "Demo"; it.password = "spotter-demo" }
+      User.find_or_create_by!(username: "demo") { it.name = "Demo"; it.email_address = "demo@spotter.local"; it.pin = "1010" }
     end
 
     port = ENV.fetch("DEMO_STREAM_PORT", "8095")
@@ -42,7 +42,7 @@ namespace :spotter do
     session.update!(notes: "Demo: replay of a real ten-shot card (shots 044-053)")
     puts "Demo session started for #{user.name}."
     puts "Watch it live: #{EngineRunner.web_url}/practice/#{session.id}"
-    puts "(sign in as demo@spotter.local / spotter-demo)" if ENV["EMAIL"].blank?
+    puts "(sign in as demo, PIN 1010)" if ENV["LOGIN"].blank?
 
     seconds = frames.size * every.to_f + 25
     deadline = Time.current + seconds
