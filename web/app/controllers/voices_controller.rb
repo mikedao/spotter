@@ -16,7 +16,7 @@ class VoicesController < ApplicationController
   def piece
     path = Voice.piece!(params[:id], params[:text].to_s)
     response.headers["Cache-Control"] = "private, max-age=604800"
-    send_file path, type: "audio/wav", disposition: "inline"
+    send_file path, type: path.extname == ".m4a" ? "audio/mp4" : "audio/wav", disposition: "inline"
   rescue ArgumentError
     head :not_found
   rescue Voice::Failed => e

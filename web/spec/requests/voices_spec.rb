@@ -65,6 +65,16 @@ RSpec.describe "Announcer voice" do
     FileUtils.rm_f(wav)
   end
 
+  it "plays a known piece from the exported files in git, and asks the server only for the rest" do
+    allow(Voice).to receive(:exported_dir).and_return(Rails.root.join("tmp", "voice-pieces-spec"))
+    FileUtils.mkdir_p(Voice.exported_dir.join("af_heart"))
+    File.binwrite(Voice.exported_dir.join("af_heart", "shot_4.m4a"), "fake")
+    expect(Voice.piece_url("af_heart", "shot 4")).to eq("/voice-pieces/af_heart/shot_4.m4a")
+    expect(Voice.piece_url("af_heart", "a brand new line")).to eq("/voices/af_heart/piece?text=a+brand+new+line")
+  ensure
+    FileUtils.rm_rf(Rails.root.join("tmp", "voice-pieces-spec"))
+  end
+
   it "names a cached piece the way the voice helper does" do
     expect(Voice.piece_path("af_heart", "that's 10").basename.to_s).to eq("that_s_10.wav")
     expect(Voice.piece_path("af_heart", "10.9").basename.to_s).to eq("10_9.wav")

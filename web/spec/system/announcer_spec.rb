@@ -46,7 +46,10 @@ RSpec.describe "Announcer on the range screen" do
     JS
 
     expect(page).to have_css("[data-controller='announcer'][data-played='1']", wait: 5)
-    fetched = page.evaluate_script("performance.getEntriesByType('resource').map(e => e.name).filter(n => n.includes('/piece?'))")
-    expect(fetched.map { CGI.unescape(it[/text=([^&]+)/, 1].tr("+", " ")) }).to contain_exactly("shot 4", "9.6", "shot a touch low")
+    # Each piece from the exported files in git (Heart has them) or rendered by the server.
+    fetched = page.evaluate_script("performance.getEntriesByType('resource').map(e => e.name)")
+                  .grep(%r{/voice-pieces/|/piece\?})
+    expected = [ "shot 4", "9.6", "shot a touch low" ].map { Voice.piece_url(user.voice || Voice::DEFAULT, it) }
+    expect(fetched.map { URI(it).request_uri }).to match_array(expected)
   end
 end

@@ -48,7 +48,9 @@ class Voice
     # samples (in git, public/). The renderer (speak.py) is told where to write.
     def cache = Pathname(ENV.fetch("SPOTTER_VOICE_CACHE", Rails.root.join("storage", "voices").to_s))
     def samples_dir = Rails.root.join("public", "voice-samples")
-    def render_env = { "SPOTTER_VOICE_CACHE" => cache.to_s, "SPOTTER_VOICE_SAMPLES" => samples_dir.to_s }
+    def exported_dir = Rails.root.join("public", "voice-pieces")   # every known piece, every voice, in git
+    def render_env = { "SPOTTER_VOICE_CACHE" => cache.to_s, "SPOTTER_VOICE_SAMPLES" => samples_dir.to_s,
+                       "SPOTTER_VOICE_PIECES" => exported_dir.to_s }
     def available? = python.exist? && dir.join("models", "kokoro-v1.0.onnx").exist?
 
     # The voice reading the sample lines, made on first request (~20 s for a new
@@ -78,11 +80,23 @@ class Voice
     # speak.py names it. Raises Failed when it can't be made.
     PIECE = /\A[a-z0-9][a-z0-9 .,'-]{0,79}\z/
 
-    def piece_path(id, text) = cache.join(id.to_s, "pieces", "#{text.gsub(/[^[:alnum:]]/, '_')}.wav")
+    def slug(text) = text.gsub(/[^[:alnum:]]/, "_")   # as speak.py names its files
+    def piece_path(id, text) = cache.join(id.to_s, "pieces", "#{slug(text)}.wav")
+    def exported_path(id, text) = exported_dir.join(id.to_s, "#{slug(text)}.m4a")
+
+    # Where the browser gets a piece: the exported file (static, in git) when the
+    # engine's known set has it, else the server, which renders it on first use.
+    def piece_url(id, text)
+      if exported_path(id, text).exist? then "/voice-pieces/#{id}/#{slug(text)}.m4a"
+      else Rails.application.routes.url_helpers.voice_piece_path(id, text:)
+      end
+    end
 
     def piece!(id, text)
       raise ArgumentError, "unknown voice" unless valid?(id)
       raise ArgumentError, "not a voice piece" unless text.to_s.match?(PIECE)
+
+      return exported_path(id, text) if exported_path(id, text).exist?
 
       path = piece_path(id, text)
       return path if path.exist?

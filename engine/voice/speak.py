@@ -6,6 +6,7 @@ engine talks to it as a separate process. Set up with ./setup.sh.
 
     .venv/bin/python speak.py serve --voice af_heart      # for the engine (below)
     .venv/bin/python speak.py prewarm --voice af_heart    # fill the cache ahead of time
+    .venv/bin/python speak.py export --all                # every known piece, every voice -> web/public/voice-pieces (git)
     .venv/bin/python speak.py sample --voice bm_george    # the picker's sample, path printed
     .venv/bin/python speak.py samples                     # every voice's sample (~10 min), + web/public/voice-samples/*.m4a (in git)
     .venv/bin/python speak.py say --voice af_heart "shot 3. 8.5, high left"
@@ -40,6 +41,24 @@ MODELS = HERE / "models"
 # from a terminal, the cache stays here.
 CACHE = Path(os.environ.get("SPOTTER_VOICE_CACHE", HERE / "cache"))
 SAMPLES = Path(os.environ.get("SPOTTER_VOICE_SAMPLES", HERE.parent.parent / "web" / "public" / "voice-samples"))
+# Every piece the engine can say, for every voice, kept IN GIT as 32 kbps AAC
+# (`speak.py export`): the range screen plays these straight away; only pieces
+# outside this set (future personality lines) are rendered on first use.
+EXPORTED = Path(os.environ.get("SPOTTER_VOICE_PIECES", HERE.parent.parent / "web" / "public" / "voice-pieces"))
+
+
+def slug(p):
+    """A piece's file name, the same in the cache, the export and the web app."""
+    return "".join(c if c.isalnum() else "_" for c in p)
+
+
+def aac(wav, out):
+    """WAV -> 32 kbps AAC (.m4a) with macOS's afconvert (the bitrate the shooter
+    chose by ear: ~9 KB a piece)."""
+    import subprocess
+    tmp = out.with_name(out.stem + ".partial.m4a")
+    subprocess.run(["afconvert", "-f", "m4af", "-d", "aac", "-b", "32000", str(wav), str(tmp)], check=True)
+    os.replace(tmp, out)
 SPEED = 1.1
 ANNOUNCEMENT_GAP_S = 1.2                       # between announcements in a sample
 
@@ -65,8 +84,7 @@ class Voice:
         self.lock = threading.Lock()
 
     def _piece_path(self, p):
-        slug = "".join(c if c.isalnum() else "_" for c in p)
-        return self.dir / "pieces" / f"{slug}.wav"
+        return self.dir / "pieces" / f"{slug(p)}.wav"
 
     def _write(self, path, audio):
         tmp = path.with_name(path.stem + f".{os.getpid()}.partial.wav")
@@ -115,6 +133,29 @@ class Voice:
             self._write(path, self.announcement(text))
         return path
 
+    def export(self, progress=False):
+        """Every piece the engine can say, as AAC for git; pieces it no longer
+        says are removed, so the repo holds exactly the current set."""
+        wanted = voicelines.pieces()
+        out = EXPORTED / self.voice
+        out.mkdir(parents=True, exist_ok=True)
+        t0, made = time.time(), 0
+        for n, p in enumerate(wanted, 1):
+            if self.exported(p).exists():
+                continue
+            self.piece(p)
+            aac(self._piece_path(p), self.exported(p))
+            made += 1
+            if progress and made % 25 == 0:
+                log(f"  {self.voice}: {n}/{len(wanted)} ({time.time() - t0:.0f} s)")
+        keep = {f"{slug(p)}.m4a" for p in wanted}
+        stale = [f for f in out.glob("*.m4a") if f.name not in keep]
+        for f in stale:
+            f.unlink()
+        if progress:
+            log(f"  {self.voice}: {len(wanted)} pieces exported ({made} new, {len(stale)} stale removed, "
+                f"{time.time() - t0:.0f} s)")
+
     def sample(self):
         path = self.dir / "sample.wav"
         if not path.exists():
@@ -127,8 +168,13 @@ class Voice:
             self._write(path, self.np.concatenate(parts))
         return path
 
+    def exported(self, p):
+        return EXPORTED / self.voice / f"{slug(p)}.m4a"
+
     def prewarm(self, stop=None, progress=False):
-        todo = [p for p in voicelines.pieces() if not self._piece_path(p).exists()]
+        # Exported pieces (in git) need no WAV: the range screen plays those.
+        todo = [p for p in voicelines.pieces()
+                if not self._piece_path(p).exists() and not self.exported(p).exists()]
         t0 = time.time()
         for n, p in enumerate(todo, 1):
             if stop is not None and stop.is_set():
@@ -156,9 +202,10 @@ def serve(voice):
 
 def main():
     p = argparse.ArgumentParser(description="Spotter's Kokoro announcer voice")
-    p.add_argument("command", choices=["serve", "prewarm", "sample", "samples", "say", "piece", "list"])
+    p.add_argument("command", choices=["serve", "prewarm", "export", "sample", "samples", "say", "piece", "list"])
     p.add_argument("text", nargs="?")
     p.add_argument("--voice", default=voicelines.DEFAULT_VOICE)
+    p.add_argument("--all", action="store_true", help="export: every voice")
     a = p.parse_args()
     if a.command == "list":
         print(json.dumps(voicelines.VOICES))
@@ -166,6 +213,9 @@ def main():
         serve(a.voice)
     elif a.command == "prewarm":
         Voice(a.voice).prewarm(progress=True)
+    elif a.command == "export":                 # the known pieces, as AAC for git (web/public/voice-pieces)
+        for v in (voicelines.VOICES if a.all else [a.voice]):
+            Voice(v).export(progress=True)
     elif a.command == "sample":
         print(Voice(a.voice).sample())
     elif a.command == "samples":                # every voice's sample, for the picker

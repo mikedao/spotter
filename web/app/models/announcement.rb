@@ -29,7 +29,7 @@ class Announcement
     gaps = @data["gaps"] || {}
     { kind:, kokoro: Voice.available?,
       gaps: { sentence: gaps["sentence"] || 0.55, comma: gaps["comma"] || 0.25 },
-      sentences: sentences.map { |pieces| pieces.map { [ it, Rails.application.routes.url_helpers.voice_piece_path(voice, text: it) ] } } }
+      sentences: sentences.map { |pieces| pieces.map { [ it, Voice.piece_url(voice, it) ] } } }
   end
 
   def deliver!

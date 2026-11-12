@@ -510,16 +510,19 @@ Built and committed:
   ring uncertain, overlaps a hole, rough hole, found without a sound, view
   moving, geometry warning. Every other line (ready, card off, new card, not
   scored, camera lost, the RO) is always said.
-- **Pieces are rendered ON FIRST USE, cached for good, NOT in git** (decided
-  2026-11-12: the shooter plans announcer PERSONALITIES with hundreds of line
-  variations, and live-written remarks; pre-rendering every voice x line would
-  reach GBs). `Voice.piece!` -> `speak.py piece` (~1-5 s once, incl. model load;
-  0.01 s cached), cache in **`web/storage/voices/<voice>/pieces/*.wav`**
-  (gitignored; Rails passes `SPOTTER_VOICE_CACHE`). Starting a session
-  `Voice.prewarm!`s the user's voice (every `voicelines.pieces()`) in the
-  background, so nothing waits mid-session. Plan for personalities: say lines
-  as pieces; pick variations only among those already cached, render the rest
-  in the background, so the announcer never waits.
+- **Known pieces are IN GIT; anything new is rendered on first use** (the
+  shooter, 2026-11-12: generate what we KNOW we need ahead, like the samples).
+  `speak.py export --all` renders every `voicelines.pieces()` (~300: numbers,
+  "shot N", directions, flags, fixed lines, the RO's commands) for all 28 voices
+  as 32 kbps AAC into **`web/public/voice-pieces/<voice>/<slug>.m4a`** (~3.2 MB a
+  voice, ~90 MB all; re-run after a wording change: only new pieces render,
+  pieces no longer said are removed). `Voice.piece_url` points the browser at
+  that static file; a piece outside the set (future personality lines) goes to
+  `GET /voices/:id/piece` -> `Voice.piece!` -> `speak.py piece` (~1-5 s once,
+  then cached in `web/storage/voices/`, gitignored). `Voice.prewarm!` at session
+  start renders only what is neither exported nor cached. Personalities plan:
+  pick variations only among pieces already available, render the rest in the
+  background, so the announcer never waits.
 - **The 28 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
   (32 kbps AAC via macOS `afconvert`, 2.3 MB total; the shooter chose 32 kbps by
   ear), so a fresh clone can audition every voice without Kokoro.

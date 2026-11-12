@@ -20,7 +20,7 @@ RSpec.describe Announcement do
     a = described_class.new(session, shot)
     expect(texts(a)).to eq([ [ "shot 4" ], [ "9.6", "shot a touch low" ] ])
     expect(a.payload[:kind]).to eq("ok")
-    expect(a.payload[:sentences].first.first.last).to eq("/voices/bf_emma/piece?text=shot+4")
+    expect(a.payload[:sentences].first.first.last).to eq("/voices/bf_emma/piece?text=shot+4").or eq("/voice-pieces/bf_emma/shot_4.m4a")
   end
 
   it "adds why the shot is worth a look with diagnostic mode on" do
