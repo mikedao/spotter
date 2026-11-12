@@ -20,19 +20,14 @@ COMMA_GAP_S = 0.25
 VOICES = {
     "af_heart": ("Heart", "American", "female"), "af_alloy": ("Alloy", "American", "female"),
     "af_aoede": ("Aoede", "American", "female"), "af_bella": ("Bella", "American", "female"),
-    "af_jessica": ("Jessica", "American", "female"), "af_kore": ("Kore", "American", "female"),
     "af_nicole": ("Nicole", "American", "female"), "af_nova": ("Nova", "American", "female"),
-    "af_river": ("River", "American", "female"), "af_sarah": ("Sarah", "American", "female"),
-    "af_sky": ("Sky", "American", "female"),
-    "am_adam": ("Adam", "American", "male"), "am_echo": ("Echo", "American", "male"),
-    "am_eric": ("Eric", "American", "male"), "am_fenrir": ("Fenrir", "American", "male"),
-    "am_liam": ("Liam", "American", "male"), "am_michael": ("Michael", "American", "male"),
-    "am_onyx": ("Onyx", "American", "male"), "am_puck": ("Puck", "American", "male"),
-    "am_santa": ("Santa", "American", "male"),
+    "af_sarah": ("Sarah", "American", "female"), "af_sky": ("Sky", "American", "female"),
+    "am_adam": ("Adam", "American", "male"), "am_fenrir": ("Fenrir", "American", "male"),
+    "am_michael": ("Michael", "American", "male"), "am_santa": ("Santa", "American", "male"),
     "bf_alice": ("Alice", "British", "female"), "bf_emma": ("Emma", "British", "female"),
     "bf_isabella": ("Isabella", "British", "female"), "bf_lily": ("Lily", "British", "female"),
     "bm_daniel": ("Daniel", "British", "male"), "bm_fable": ("Fable", "British", "male"),
-    "bm_george": ("George", "British", "male"), "bm_lewis": ("Lewis", "British", "male"),
+    "bm_george": ("George", "British", "male"),
 }
 DEFAULT_VOICE = "af_heart"
 
