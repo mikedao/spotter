@@ -1,0 +1,58 @@
+<div class="space-y-4" data-controller="gear" data-gear-pellet-by-gun-value="<%= choice.pellet_by_gun.to_json %>">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="space-y-1">
+      <%= form.label :gun_id, "Gun", class: "block text-sm font-medium" %>
+      <% if choice.guns.empty? %>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+          No <%= kind_name %> yet. <%= link_to "Add one", new_gun_path, class: "text-blue-700 underline dark:text-blue-300" %>
+        </p>
+        <%= form.hidden_field :gun_id, value: "" %>
+      <% else %>
+        <%= form.select :gun_id, gun_options, { selected: choice.gun&.id || "" },
+              class: INPUT, data: { gear_target: "gun", action: "gear#gunChanged" } %>
+        <p class="text-sm"><%= link_to "Add a gun", new_gun_path, class: "text-blue-700 underline dark:text-blue-300" %></p>
+      <% end %>
+    </div>
+
+    <div class="space-y-1">
+      <%= form.label :pellet_id, "Pellets", class: "block text-sm font-medium" %>
+      <%= form.select :pellet_id, pellet_options, { selected: choice.pellet&.id || (choice.pellets.empty? ? GearParams::NEW : "") },
+            class: INPUT, data: { gear_target: "pellet", action: "gear#pelletChanged" } %>
+      <p class="text-sm" data-gear-target="newLotLink" <%= "hidden" unless choice.pellet %>>
+        <button type="button" class="cursor-pointer text-blue-700 underline dark:text-blue-300" data-action="gear#newLot">New lot of these</button>
+        <span class="text-gray-600 dark:text-gray-300">(a new tin)</span>
+      </p>
+    </div>
+  </div>
+
+  <fieldset class="rounded-md border border-gray-300 p-3 dark:border-gray-700" data-gear-target="newPellet"
+            <%= "hidden" unless choice.pellet.nil? && choice.pellets.empty? %>>
+    <legend class="px-1 text-sm font-medium">New pellets <span class="font-normal text-gray-600 dark:text-gray-300">(kept in your list)</span></legend>
+    <%= form.fields_for :new_pellet do |p| %>
+      <div class="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div class="space-y-1">
+          <%= p.label :name, "Brand and name", class: "block text-sm" %>
+          <%= p.text_field :name, class: INPUT, placeholder: "RWS R10 Match", data: { gear_target: "name" } %>
+        </div>
+        <div class="space-y-1">
+          <%= p.label :head_mm, "Head (mm)", class: "block text-sm" %>
+          <%= p.number_field :head_mm, class: INPUT, step: 0.01, min: 4, max: 5, placeholder: "4.49", data: { gear_target: "head" } %>
+        </div>
+        <div class="space-y-1">
+          <%= p.label :weight_grains, "Weight (gr)", class: "block text-sm" %>
+          <%= p.number_field :weight_grains, class: INPUT, step: 0.01, min: 0, placeholder: "7.0", data: { gear_target: "weight" } %>
+        </div>
+        <div class="space-y-1">
+          <%= p.label :lot, "Lot", class: "block text-sm" %>
+          <%= p.text_field :lot, class: INPUT, placeholder: "on the tin", data: { gear_target: "lot" } %>
+        </div>
+      </div>
+    <% end %>
+  </fieldset>
+
+  <div class="space-y-1">
+    <%= form.label :gun_adjustments, "Gun adjustments", class: "block text-sm font-medium" %>
+    <%= form.text_area :gun_adjustments, value: @adjustments, rows: 2, class: INPUT,
+          placeholder: "What you changed on the gun today: sights, trigger, grip…" %>
+  </div>
+</div>

@@ -28,3 +28,19 @@ FactoryBot.define do
     rule { "pellet" }
   end
 end
+
+FactoryBot.define do
+  factory :gun do
+    user
+    sequence(:name) { "LP#{it}" }
+    kind { "pistol" }
+  end
+
+  factory :pellet do
+    user
+    name { "RWS R10 Match" }
+    head_mm { 4.49 }
+    weight_grains { 7.0 }
+    sequence(:lot) { "L#{1000 + it}" }
+  end
+end

@@ -59,7 +59,7 @@ class EngineRunner
       nil
     end
 
-    def start!(user:, target:, per_card:, camera: nil, mic: nil, course: nil, env: {})
+    def start!(user:, target:, per_card:, camera: nil, mic: nil, course: nil, gear: {}, env: {})
       if (busy = running)
         raise Busy, busy
       end
@@ -76,7 +76,7 @@ class EngineRunner
         engine_session_id: "#{Time.current.strftime('%Y%m%d-%H%M%S')}-#{SecureRandom.hex(2)}",
         target:, per_card: per_card.presence, camera:, mic:, course: course.presence, rule: "pellet",
         status: "starting", started_at: Time.current,
-        stream_port: free_port
+        stream_port: free_port, **gear   # gun, pellet, gun_adjustments (GearParams)
       )
       user.update!(last_camera: camera, last_mic: mic)
       log = Rails.root.join("log", "engine", "#{session.engine_session_id}.log")

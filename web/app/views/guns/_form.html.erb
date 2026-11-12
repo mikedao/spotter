@@ -1,0 +1,22 @@
+<%= form_with model: gun, class: "space-y-4" do |f| %>
+  <%= hidden_field_tag :return_to, params[:return_to] if params[:return_to] == "setup" %>
+  <%= render(TextFieldComponent.new(form: f, field: :name, label: "Name", placeholder: "LP10", autofocus: gun.new_record?,
+                                    hint: "What you call it - shown when you pick it for a session.")) %>
+  <fieldset>
+    <legend class="mb-2 text-sm font-medium">Type</legend>
+    <div class="flex flex-wrap gap-2">
+      <% TargetSpec::SPECS.each_value do |spec| %>
+        <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 px-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+          <%= f.radio_button :kind, spec.key, class: "accent-blue-600" %> <%= spec.name.delete_prefix("10m ") %>
+        </label>
+      <% end %>
+    </div>
+    <% gun.errors.full_messages_for(:kind).each do |message| %><p class="mt-1 text-sm text-red-700 dark:text-red-300"><%= message %></p><% end %>
+  </fieldset>
+  <%= render(TextFieldComponent.new(form: f, field: :make_model, label: "Make and model (optional)", placeholder: "Steyr LP10")) %>
+  <%= render(TextFieldComponent.new(form: f, field: :notes, label: "Notes (optional)", type: :text_area, rows: 3)) %>
+  <div class="flex flex-wrap items-center gap-3">
+    <%= render(ButtonComponent.new(type: :submit)) { gun.new_record? ? "Add gun" : "Save" } %>
+    <%= link_to "Cancel", (return_to || (gun.persisted? ? gun_path(gun) : gear_path)), class: "text-sm text-gray-600 underline dark:text-gray-300" %>
+  </div>
+<% end %>

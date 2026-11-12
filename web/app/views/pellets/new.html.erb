@@ -1,0 +1,3 @@
+<% content_for :title, "Add pellets" %>
+<h1 class="mb-4 text-2xl font-semibold"><%= @pellet.name.present? ? "New lot of #{@pellet.name}" : "Add pellets" %></h1>
+<div class="max-w-xl"><%= render(CardComponent.new) { render("form", pellet: @pellet) } %></div>

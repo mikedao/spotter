@@ -136,7 +136,7 @@ brew install python@3.13 && voice/setup.sh
 voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 94 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 114 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -340,6 +340,18 @@ from there). The user commits; don't commit unless asked.
   everything `LiveBroadcast` replaces, else every shot would blank it; the panel
   is split into `live_target/latest/stats/list` for that reason. The header (status
   pill + Stop) is broadcast too, so Stop goes away when the session ends.
+- **Guns and pellets** (2026-11-12, journal groundwork; the shooter's choices):
+  `Gun` is ONE type (`kind` = TargetSpec key; can't change once it has sessions),
+  `Pellet` is one row PER LOT (match shooters test/buy by lot). Both RETIRED, never
+  deleted (`Retirable`), so old sessions keep them. A session's gun and pellets are
+  OPTIONAL, pre-selected by `GearChoice` (last gun at this target; the pellets last
+  used WITH THAT GUN), chosen on the wizard's Start step and editable on the session
+  page (`SessionGearComponent`, outside `LiveBroadcast`). Pellets are typed in right
+  there ("New pellets…") and remembered (`GearParams`, which also finds ids only
+  through `Current.user`); "New lot of these" copies one so only the lot is typed.
+  `practice_sessions.gun_adjustments` = what was changed on the gun that day (on
+  the SESSION, not a log on the gun); the gun's page lists them as its history.
+  Gear page: `/gear` ("Guns and pellets" in the menu).
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 

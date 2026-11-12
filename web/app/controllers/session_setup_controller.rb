@@ -108,6 +108,7 @@ class SessionSetupController < ApplicationController
     @camera_ok = RigCheck::Locate.latest(Current.user)&.then { it.ok? && it.camera.to_s == @camera }
     listen = RigCheck::Listen.state_for(Current.user)
     @mic_ok = listen && listen.data["mic"] == @mic && listen.data["sounds"].any? { it["would_trigger"] }
+    @gear = GearChoice.new(user: Current.user, target: @target.key)
   end
 
   private

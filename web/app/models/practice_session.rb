@@ -2,6 +2,8 @@
 # the first event the engine sends; cards and shots arrive live after that.
 class PracticeSession < ApplicationRecord
   belongs_to :user
+  belongs_to :gun, optional: true        # what was shot: optional, pre-selected (GearChoice)
+  belongs_to :pellet, optional: true
   has_secure_token :run_token   # the engine's events must present it (Api::EventsController)
   has_many :cards, -> { order(:number) }, dependent: :destroy, inverse_of: :practice_session
   has_many :shots, through: :cards
@@ -14,6 +16,8 @@ class PracticeSession < ApplicationRecord
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }
   validates :status, inclusion: { in: STATUSES }
   validates :course, inclusion: { in: Course::ALL.keys }, allow_nil: true
+  validates :gun_adjustments, length: { maximum: 2000 }
+  validate :gear_is_the_users_own
 
   scope :newest_first, -> { order(started_at: :desc) }
 
@@ -43,9 +47,17 @@ class PracticeSession < ApplicationRecord
   end
 
   def course_info = Course.for(self)
+  def gear_label = [ gun&.name, pellet&.label ].compact.join(" · ").presence   # "LP10 · RWS R10 Match · 4.49 mm"
+
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")
 
   private
+    def gear_is_the_users_own
+      errors.add(:gun, "isn't one of yours") if gun && gun.user_id != user_id
+      errors.add(:pellet, "isn't one of yours") if pellet && pellet.user_id != user_id
+      errors.add(:gun, "is #{gun.kind_name.downcase.sub('air ', 'an air ')}, not for this target") if gun && gun.kind != target
+    end
+
     def refuse_while_live
       return unless live?
 

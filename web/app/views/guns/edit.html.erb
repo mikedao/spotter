@@ -1,0 +1,14 @@
+<% content_for :title, "Edit #{@gun.name}" %>
+<h1 class="mb-4 text-2xl font-semibold">Edit <%= @gun.name %></h1>
+<div class="max-w-xl space-y-4">
+  <%= render(CardComponent.new) { render("form", gun: @gun) } %>
+  <%= render(CardComponent.new(title: @gun.retired? ? "Retired" : "Retire")) do %>
+    <% if @gun.retired? %>
+      <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">Not offered for new sessions. Its sessions keep it.</p>
+      <%= render(ButtonComponent.new(href: gun_path(@gun), method: :patch, variant: :secondary, params: { gun: { retired: "0" } })) { "Use it again" } %>
+    <% else %>
+      <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">Sold it, or don't shoot it any more? It stops being offered for new sessions; its sessions keep it.</p>
+      <%= render(ButtonComponent.new(href: gun_path(@gun), method: :patch, variant: :secondary, params: { gun: { retired: "1" } })) { "Retire #{@gun.name}" } %>
+    <% end %>
+  <% end %>
+</div>

@@ -39,6 +39,7 @@
     <%= f.hidden_field :target, value: @target.key %>
     <%= f.hidden_field :camera, value: @camera %>
     <%= f.hidden_field :mic, value: @mic %>
+    <%= render(GearFieldsComponent.new(form: f, choice: @gear, target: @target.key, return_to: "setup")) %>
     <fieldset>
       <legend class="mb-2 text-sm font-medium">What are you shooting?</legend>
       <div class="grid gap-2 sm:grid-cols-2">

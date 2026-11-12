@@ -24,12 +24,17 @@ Rails.application.routes.draw do
     get "start", action: :start, as: :start
   end
 
-  resources :practice_sessions, only: %i[ index show create destroy ], path: "practice" do
+  resources :practice_sessions, only: %i[ index show create update destroy ], path: "practice" do
     post :stop, on: :member
     post :start_match, on: :member   # end a match's sighting time early
     get :camera, on: :member   # the live camera picture, relayed from the engine
   end
   resources :shots, only: %i[ show update ]
+
+  # Gear: the shooter's guns and pellets (one per lot), picked per session.
+  get "gear", to: "gear#show", as: :gear
+  resources :guns, only: %i[ new create show edit update ]
+  resources :pellets, only: %i[ new create edit update ]
 
   # Settings: the announcer voice (pick one, hear each one's sample).
   get "settings", to: "settings#show", as: :settings

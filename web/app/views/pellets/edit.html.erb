@@ -1,0 +1,14 @@
+<% content_for :title, "Edit pellets" %>
+<h1 class="mb-4 text-2xl font-semibold">Edit <%= @pellet.name %></h1>
+<div class="max-w-xl space-y-4">
+  <%= render(CardComponent.new) { render("form", pellet: @pellet) } %>
+  <%= render(CardComponent.new(title: @pellet.retired? ? "Retired" : "Retire")) do %>
+    <% if @pellet.retired? %>
+      <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">Not offered for new sessions. Its sessions keep it.</p>
+      <%= render(ButtonComponent.new(href: pellet_path(@pellet), method: :patch, variant: :secondary, params: { pellet: { retired: "0" } })) { "Use them again" } %>
+    <% else %>
+      <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">Tin finished? Retired pellets stop being offered for new sessions; their sessions keep them.</p>
+      <%= render(ButtonComponent.new(href: pellet_path(@pellet), method: :patch, variant: :secondary, params: { pellet: { retired: "1" } })) { "Retire these" } %>
+    <% end %>
+  <% end %>
+</div>

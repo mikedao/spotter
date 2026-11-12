@@ -104,7 +104,7 @@ RSpec.describe "New session setup" do
     allow(EngineRunner).to receive(:start!).and_return(create(:practice_session, user:))
     post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: 10, camera: "1", mic: "Razer Kiyo" } }
     expect(EngineRunner).to have_received(:start!).with(user:, target: "pistol", per_card: "10", camera: "1", mic: "Razer Kiyo",
-                                                         course: nil)
+                                                         course: nil, gear: { gun: nil, pellet: nil, gun_adjustments: nil })
   end
 
   it "starts a match with the range officer" do

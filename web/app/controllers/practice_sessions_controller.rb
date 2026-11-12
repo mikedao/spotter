@@ -1,8 +1,8 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show stop start_match destroy ]
+  before_action :set_session, only: %i[ show update stop start_match destroy ]
 
   def index
-    @sessions = Current.user.practice_sessions.newest_first.includes(cards: :shots)
+    @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
     @running = EngineRunner.running
   end
 
@@ -16,8 +16,9 @@ class PracticeSessionsController < ApplicationController
   def create
     params = start_params
     RigCheck.stop_for!(Current.user)
+    gear = GearParams.new(Current.user, gear_params).attributes
     session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card],
-                                  camera: params[:camera], mic: params[:mic], course: params[:course])
+                                  camera: params[:camera], mic: params[:mic], course: params[:course], gear:)
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
     redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
@@ -27,6 +28,18 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_sessions_path, alert: "#{e.message} - one session at a time on this rig."
   rescue ActiveRecord::RecordInvalid => e
     redirect_to setup_start_path, alert: e.record.errors.full_messages.to_sentence
+  end
+
+  # The session's gun, pellets and gun adjustments - set at the start, changeable
+  # any time (during the session or after), from the session page.
+  def update
+    if @session.update(GearParams.new(Current.user, gear_params).attributes)
+      redirect_to practice_session_path(@session, anchor: "gear"), notice: "Saved the gun and pellets.", status: :see_other
+    else
+      redirect_to practice_session_path(@session, anchor: "gear"), alert: "#{@session.errors.full_messages.to_sentence}.", status: :see_other
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to practice_session_path(@session, anchor: "gear"), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
   end
 
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.
@@ -74,5 +87,10 @@ class PracticeSessionsController < ApplicationController
 
     def start_params
       params.expect(practice_session: [ :target, :per_card, :camera, :mic, :course ])
+    end
+
+    def gear_params
+      params.fetch(:practice_session, {}).permit(:gun_id, :pellet_id, :gun_adjustments,
+                                                 new_pellet: %i[ name lot weight_grains head_mm ])
     end
 end

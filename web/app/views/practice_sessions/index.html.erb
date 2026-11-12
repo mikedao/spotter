@@ -18,6 +18,7 @@
             <span class="font-medium">
               <%= session.title %>
               <% if session.live? %><span class="ml-2 rounded bg-green-100 px-2 py-0.5 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">live</span><% end %>
+              <% if session.gear_label %><span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= session.gear_label %></span><% end %>
             </span>
             <span class="tabular-nums text-gray-600 dark:text-gray-300">
               <%= pluralize(session.cards.size, "card") %> · <%= pluralize(shots.size, "shot") %>

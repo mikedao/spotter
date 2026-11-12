@@ -1,0 +1,46 @@
+<% content_for :title, "Guns and pellets" %>
+
+<h1 class="mb-4 text-2xl font-semibold">Guns and pellets</h1>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% tag_retired = "ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300" %>
+<% row_link = "flex min-h-11 flex-1 flex-wrap items-baseline justify-between gap-2 py-3 pl-4 pr-2" %>
+<% side = "inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-md px-3 text-sm text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950" %>
+
+<div class="grid items-start gap-4 lg:grid-cols-2">
+  <%= render(CardComponent.new(title: "Guns", id: "guns", padding: :none)) do |card| %>
+    <% card.with_action { render(ButtonComponent.new(href: new_gun_path, size: :sm)) { "Add a gun" } } %>
+    <% if @guns.empty? %>
+      <p class="px-4 pb-4 <%= muted %>">No guns yet. Add yours, then pick it when you start a session.</p>
+    <% else %>
+      <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+        <% @guns.each do |gun| %>
+          <li class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-800">
+            <%= link_to gun_path(gun), class: row_link do %>
+              <span class="font-medium"><%= gun.label %><% if gun.retired? %><span class="<%= tag_retired %>">retired</span><% end %></span>
+              <span class="text-sm <%= muted %>"><%= gun.kind_name %> · <%= pluralize(@uses[gun.id] || 0, "session") %></span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+
+  <%= render(CardComponent.new(title: "Pellets", id: "pellets", padding: :none)) do |card| %>
+    <% card.with_action { render(ButtonComponent.new(href: new_pellet_path, size: :sm)) { "Add pellets" } } %>
+    <% if @pellets.empty? %>
+      <p class="px-4 pb-4 <%= muted %>">No pellets yet. Add them here, or type them in when you start a session; they're kept for next time. Each lot (tin) is its own entry.</p>
+    <% else %>
+      <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+        <% @pellets.each do |pellet| %>
+          <li class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-800">
+            <%= link_to edit_pellet_path(pellet), class: row_link do %>
+              <span class="font-medium"><%= pellet.label %><% if pellet.retired? %><span class="<%= tag_retired %>">retired</span><% end %></span>
+              <span class="text-sm <%= muted %>"><%= pluralize(@pellet_uses[pellet.id] || 0, "session") %></span>
+            <% end %>
+            <%= link_to "New lot", new_pellet_path(from: pellet.id), class: side, "aria-label": "New lot of #{pellet.name}" %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

@@ -1,0 +1,14 @@
+<%= form_with model: pellet, class: "space-y-4" do |f| %>
+  <%= render(TextFieldComponent.new(form: f, field: :name, label: "Brand and name", placeholder: "RWS R10 Match", autofocus: pellet.new_record? && pellet.name.blank?)) %>
+  <div class="grid gap-4 sm:grid-cols-3">
+    <%= render(TextFieldComponent.new(form: f, field: :head_mm, label: "Head size (mm)", type: :number_field, step: 0.01, min: 4, max: 5, placeholder: "4.49")) %>
+    <%= render(TextFieldComponent.new(form: f, field: :weight_grains, label: "Weight (grains)", type: :number_field, step: 0.01, min: 0, placeholder: "7.0")) %>
+    <%= render(TextFieldComponent.new(form: f, field: :lot, label: "Lot", placeholder: "on the tin", autofocus: pellet.new_record? && pellet.name.present?)) %>
+  </div>
+  <p class="text-sm text-gray-600 dark:text-gray-300">All optional but the name. Each lot (tin) is its own entry, so the journal can compare lots.</p>
+  <%= render(TextFieldComponent.new(form: f, field: :notes, label: "Notes (optional)", type: :text_area, rows: 2)) %>
+  <div class="flex flex-wrap items-center gap-3">
+    <%= render(ButtonComponent.new(type: :submit)) { pellet.new_record? ? "Add pellets" : "Save" } %>
+    <%= link_to "Cancel", gear_path(anchor: "pellets"), class: "text-sm text-gray-600 underline dark:text-gray-300" %>
+  </div>
+<% end %>
