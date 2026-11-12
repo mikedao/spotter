@@ -32,3 +32,24 @@ RSpec.describe TargetSvgComponent, type: :component do
     expect(half_width(pistol, [ shot(0, 0) ], zoom: :card)).to eq(81.75)
   end
 end
+
+RSpec.describe TargetSvgComponent, "ring numbers", type: :component do
+  include ViewComponent::TestHelpers
+
+  it "numbers rings 1-8 on the four axes, pale on the black, like the printed card" do
+    render_inline(described_class.new(spec: TargetSpec.fetch("pistol"), zoom: :card))
+    numbers = page.all("text").map(&:text)
+    expect(numbers.tally).to eq((1..8).to_h { [ it.to_s, 4 ] })
+    on_black = page.all("text").select { it[:fill] == TargetSvgComponent::LINE_ON_BLACK }.map(&:text).uniq
+    expect(on_black).to eq(%w[ 7 8 ])
+  end
+end
+
+RSpec.describe TargetSvgComponent, "ring numbers when zoomed", type: :component do
+  include ViewComponent::TestHelpers
+
+  it "numbers only the bands fully in view" do
+    render_inline(described_class.new(spec: TargetSpec.fetch("pistol")))   # framed on the black
+    expect(page.all("text").map(&:text).uniq).to eq(%w[ 7 8 ])
+  end
+end

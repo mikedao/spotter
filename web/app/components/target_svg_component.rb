@@ -31,7 +31,7 @@ class TargetSvgComponent < ApplicationComponent
   def call
     tag.svg(viewBox: view_box, role: "img", "aria-label": @label, class: "h-auto w-full",
             xmlns: "http://www.w3.org/2000/svg") do
-      safe_join([ backdrop, rings, group_marks, shot_marks ].flatten.compact)
+      safe_join([ backdrop, rings, ring_numbers, group_marks, shot_marks ].flatten.compact)
     end
   end
 
@@ -39,13 +39,16 @@ class TargetSvgComponent < ApplicationComponent
     # Half the view's width in mm: ring n's radius plus a margin of half a ring,
     # for the innermost n from the black outward that holds every shot (the view
     # is square, so a shot fits when both |x| and |y| do).
-    def half_extent
-      margin = @spec.step_mm / 2.0
-      return @spec.ring_radius_mm(1) + margin if @zoom == :card
+    def half_extent = @spec.ring_radius_mm(view_ring) + @spec.step_mm / 2.0
 
-      far = @shots.map { |s| [ s.final_x_mm.abs, s.final_y_mm.abs ].max }.max.to_f + TargetSpec::PELLET_MM / 2.0 + 0.5
-      ring = @spec.black_ring.downto(1).find { far <= @spec.ring_radius_mm(it) + margin } || 1
-      @spec.ring_radius_mm(ring) + margin
+    # The outermost ring in view.
+    def view_ring
+      @view_ring ||= if @zoom == :card then 1
+      else
+        margin = @spec.step_mm / 2.0
+        far = @shots.map { |s| [ s.final_x_mm.abs, s.final_y_mm.abs ].max }.max.to_f + TargetSpec::PELLET_MM / 2.0 + 0.5
+        @spec.black_ring.downto(1).find { far <= @spec.ring_radius_mm(it) + margin } || 1
+      end
     end
 
     def view_box
@@ -65,6 +68,21 @@ class TargetSvgComponent < ApplicationComponent
       end
       parts << tag.circle(cx: 0, cy: 0, r: @spec.inner_ten_radius_mm, fill: "none", stroke: LINE_ON_BLACK, "stroke-width": 0.2)
       parts
+    end
+
+    # As printed on an ISSF card: 1-8 in the middle of each ring's band, on the four
+    # axes (9 and 10 unnumbered); pale on the black. Sized to the band, so they
+    # read the same on pistol and rifle and grow with the zoom.
+    def ring_numbers
+      size = (@spec.step_mm * 0.45).round(2)
+      (view_ring..8).flat_map do |n|   # the next band out sits on the view's edge: unnumbered
+        mid = ((@spec.ring_radius_mm(n) + @spec.ring_radius_mm(n + 1)) / 2.0).round(2)
+        colour = @spec.ring_radius_mm(n) <= @spec.black_radius_mm + 0.01 ? LINE_ON_BLACK : LINE_ON_PAPER
+        [ [ -mid, 0 ], [ mid, 0 ], [ 0, -mid ], [ 0, mid ] ].map do |x, y|
+          tag.text(n, x:, y: (y + size * 0.36).round(2), "text-anchor": "middle", "font-size": size,
+                   "font-weight": 600, fill: colour, "font-family": "system-ui, sans-serif", "aria-hidden": true)
+        end
+      end
     end
 
     def group_marks

@@ -1,0 +1,58 @@
+require "rails_helper"
+
+# The range screen's layout in a real browser, live (camera in the right column)
+# and after the session (the shot list moves up beside the target).
+RSpec.describe "Range screen layout" do
+  let(:user) { create(:user) }
+
+  def shoot_a_card(session)
+    card = create(:card, practice_session: session)
+    [ [ 8, 8.5, -14, 12 ], [ 7, 7.6, -6, 24 ], [ 9, 9.4, 4, 9 ], [ 10, 10.3, 1, -2 ], [ 8, 8.8, 15, -10 ] ].each do |ring, dec, x, y|
+      create(:shot, card:, ring:, decimal_score: dec, x_mm: x, y_mm: y)
+    end
+    create(:shot, card:, ring: 7, decimal_score: 7.9, x_mm: -20, y_mm: 18, line_call: true)
+    create(:shot, card:, ring: 9, decimal_score: 9.2, x_mm: 6, y_mm: 8)
+  end
+
+  def sign_in_and_visit(session)
+    allow(EngineRunner).to receive(:reconcile!)
+    visit new_session_path
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
+    click_button "Sign in"
+    visit practice_session_path(session)
+  end
+
+  def right_column = find("#live_latest").ancestor("div.space-y-4")
+
+  it "puts the shot list beside the target once the session is over" do
+    session = create(:practice_session, user:, status: "ended", ended_at: Time.current)
+    shoot_a_card(session)
+    sign_in_and_visit(session)
+
+    expect(right_column).to have_css("#live_list")
+    expect(page).to have_no_text("Camera")
+    within("ol[aria-label='Shots on this card']") do
+      expect(page).to have_css("a.ring-amber-500", count: 1, text: "9")   # the latest, amber as on the target
+      expect(page).to have_css("a.border-red-500", text: "7")             # flagged, red as on the target
+    end
+    page.save_screenshot(Rails.root.join("tmp/screenshots/range_ended.png")) if ENV["SCREENSHOTS"]
+  end
+
+  it "keeps the latest shot and the camera at the top while live" do
+    session = create(:practice_session, user:, status: "shooting")
+    shoot_a_card(session)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    sign_in_and_visit(session)
+
+    expect(right_column).to have_text("Camera")
+    expect(right_column).to have_css("#live_list")
+    page.save_screenshot(Rails.root.join("tmp/screenshots/range_live.png")) if ENV["SCREENSHOTS"]
+
+    # Scrolled down to the end of the shot list, the target is still in view beside it.
+    page.execute_script("document.getElementById('live_list').scrollIntoView(false)")
+    top = page.evaluate_script("document.getElementById('live_target').getBoundingClientRect().top")
+    expect(top).to be >= 0   # its top edge on screen, not scrolled away
+    page.save_screenshot(Rails.root.join("tmp/screenshots/range_live_scrolled.png")) if ENV["SCREENSHOTS"]
+  end
+end

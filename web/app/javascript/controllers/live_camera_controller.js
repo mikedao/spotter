@@ -30,6 +30,7 @@ export default class extends Controller {
         if (response.status === 200) {
           const url = URL.createObjectURL(await response.blob())
           this.imageTarget.src = url
+          this.imageTarget.hidden = false
           if (this.objectUrl) URL.revokeObjectURL(this.objectUrl)
           this.objectUrl = url
           this.live(true)

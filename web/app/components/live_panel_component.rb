@@ -8,8 +8,10 @@ class LivePanelComponent < ApplicationComponent
   SECTIONS = %i[ target latest stats list ].freeze
 
   # The target fills the window's height (less the session header), so the whole
-  # card is always in view without scrolling.
-  TARGET_SIZE = "mx-auto w-full max-w-[calc(100svh_-_7.5rem)] min-w-72 lg:w-[min(calc(100svh_-_7.5rem),60rem)]".freeze
+  # card is always in view without scrolling - and beside the taller right column
+  # (camera, numbers, shot list) it sticks, so scrolling the list keeps it in view.
+  TARGET_SIZE = "mx-auto w-full max-w-[calc(100svh_-_7.5rem)] min-w-72 lg:w-[min(calc(100svh_-_7.5rem),60rem)] " \
+                "lg:sticky lg:top-4".freeze
 
   def initialize(session:, section:)
     raise ArgumentError, "unknown section #{section}" unless SECTIONS.include?(section)

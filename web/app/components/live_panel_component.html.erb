@@ -36,17 +36,18 @@
           <% end %>
         <% end %>
         <%# Every shot on this card so far, oldest first, as whole rings (your call wins;
-            a penalized shot is 0). Amber = flagged and not yet checked by you. %>
+            a penalized shot is 0). Same colours as the target: the latest ringed in
+            amber, red = flagged and not yet checked by you; penalized struck through. %>
         <ol class="mt-4 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
           <% scored.each do |shot| %>
             <li>
               <%= link_to (shot.penalized? ? 0 : shot.final_ring), shot_path(shot),
                     "aria-label": "#{shot.stage_label || "Shot #{shot.number}"}: #{shot.penalized? ? 0 : shot.final_ring}",
                     class: classes("grid h-9 min-w-9 place-items-center rounded-md border px-1.5 text-lg font-semibold tabular-nums hover:bg-gray-100 dark:hover:bg-gray-800",
-                                   if shot.penalized? then "border-red-400 text-red-700 dark:border-red-700 dark:text-red-300"
-                                   elsif shot.flagged? && !shot.called? then "border-amber-400 dark:border-amber-600"
+                                   if shot.penalized? then "border-gray-300 text-gray-500 line-through dark:border-gray-700"
+                                   elsif shot.flagged? && !shot.called? then "border-red-500 text-red-700 dark:border-red-500 dark:text-red-300"
                                    else "border-gray-300 dark:border-gray-700" end,
-                                   ("bg-blue-50 ring-2 ring-blue-600 dark:bg-blue-950" if shot == latest)) %>
+                                   ("ring-2 ring-amber-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900" if shot == latest)) %>
             </li>
           <% end %>
         </ol>

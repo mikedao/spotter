@@ -14,7 +14,7 @@ class LiveCameraComponent < ApplicationComponent
               data: { controller: "live-camera", live_camera_url_value: camera_practice_session_path(@session) }) do
         safe_join([
           tag.img(alt: "Live camera view of the target", class: "size-full object-contain transition-opacity",
-                  data: { live_camera_target: "image" }),
+                  hidden: true, data: { live_camera_target: "image" }),   # until the first frame: no broken-image icon
           tag.p("Waiting for the camera…", class: "absolute inset-0 grid place-items-center text-sm text-gray-300",
                 data: { live_camera_target: "status" })
         ])
