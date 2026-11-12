@@ -369,7 +369,11 @@ from there). The user commits; don't commit unless asked.
   possible, goal label in the right margin, hover = SVG title, the table is the
   data view). Filters (autosubmit): type, kind, gun, pellets, exercise, period.
   Decimal average deliberately NOT the headline (finals only; decimal accuracy
-  is unverified).
+  is unverified). Headline tiles (the shooter is still FAR from 565, so
+  progress, not pass/fail): recent pace (last 5), to goal + closing vs the 5
+  before, trend per month + forecast date (least squares; only after 8 sessions
+  over 2 weeks; no forecast unless climbing), personal best (date first set),
+  worst recent series.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

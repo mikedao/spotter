@@ -4,7 +4,6 @@
 <% select_css = "#{TextFieldComponent::INPUT} py-1.5 text-sm" %>
 <% charted = j.charted %>
 <% series_points = charted.select { it.series.any? } %>
-<% recent = charted.last(5) %>
 
 <h1 class="mb-4 text-2xl font-semibold">Journal</h1>
 
@@ -34,14 +33,37 @@
       </p>
     <% end %>
   <% else %>
-    <%# The headline: where you are against the goal. %>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <% pace = (recent.sum(&:per_60) / recent.size.to_f).round %>
-      <% above = charted.count { j.goal && it.per_60 >= j.goal } %>
-      <% [ [ "Recent pace", pace, "per 60, last #{pluralize(recent.size, 'session')}" ],
-           [ "Best", charted.map(&:per_60).max, "per 60" ],
-           [ "At or above goal", j.goal ? "#{above} of #{charted.size}" : "–", j.goal ? "sessions, goal #{j.goal}" : "no goal set" ],
-           [ "Worst series", (series_points.last(5).map(&:worst_series).min || "–"), "last 5 sessions" ] ].each do |label, value, note| %>
+    <%# The headline: where you are, how far to the goal and whether it's closing,
+        how fast you're improving, your best, and your weakest recent series. %>
+    <% best = j.personal_best %>
+    <% tiles = [ [ "Recent pace", j.recent_pace, "per 60, last #{pluralize([ charted.size, Journal::RECENT ].min, 'session')}" ] ]
+       tiles << if j.goal.nil?
+         [ "To goal", "–", "no goal set" ]
+       elsif j.to_goal <= 0
+         [ "To goal", "Reached", "#{-j.to_goal} over #{j.goal}" ]
+       else
+         [ "To goal", "#{j.to_goal} to go",
+           case j.closing
+           when nil then "to #{j.goal}"
+           when 0 then "same as the #{Journal::RECENT} before"
+           else "#{j.closing.abs} #{j.closing.positive? ? 'closer' : 'further'} than the #{Journal::RECENT} before"
+           end ]
+       end
+       tiles << if j.trend_ready?
+         rate = j.trend_per_month.round
+         [ "Trend", "#{'+' if rate.positive?}#{rate}",
+           if j.goal_forecast then "a month; at this rate #{j.goal} by #{j.goal_forecast.strftime(j.goal_forecast.year == Date.current.year ? '%b' : '%b %Y')}"
+           elsif j.goal && j.to_goal.positive? then "a month; not climbing yet"
+           else "a month"
+           end ]
+       else
+         more = [ Journal::TREND_SESSIONS - charted.size, 1 ].max
+         [ "Trend", "–", charted.size >= Journal::TREND_SESSIONS ? "needs 2 weeks of sessions" : "after #{pluralize(more, 'more session')}" ]
+       end
+       tiles << [ "Personal best", best.per_60, "set #{best.started_at.strftime('%b %-d')}" ]
+       tiles << [ "Worst series", j.worst_recent_series || "–", "last #{Journal::RECENT} sessions" ] %>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <% tiles.each do |label, value, note| %>
         <%= render(CardComponent.new) do %>
           <p class="text-sm <%= muted %>"><%= label %></p>
           <p class="text-3xl font-semibold tabular-nums"><%= value %></p>

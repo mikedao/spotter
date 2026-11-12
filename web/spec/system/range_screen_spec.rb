@@ -66,8 +66,9 @@ RSpec.describe "Range screen layout" do
 
     # Scrolled down to the end of the shot list, the target is still in view beside it.
     page.execute_script("document.getElementById('live_list').scrollIntoView(false)")
-    top = page.evaluate_script("document.getElementById('live_target').getBoundingClientRect().top")
-    expect(top).to be >= 0   # its top edge on screen, not scrolled away
+    top = -> { page.evaluate_script("document.getElementById('live_target').getBoundingClientRect().top") }
+    20.times { break if top.() >= 0; sleep 0.05 }   # let the scroll and the sticky layout settle
+    expect(top.()).to be >= 0   # its top edge on screen, not scrolled away
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_live_scrolled.png")) if ENV["SCREENSHOTS"]
   end
 end

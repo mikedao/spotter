@@ -24,7 +24,8 @@ RSpec.describe "Journal" do
     get journal_path
     expect(response.body).to include("Score per 60 shots", "Goal 565", "10-shot series", "565 pace", "94.2")
     expect(response.body).to include("540", "570", "90 90", "95 95")
-    expect(response.body).to include("1 of 2")   # at or above the goal
+    expect(response.body).to include("10 to go", "to 565")   # recent pace 555; nothing earlier to compare with
+    expect(response.body).to include("Personal best", "after 6 more sessions")
   end
 
   it "filters by kind, gun and exercise" do
