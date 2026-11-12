@@ -45,6 +45,16 @@ SAMPLES = Path(os.environ.get("SPOTTER_VOICE_SAMPLES", HERE.parent.parent / "web
 # (`speak.py export`): the range screen plays these straight away; only pieces
 # outside this set (future personality lines) are rendered on first use.
 EXPORTED = Path(os.environ.get("SPOTTER_VOICE_PIECES", HERE.parent.parent / "web" / "public" / "voice-pieces"))
+# Chatty mode's pieces (the web app's commentary, every line with its numbers
+# filled in), one per line, made by `bin/rails voices:chatty_list`. `export
+# --chatty` renders them too; a plain export never removes them.
+CHATTY = EXPORTED / "chatty.txt"
+
+
+def chatty_pieces():
+    if not CHATTY.exists():
+        return []
+    return [p for p in (voicelines.piece(line) for line in CHATTY.read_text().splitlines()) if p]
 
 
 def slug(p):
@@ -133,10 +143,12 @@ class Voice:
             self._write(path, self.announcement(text))
         return path
 
-    def export(self, progress=False):
-        """Every piece the engine can say, as AAC for git; pieces it no longer
-        says are removed, so the repo holds exactly the current set."""
-        wanted = voicelines.pieces()
+    def export(self, progress=False, chatty=False):
+        """Every piece the engine can say (and with chatty, chatty mode's), as
+        AAC for git; pieces no longer said by either are removed, so the repo
+        holds exactly the current set."""
+        engine, talk = voicelines.pieces(), chatty_pieces()
+        wanted = list(dict.fromkeys(engine + talk)) if chatty else engine
         out = EXPORTED / self.voice
         out.mkdir(parents=True, exist_ok=True)
         t0, made = time.time(), 0
@@ -148,7 +160,7 @@ class Voice:
             made += 1
             if progress and made % 25 == 0:
                 log(f"  {self.voice}: {n}/{len(wanted)} ({time.time() - t0:.0f} s)")
-        keep = {f"{slug(p)}.m4a" for p in wanted}
+        keep = {f"{slug(p)}.m4a" for p in engine + talk}
         stale = [f for f in out.glob("*.m4a") if f.name not in keep]
         for f in stale:
             f.unlink()
@@ -208,6 +220,7 @@ def main():
     p.add_argument("text", nargs="?")
     p.add_argument("--voice", default=voicelines.DEFAULT_VOICE)
     p.add_argument("--all", action="store_true", help="export: every voice")
+    p.add_argument("--chatty", action="store_true", help="export: chatty mode's pieces too (chatty.txt)")
     p.add_argument("--extra", default=None, help="prewarm: a file of more pieces, one per line")
     a = p.parse_args()
     if a.command == "list":
@@ -221,7 +234,7 @@ def main():
             Path(a.extra).unlink(missing_ok=True)
     elif a.command == "export":                 # the known pieces, as AAC for git (web/public/voice-pieces)
         for v in (voicelines.VOICES if a.all else [a.voice]):
-            Voice(v).export(progress=True)
+            Voice(v).export(progress=True, chatty=a.chatty)
     elif a.command == "sample":
         print(Voice(a.voice).sample())
     elif a.command == "samples":                # every voice's sample, for the picker

@@ -72,7 +72,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
-| `voicelines.py` | What the engine says, as pieces; the 28 Kokoro voices (shared with `voice/`) |
+| `voicelines.py` | What the engine says, as pieces; the 19 Kokoro voices (shared with `voice/`) |
 | `course.py` | Match / final courses of fire as data + the virtual range officer (`Runner`) |
 | `voice/` | The Kokoro announcer: own Python 3.13 venv, `setup.sh`, `speak.py` (see "Announcer voice") |
 
@@ -131,14 +131,17 @@ Code is in git; everything below is NOT, and has to be rebuilt or copied:
 cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python selftest.py                  # must pass
 
-# announcer voice: ALREADY IN GIT for all 28 voices - the picker's samples
+# announcer voice: ALREADY IN GIT for all 19 voices - the picker's samples
 # (web/public/voice-samples) and every piece the engine says (web/public/voice-pieces,
-# 8,344 files, 76 MB), so the range screen talks with no setup. Kokoro (Python 3.13 +
+# 5,662 files, 65 MB), so the range screen talks with no setup. Kokoro (Python 3.13 +
 # ~350 MB model) is only needed to render NEW pieces: chatty mode's commentary lines
 # (rendered at session start, ~40 min once per voice) and anything reworded.
 brew install python@3.13 && voice/setup.sh
 # after a wording change (voicelines.py / course.py): re-export, only new pieces render
 #  voice/.venv/bin/python voice/speak.py export --all     # (and `samples` for the picker)
+# chatty mode's lines are in git for SOME voices (Bella, Nicole); after a commentary edit:
+#  (cd ../web && bin/rails voices:chatty_list)   # rewrites web/public/voice-pieces/chatty.txt
+#  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
 cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 215 examples, 0 failures
@@ -183,7 +186,7 @@ shots (always renumbered), the FINISHED-session summary, range-screen layout
 the ANNOUNCER MOVED TO THE BROWSER: the engine hands each announcement to the web
 app, the range screen plays it (Sound on/off), DIAGNOSTIC mode (off = number,
 score, direction only) and CHATTY mode (written commentary, 10 phrasings per
-moment), with every known voice piece for all 28 voices committed.
+moment), with every known voice piece for all 19 voices committed.
 
 **Never yet tried for real - check these first:**
 1. **The browser announcer on the rig:** Sound on, a few shots; diagnostic mode
@@ -201,9 +204,10 @@ moment), with every known voice piece for all 28 voices committed.
    laptop (a spec checks 1322x729).
 
 **Next:** announcer PERSONALITIES to choose from (each a
-`config/commentary/*.yml`; a picker in Settings), then maybe the chatty lines in
-the git export once their wording settles (now 1,935 pieces with the numbers
-filled in, ~40 min to render per voice - or split the numbers out of the lines).
+`config/commentary/*.yml`; a picker in Settings). Chatty's lines are in the
+git export for Bella and Nicole only (2026-11-12; 1,935 pieces each with the
+numbers filled in, ~40 min per voice); other voices render them at session
+start. Splitting the numbers out of the lines would make all 19 cheap.
 Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
 shots); the model trained from reviewed calls; Pi setup.
 
@@ -474,10 +478,10 @@ Not built yet: see "Where we left off" for the agreed order.
 ## Announcer voice: Kokoro (2026-11)
 
 The shooter rejected the Mac voices (incl. Premium) for **Kokoro** (kokoro-onnx,
-Apache-2.0): all 28 English voices, each USER picks theirs.
+Apache-2.0): 19 of its 28 English voices (the shooter dropped Jessica, Kore, River, Echo, Eric, Liam, Onyx, Puck and Lewis on 2026-11-12), each USER picks theirs.
 
 Built and committed:
-- `engine/voicelines.py` (pure Python, shared): `VOICES` (28 ids), `split(text)`
+- `engine/voicelines.py` (pure Python, shared): `VOICES` (19 ids), `split(text)`
   -> sentences -> pieces, `pieces()` = every piece the engine can say (~300:
   "shot 1".."shot 60", "0.0".."10.9", direction phrases, flags, fixed lines,
   "that's N", the range officer's commands from `course.phrases()`),
@@ -527,10 +531,10 @@ Built and committed:
 - **Known pieces are IN GIT; anything new is rendered on first use** (the
   shooter, 2026-11-12: generate what we KNOW we need ahead, like the samples).
   `speak.py export --all` renders every `voicelines.pieces()` (~300: numbers,
-  "shot N", directions, flags, fixed lines, the RO's commands) for all 28 voices
+  "shot N", directions, flags, fixed lines, the RO's commands) for all 19 voices
   as 32 kbps AAC into **`web/public/voice-pieces/<voice>/<slug>.m4a`** (DONE
-  2026-11-12: 298 pieces x 28 voices = 8,344 files, 76 MB, ~2 h on the old
-  laptop; re-run after a wording change: only new pieces render, pieces no
+  2026-11-12: 298 pieces x 19 voices = 5,662 files, 65 MB (28 voices took ~2 h on the old
+  laptop); re-run after a wording change: only new pieces render, pieces no
   longer said are removed). Without Kokoro on a machine, an announcement whose
   pieces are all exported still plays in the voice (`Announcement#payload`
   `kokoro`); only then does the browser's own voice stand in. `Voice.piece_url` points the browser at
@@ -557,14 +561,18 @@ Built and committed:
   PERSONALITY = another file like it; `say` never repeats the last phrasing,
   via Rails.cache). Delivered as an Announcement of kind "chat" (no tone).
   `Commentary.pieces(user)` = every line with numbers filled in, pre-rendered at
-  session start (`Voice.prewarm!(extra:)` -> `speak.py prewarm --extra FILE`);
-  NOT yet in the git export. The page's end-of-session Turbo refresh WAITS until
+  session start (`Voice.prewarm!(extra:)` -> `speak.py prewarm --extra FILE`).
+  IN THE GIT EXPORT for af_bella and af_nicole (2026-11-12, the shooter's pick):
+  `bin/rails voices:chatty_list` writes the list (default goal, 565) to
+  `web/public/voice-pieces/chatty.txt`; `speak.py export --chatty --voice V`
+  renders it; a plain `export` never removes a piece on that list. A user goal
+  other than 565 renders its few goal pieces on first use. The page's end-of-session Turbo refresh WAITS until
   the announcer is idle (`turbo:before-stream-render`), so the match summary
   isn't cut off. Verified: spec/models/commentary_spec.rb, a real demo run.
   Not yet: personalities to choose from; qualifying-place remarks (needs other
   shooters' scores).
-- **The 28 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
-  (32 kbps AAC via macOS `afconvert`, 2.3 MB total; the shooter chose 32 kbps by
+- **The 19 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
+  (32 kbps AAC via macOS `afconvert`, 1.6 MB total; the shooter chose 32 kbps by
   ear), so a fresh clone can audition every voice without Kokoro.
   `speak.py samples` rebuilds them (and `SPOTTER_VOICE_SAMPLES`). Measured: all
   ~300 pieces x 28 voices would be ~370 MB as WAV, ~71 MB as 32 kbps AAC.
