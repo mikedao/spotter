@@ -1,0 +1,150 @@
+<% content_for :title, "Journal" %>
+<% j = @journal %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% select_css = "#{TextFieldComponent::INPUT} py-1.5 text-sm" %>
+<% charted = j.charted %>
+<% series_points = charted.select { it.series.any? } %>
+<% recent = charted.last(5) %>
+
+<h1 class="mb-4 text-2xl font-semibold">Journal</h1>
+
+<div class="mx-auto max-w-6xl space-y-4">
+  <%# Filters in one row above everything; each applies at once (autosubmit). %>
+  <%= form_with url: journal_path, method: :get, class: "flex flex-wrap items-end gap-3", data: { controller: "autosubmit", turbo_action: "replace" } do |f| %>
+    <% [ [ :target, "Type", TargetSpec::SPECS.values.map { [ it.name.delete_prefix("10m "), it.key ] }, nil ],
+         [ :kind, "Session", Journal::KINDS.invert.to_a, "All" ],
+         [ :gun, "Gun", j.guns.map { [ it.label, it.id ] }, "Any gun" ],
+         [ :pellet, "Pellets", j.pellets.map { [ it.label, it.id ] }, "Any pellets" ],
+         [ :exercise, "Exercise", j.exercises.map { [ it.name, it.id ] }, "Any exercise" ],
+         [ :days, "Period", Journal::PERIODS.invert.to_a, "All time" ] ].each do |name, label, options, blank| %>
+      <% next if options.empty? %>
+      <div class="space-y-1">
+        <%= f.label name, label, class: "block text-xs font-medium #{muted}" %>
+        <%= f.select name, options_for_select(options, j.filters[name].to_s), { include_blank: blank },
+              class: "#{select_css} max-w-56", data: { action: "autosubmit#submit" } %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <% if charted.empty? %>
+    <%= render(CardComponent.new) do %>
+      <p class="<%= muted %>">
+        Nothing to show yet<%= " for these filters" if j.filters.except(:target).any? %>. A session appears here once it has
+        at least <%= SessionSummary::MIN_SHOTS %> shots (sighters don't count).
+      </p>
+    <% end %>
+  <% else %>
+    <%# The headline: where you are against the goal. %>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <% pace = (recent.sum(&:per_60) / recent.size.to_f).round %>
+      <% above = charted.count { j.goal && it.per_60 >= j.goal } %>
+      <% [ [ "Recent pace", pace, "per 60, last #{pluralize(recent.size, 'session')}" ],
+           [ "Best", charted.map(&:per_60).max, "per 60" ],
+           [ "At or above goal", j.goal ? "#{above} of #{charted.size}" : "–", j.goal ? "sessions, goal #{j.goal}" : "no goal set" ],
+           [ "Worst series", (series_points.last(5).map(&:worst_series).min || "–"), "last 5 sessions" ] ].each do |label, value, note| %>
+        <%= render(CardComponent.new) do %>
+          <p class="text-sm <%= muted %>"><%= label %></p>
+          <p class="text-3xl font-semibold tabular-nums"><%= value %></p>
+          <p class="text-sm <%= muted %>"><%= note %></p>
+        <% end %>
+      <% end %>
+    </div>
+
+    <%= render(CardComponent.new(title: "Score per 60 shots")) do |card| %>
+      <% card.with_action do %>
+        <%= form_with url: journal_path, method: :patch, class: "flex items-center gap-2 text-sm" do |f| %>
+          <%= hidden_field_tag :target, j.target %>
+          <%= f.label :goal, "Goal", class: muted %>
+          <%= f.number_field :goal, value: j.goal, min: 300, max: 654, class: "#{select_css} w-20" %>
+          <%= render(ButtonComponent.new(type: :submit, variant: :secondary, size: :sm)) { "Set" } %>
+        <% end %>
+      <% end %>
+      <p class="mb-2 text-sm <%= muted %>">
+        Whole rings, scaled to 60 shots - a match at its real pace.
+        <% if charted.any? { it.kind != "practice" } %><span class="whitespace-nowrap"><span class="<%= JournalChartComponent::MARK %>">●</span> match or final</span> <span class="whitespace-nowrap"><span class="<%= JournalChartComponent::MARK %>">○</span> practice</span><% end %>
+      </p>
+      <%= render(JournalChartComponent.new(
+            kind: :line, label: "Score per 60 shots by session", max: 600, goal: j.goal, goal_label: (j.goal && "Goal #{j.goal}"),
+            points: charted.map { |s|
+              { label: s.started_at.strftime("%b %-d"), y: s.per_60, filled: s.kind != "practice", href: practice_session_path(s.session),
+                title: "#{s.started_at.strftime('%b %-d')} · #{Journal::KINDS[s.kind]} · #{s.per_60} per 60 · #{pluralize(s.count, 'shot')}" } })) %>
+    <% end %>
+
+    <% if series_points.any? %>
+      <%= render(CardComponent.new(title: "10-shot series")) do %>
+        <p class="mb-2 text-sm <%= muted %>">Each session's worst to best series; the dot is its average. A match is usually lost in its worst series.</p>
+        <%= render(JournalChartComponent.new(
+              kind: :range, label: "Worst, average and best 10-shot series by session", max: 100,
+              goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"),
+              points: series_points.map { |s|
+                { label: s.started_at.strftime("%b %-d"), y: s.mean_series, low: s.worst_series, high: s.best_series,
+                  href: practice_session_path(s.session),
+                  title: "#{s.started_at.strftime('%b %-d')} · series #{s.series.join(', ')} · average #{s.mean_series}" } })) %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% if j.summaries.any? %>
+    <%= render(CardComponent.new(title: "Sessions")) do %>
+      <div class="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
+        <table class="w-full text-left text-sm tabular-nums">
+          <thead class="<%= muted %>">
+            <tr class="border-b border-gray-200 dark:border-gray-800">
+              <th class="py-2 pr-3 pl-4 font-medium sm:pl-5">Session</th>
+              <th class="px-3 font-medium">Shots</th>
+              <th class="px-3 font-medium">Per 60</th>
+              <th class="px-3 font-medium">Series</th>
+              <th class="px-3 font-medium">10s / 60</th>
+              <th class="px-3 font-medium">Group</th>
+              <th class="py-2 pr-4 pl-3 font-medium sm:pr-5">Gun, pellets, exercises</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+            <% j.newest_first.each do |s| %>
+              <tr class="align-top">
+                <td class="py-2 pr-3 pl-4 sm:pl-5">
+                  <%= link_to "#{s.started_at.strftime('%b %-d, %H:%M')}", practice_session_path(s.session), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
+                  <span class="block text-xs <%= muted %>"><%= Journal::KINDS[s.kind] %></span>
+                </td>
+                <td class="px-3 py-2"><%= s.count %></td>
+                <td class="px-3 py-2 font-semibold"><%= s.per_60 || "–" %></td>
+                <td class="px-3 py-2"><%= s.series.any? ? s.series.join(" ") : "–" %></td>
+                <td class="px-3 py-2"><%= s.tens_per_60 || "–" %></td>
+                <td class="px-3 py-2 whitespace-nowrap"><%= s.group_mm ? "#{s.group_mm} mm" : "–" %></td>
+                <td class="py-2 pr-4 pl-3 sm:pr-5">
+                  <%= [ s.gun&.name, s.pellet&.label ].compact.join(" · ").presence || tag.span("–", class: muted) %>
+                  <% if s.exercises.any? %>
+                    <span class="mt-1 flex flex-wrap gap-1">
+                      <% s.exercises.each do |e| %><span class="rounded-full bg-gray-100 px-2 text-xs dark:bg-gray-800"><%= e.name %></span><% end %>
+                    </span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  <% end %>
+
+  <% if j.with_notes.any? %>
+    <%= render(CardComponent.new(title: "Problems, fixes and lessons")) do %>
+      <ul class="-mx-4 -mb-4 divide-y divide-gray-200 sm:-mx-5 sm:-mb-5 dark:divide-gray-800">
+        <% j.with_notes.each do |s| %>
+          <li class="px-4 py-3 sm:px-5">
+            <%= link_to s.started_at.strftime("%b %-d, %H:%M"), practice_session_path(s.session, anchor: "diary"), class: "text-sm font-medium text-blue-700 underline dark:text-blue-300" %>
+            <dl class="mt-1 grid gap-x-6 gap-y-1 text-sm md:grid-cols-3">
+              <% [ [ "Problems", s.problems ], [ "What fixed it", s.fixes ], [ "What I learned", s.learned ] ].each do |label, text| %>
+                <% next if text.blank? %>
+                <div>
+                  <dt class="font-medium"><%= label %></dt>
+                  <dd class="whitespace-pre-line <%= muted %>"><%= text %></dd>
+                </div>
+              <% end %>
+            </dl>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

@@ -359,6 +359,17 @@ from there). The user commits; don't commit unless asked.
   deleted by `Exercise.tidy!`). Three boxes kept APART so the journal can list
   problems across sessions: `problems`, `fixes`, `learned`. NO location or weather:
   Spotter is an at-home rig (the shooter's call).
+- **Journal** (`/journal`, 2026-11-12), built for the shooter's goal, the OLYMPIC
+  TRIALS: pistol qualification is 60 shots in WHOLE rings, benchmark **565**
+  (`Journal::DEFAULT_GOALS`; editable per target in `users.goals`, removable).
+  `SessionSummary` per session: competition shots only, penalized = 0, call wins;
+  score PER 60 (sessions under 10 shots aren't charted), complete 10-shot series
+  (worst series matters most), 10s per 60, mean card group size. Charts are
+  server SVG (`JournalChartComponent`, :line / :range; axis capped at the max
+  possible, goal label in the right margin, hover = SVG title, the table is the
+  data view). Filters (autosubmit): type, kind, gun, pellets, exercise, period.
+  Decimal average deliberately NOT the headline (finals only; decimal accuracy
+  is unverified).
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

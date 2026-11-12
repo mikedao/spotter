@@ -32,6 +32,9 @@ Rails.application.routes.draw do
   end
   resources :shots, only: %i[ show update ]
 
+  # The journal: trends across sessions, against the shooter's goal.
+  resource :journal, only: %i[ show update ]
+
   # Gear: the shooter's guns and pellets (one per lot), picked per session.
   get "gear", to: "gear#show", as: :gear
   resources :guns, only: %i[ new create show edit update ]
