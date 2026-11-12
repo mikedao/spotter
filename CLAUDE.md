@@ -354,6 +354,18 @@ from there). The user commits; don't commit unless asked.
   Gear page: `/gear` ("Guns and pellets" in the menu).
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
+- **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS
+  (`TargetSvgComponent` `:fit`): framed on the black, out a WHOLE ring at a time only
+  as far as the widest shot needs (live, per shot); ring numbers 1-8 on the axes as
+  printed, only bands fully in view. Right column capped at 32rem, the pair centred
+  (`#range_side`); the target is `lg:sticky` beside it. Column order: course panel
+  (compact: clock + Start match, then one score line), latest shot (no heading; big
+  decimal, an arrow at the shot's exact angle, then this card's shots as WHOLE rings,
+  the call winning), camera (thin frame, no heading), stats, shot list. Must fit a
+  1322x729 laptop window with the whole camera visible in a match (spec checks it).
+  Colours shared by target and ring row: latest = amber ring, flagged = red,
+  penalized = grey struck 0. Mic check: verdict + Next above the sounds, newest 5
+  shown, the rest in a `<details>`.
 
 Not built yet: see "Where we left off" for the agreed order.
 
