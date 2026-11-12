@@ -20,33 +20,9 @@
       <p class="rounded-md bg-red-50 p-3 text-red-900 dark:bg-red-950 dark:text-red-200"><%= @state.error %></p>
     <% end %>
 
-    <% if sounds.any? %>
-      <table class="w-full text-left text-sm tabular-nums">
-        <thead class="text-gray-600 dark:text-gray-300">
-          <tr><th class="py-1">#</th><th>At</th><th>Loudness</th><th>Length</th><th></th></tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-          <% sounds.each do |s| %>
-            <tr>
-              <td class="py-1.5"><%= s["n"] %></td>
-              <td><%= s["t"] %> s</td>
-              <td>+<%= s["over_db"].round %> dB</td>
-              <td><%= s["len_ms"] %> ms</td>
-              <td>
-                <% if s["would_trigger"] %>
-                  <span class="rounded bg-green-100 px-2 py-0.5 text-green-900 dark:bg-green-950 dark:text-green-200">would trigger</span>
-                <% else %>
-                  <span class="text-gray-600 dark:text-gray-300"><%= s["over_db"] < data["trigger_db"].to_f ? "too quiet" : "too short" %></span>
-                <% end %>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    <% elsif running? %>
-      <p class="text-sm text-gray-600 dark:text-gray-300">No sharp sounds yet.</p>
+    <% if sounds.any? && summary.nil? %>
+      <p class="text-sm text-gray-700 dark:text-gray-200"><strong><%= pluralize(shots, "sound") %> would trigger</strong> out of <%= sounds.size %> heard so far.</p>
     <% end %>
-
     <% if (sum = summary) %>
       <% if sum["silent"] %>
         <p class="rounded-md bg-red-50 p-3 text-red-900 dark:bg-red-950 dark:text-red-200">
@@ -78,4 +54,20 @@
           class: "ml-auto cursor-pointer text-sm text-gray-600 underline dark:text-gray-300",
           form: { data: { turbo_confirm: "Without a microphone the camera finds each shot instead: slower, 2-4 s per shot. Continue?" } } %>
   </div>
+
+  <% if @state %>
+    <%# Newest first and only the last few: the sound you just made is always at the
+        top, and the page stays the same height however much it hears. %>
+    <% if sounds.any? %>
+      <%= render_sounds(latest_sounds) %>
+      <% if earlier_sounds.any? %>
+        <details class="text-sm">
+          <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Show <%= pluralize(earlier_sounds.size, "earlier sound") %></summary>
+          <div class="mt-2"><%= render_sounds(earlier_sounds, head: false) %></div>
+        </details>
+      <% end %>
+    <% elsif running? %>
+      <p class="text-sm text-gray-600 dark:text-gray-300">No sharp sounds yet.</p>
+    <% end %>
+  <% end %>
 </div>
