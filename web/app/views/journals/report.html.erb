@@ -1,0 +1,109 @@
+<% content_for :title, "Journal report" %>
+<% j = @journal %>
+<% muted = "text-gray-600" %>
+<% charted = j.charted %>
+<% link = ->(session) { practice_session_path(session) } %>
+
+<%# Not printed: the way back and the print button. %>
+<div class="mb-6 flex items-center justify-between gap-3 print:hidden" data-controller="print">
+  <%= link_to "← Back to the journal", journal_path(j.filters), class: "text-sm text-blue-700 underline" %>
+  <button type="button" data-action="print#print"
+          class="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">Save as PDF</button>
+</div>
+
+<header class="mb-6 border-b border-gray-300 pb-4">
+  <h1 class="text-2xl font-semibold">Journal: <%= j.description %></h1>
+  <p class="mt-1 <%= muted %>">
+    <%= j.user.name %>
+    <% if j.summaries.any? %>
+      · <%= j.summaries.first.started_at.strftime("%b %-d, %Y") %> to <%= j.summaries.last.started_at.strftime("%b %-d, %Y") %>
+      · <%= j.plural(j.summaries.size, "session") %>, <%= j.plural(j.summaries.sum(&:count), "shot") %>
+    <% end %>
+    <%= "· goal #{j.goal} per 60" if j.goal %>
+  </p>
+</header>
+
+<% if charted.empty? %>
+  <p class="<%= muted %>">No session in this view has <%= SessionSummary::MIN_SHOTS %> or more shots yet.</p>
+<% else %>
+  <section class="mb-6 grid grid-cols-5 gap-3 break-inside-avoid">
+    <% j.tiles.each do |label, value, note| %>
+      <div class="rounded border border-gray-300 p-3">
+        <p class="text-xs <%= muted %>"><%= label %></p>
+        <p class="text-2xl font-semibold tabular-nums"><%= value %></p>
+        <p class="text-xs <%= muted %>"><%= note %></p>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="mb-6 break-inside-avoid">
+    <h2 class="font-semibold">Score per 60 shots</h2>
+    <p class="mb-1 text-xs <%= muted %>">
+      Whole rings, scaled to 60 shots<% if charted.any? { it.kind != "practice" } %>; <span class="text-blue-600">●</span> match or final, <span class="text-blue-600">○</span> practice<% end %>.
+    </p>
+    <%= render(JournalChartComponent.new(kind: :line, label: "Score per 60 shots by session", max: 600, paper: true,
+                                         goal: j.goal, goal_label: (j.goal && "Goal #{j.goal}"), points: j.score_points(link))) %>
+  </section>
+
+  <% series = j.series_points(link) %>
+  <% if series.any? %>
+    <section class="mb-6 break-inside-avoid">
+      <h2 class="font-semibold">10-shot series</h2>
+      <p class="mb-1 text-xs <%= muted %>">Each session's worst to best series; the dot is its average.</p>
+      <%= render(JournalChartComponent.new(kind: :range, label: "Worst, average and best 10-shot series by session", max: 100, paper: true,
+                                           goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"), points: series)) %>
+    </section>
+  <% end %>
+<% end %>
+
+<% if j.summaries.any? %>
+  <section class="mb-6">
+    <h2 class="mb-2 font-semibold">Sessions</h2>
+    <table class="w-full text-left text-xs tabular-nums">
+      <thead class="<%= muted %>">
+        <tr class="border-b border-gray-300">
+          <th class="py-1 pr-2 font-medium">Date</th><th class="pr-2 font-medium">Kind</th><th class="pr-2 font-medium">Shots</th>
+          <th class="pr-2 font-medium">Per 60</th><th class="pr-2 font-medium">Series</th><th class="pr-2 font-medium">10s / 60</th>
+          <th class="pr-2 font-medium">Group</th><th class="font-medium">Gun, pellets, exercises</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <% j.newest_first.each do |s| %>
+          <tr class="break-inside-avoid align-baseline">
+            <td class="py-1 pr-2 whitespace-nowrap"><%= s.started_at.strftime("%b %-d") %></td>
+            <td class="pr-2"><%= Journal::KINDS[s.kind] %></td>
+            <td class="pr-2"><%= s.count %></td>
+            <td class="pr-2 font-semibold"><%= s.per_60 || "–" %></td>
+            <td class="pr-2"><%= s.series.any? ? s.series.join(" ") : "–" %></td>
+            <td class="pr-2"><%= s.tens_per_60 || "–" %></td>
+            <td class="pr-2 whitespace-nowrap"><%= s.group_mm ? "#{s.group_mm} mm" : "–" %></td>
+            <td><%= [ s.gun&.name, s.pellet&.label, *s.exercises.map(&:name) ].compact.join(" · ").presence || "–" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+<% end %>
+
+<% if j.with_notes.any? %>
+  <section class="mb-6">
+    <h2 class="mb-2 font-semibold">Problems, fixes and lessons</h2>
+    <% j.with_notes.each do |s| %>
+      <div class="mb-3 break-inside-avoid border-t border-gray-200 pt-2 text-sm">
+        <p class="font-medium"><%= s.started_at.strftime("%b %-d, %Y") %></p>
+        <dl class="grid grid-cols-3 gap-x-4">
+          <% [ [ "Problems", s.problems ], [ "What fixed it", s.fixes ], [ "What I learned", s.learned ] ].each do |label, text| %>
+            <div>
+              <dt class="text-xs <%= muted %>"><%= label %></dt>
+              <dd class="whitespace-pre-line"><%= text.presence || "–" %></dd>
+            </div>
+          <% end %>
+        </dl>
+      </div>
+    <% end %>
+  </section>
+<% end %>
+
+<footer class="border-t border-gray-300 pt-2 text-xs <%= muted %>">
+  Spotter · competition shots only, whole rings, your calls where you made one · printed <%= Time.current.strftime("%b %-d, %Y") %>
+</footer>

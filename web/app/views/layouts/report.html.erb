@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title><%= [ content_for(:title), "Spotter" ].compact.join(" · ") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+    <%# A printed report: always light (paper), page margins set here. %>
+    <style>
+      @page { margin: 12mm; }
+      :root { color-scheme: light; }
+    </style>
+  </head>
+  <%# Paper: light only, no menu. The app's dark: classes key off the system
+      setting, so the report uses none of them. %>
+  <body class="min-h-screen bg-gray-100 text-gray-900 print:bg-white">
+    <main class="mx-auto max-w-[52rem] bg-white p-8 shadow-sm print:max-w-none print:p-0 print:shadow-none">
+      <%= yield %>
+    </main>
+  </body>
+</html>

@@ -31,7 +31,7 @@ class LivePanelComponent < ApplicationComponent
   def shots = @card ? @card.shots.to_a : []
   def scored = shots.select(&:scored?)
   def latest = scored.last
-  def stats = CardStats.new(scored, @session.target_spec)
+  def stats = CardStats.new(scored, @session.target_spec, whole_rings: @session.whole_rings?)
   def spec = @session.target_spec
   def earlier_cards = @card ? @session.cards.to_a - [ @card ] : []
 

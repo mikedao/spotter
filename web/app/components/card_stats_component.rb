@@ -14,9 +14,9 @@ class CardStatsComponent < ApplicationComponent
     def figures
       s = @stats
       [
-        [ "Total", s.any? ? "#{s.total} (#{s.decimal_total})" : "–" ],
+        [ "Total", s.any? ? s.score : "–" ],
         [ "Shots", s.count ],
-        [ "Average", s.average || "–" ],
+        [ "Average", s.score_average || "–" ],
         [ "Inner tens", s.inner_tens ],
         [ "Group", s.group_size_mm ? "#{s.group_size_mm} mm" : "–" ],
         [ "Group center", s.count >= 2 ? "#{s.mean_point_offset_mm} mm #{s.mean_point_direction}" : "–" ],

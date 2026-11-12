@@ -15,15 +15,17 @@ class JournalChartComponent < ApplicationComponent
   MARK = "text-blue-600 dark:text-blue-400"
   INK = "text-gray-500 dark:text-gray-400"
   GRID = "text-gray-200 dark:text-gray-800"
+  # paper: true (the printed report) - light only, whatever the system setting.
+  PAPER = { MARK => "text-blue-600", INK => "text-gray-500", GRID => "text-gray-200" }.freeze
 
   # max: the most possible (600 per 60, 100 per series), so the axis never runs past it.
-  def initialize(kind:, points:, label:, max:, goal: nil, goal_label: nil)
-    @kind, @points, @goal, @goal_label, @label, @max = kind, points, goal, goal_label, label, max
+  def initialize(kind:, points:, label:, max:, goal: nil, goal_label: nil, paper: false)
+    @kind, @points, @goal, @goal_label, @label, @max, @paper = kind, points, goal, goal_label, label, max, paper
   end
 
   def call
-    tag.div(class: "overflow-x-auto [--chart-surface:#fff] dark:[--chart-surface:#111827]") do   # the card behind: hollow dots
-      tag.svg(viewBox: "0 0 #{W} #{H}", role: "img", "aria-label": @label, class: "h-auto w-full min-w-[36rem]",
+    tag.div(class: @paper ? "[--chart-surface:#fff]" : "overflow-x-auto [--chart-surface:#fff] dark:[--chart-surface:#111827]") do   # the card behind: hollow dots
+      tag.svg(viewBox: "0 0 #{W} #{H}", role: "img", "aria-label": @label, class: @paper ? "h-auto w-full" : "h-auto w-full min-w-[36rem]",
               xmlns: "http://www.w3.org/2000/svg", "font-family": "system-ui, sans-serif") do
         safe_join([ grid, goal_line, marks, x_labels ].flatten.compact)
       end
@@ -31,6 +33,10 @@ class JournalChartComponent < ApplicationComponent
   end
 
   private
+    def mark = @paper ? PAPER[MARK] : MARK
+    def ink = @paper ? PAPER[INK] : INK
+    def grid_ink = @paper ? PAPER[GRID] : GRID
+
     def values = @points.flat_map { [ it[:y], it[:low], it[:high] ] }.compact + [ @goal ].compact
 
     # Round the y range out to tidy steps, with a little room above and below.
@@ -55,8 +61,8 @@ class JournalChartComponent < ApplicationComponent
     def grid
       lo, hi, step = y_range
       (0..((hi - lo) / step).round).map { lo + it * step }.flat_map do |v|
-        [ tag.line(x1: LEFT, x2: W - RIGHT, y1: y(v), y2: y(v), stroke: "currentColor", "stroke-width": 1, class: GRID),
-          tag.text(fmt(v), x: LEFT - 8, y: y(v) + 4, "text-anchor": "end", "font-size": 12, fill: "currentColor", class: INK) ]
+        [ tag.line(x1: LEFT, x2: W - RIGHT, y1: y(v), y2: y(v), stroke: "currentColor", "stroke-width": 1, class: grid_ink),
+          tag.text(fmt(v), x: LEFT - 8, y: y(v) + 4, "text-anchor": "end", "font-size": 12, fill: "currentColor", class: ink) ]
       end
     end
 
@@ -64,14 +70,14 @@ class JournalChartComponent < ApplicationComponent
       return [] unless @goal
 
       [ tag.line(x1: LEFT, x2: W - RIGHT, y1: y(@goal), y2: y(@goal), stroke: "currentColor", "stroke-width": 1.5,
-                 "stroke-dasharray": "6 4", class: INK),
-        tag.text(x: W - RIGHT + 8, y: y(@goal) - 2, "font-size": 12, "font-weight": 600, fill: "currentColor", class: INK) do
+                 "stroke-dasharray": "6 4", class: ink),
+        tag.text(x: W - RIGHT + 8, y: y(@goal) - 2, "font-size": 12, "font-weight": 600, fill: "currentColor", class: ink) do
           safe_join(@goal_label.split("\n").each_with_index.map { |line, i| tag.tspan(line, x: W - RIGHT + 8, dy: i.zero? ? 0 : 14) })
         end ]
     end
 
     def marks
-      tag.g(class: MARK) do
+      tag.g(class: mark) do
         safe_join([ (trend_line if @kind == :line), *@points.each_with_index.map { |p, i| point(p, i) } ].compact)
       end
     end
@@ -103,7 +109,7 @@ class JournalChartComponent < ApplicationComponent
       shown = n <= 6 ? (0...n).to_a : (0..5).map { (it * (n - 1) / 5.0).round }.uniq
       shown.map do |i|
         anchor = n == 1 ? "middle" : (i.zero? ? "start" : (i == n - 1 ? "end" : "middle"))
-        tag.text(@points[i][:label], x: x(i).round(1), y: H - 8, "text-anchor": anchor, "font-size": 12, fill: "currentColor", class: INK)
+        tag.text(@points[i][:label], x: x(i).round(1), y: H - 8, "text-anchor": anchor, "font-size": 12, fill: "currentColor", class: ink)
       end
     end
 end

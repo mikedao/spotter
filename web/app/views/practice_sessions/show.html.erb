@@ -21,4 +21,10 @@
 
   <%= render(SessionDiaryComponent.new(session: @session)) %>
   <%= render(SessionGearComponent.new(session: @session)) %>
+  <%= render(CardComponent.new(title: "Export", id: "export")) do %>
+    <div class="flex flex-wrap gap-3">
+      <%= render(ButtonComponent.new(href: practice_session_report_path(@session), variant: :secondary)) { "Report (PDF)" } %>
+      <%= render(ButtonComponent.new(href: practice_session_shotmetrix_path(@session), variant: :secondary)) { "Shotmetrix QR code" } %>
+    </div>
+  <% end %>
 </div>

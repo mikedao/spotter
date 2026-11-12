@@ -49,6 +49,9 @@ class PracticeSession < ApplicationRecord
   end
 
   def course_info = Course.for(self)
+  # How this session is scored, so totals and averages say what the rules count:
+  # whole rings for pistol (qualification), decimals for rifle and finals.
+  def whole_rings? = course_info ? course_info.whole_rings?(target) : target == "pistol"
   def gear_label = [ gun&.name, pellet&.label ].compact.join(" · ").presence   # "LP10 · RWS R10 Match · 4.49 mm"
 
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")

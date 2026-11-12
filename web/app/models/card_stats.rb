@@ -12,10 +12,19 @@
 class CardStats
   attr_reader :shots, :spec
 
-  def initialize(shots, spec)
+  # whole_rings: true when the session is scored in whole rings (pistol), so the
+  # score and average shown are rings - a "78 (81.8)" mixes two scores.
+  def initialize(shots, spec, whole_rings: false)
     @shots = shots.select { |s| s.final_x_mm && s.final_y_mm }
     @spec = spec
+    @whole_rings = whole_rings
   end
+
+  def whole_rings? = @whole_rings
+
+  # The card's score and average per shot, as the session is scored.
+  def score = whole_rings? ? total : decimal_total
+  def score_average = any? ? (whole_rings? ? (total.to_f / count).round(2) : average) : nil
 
   def count = shots.size
   def any? = count.positive?

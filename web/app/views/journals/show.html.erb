@@ -4,8 +4,14 @@
 <% select_css = "#{TextFieldComponent::INPUT} py-1.5 text-sm" %>
 <% charted = j.charted %>
 <% series_points = charted.select { it.series.any? } %>
+<% link = ->(session) { practice_session_path(session) } %>
 
-<h1 class="mb-4 text-2xl font-semibold">Journal</h1>
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <h1 class="text-2xl font-semibold">Journal</h1>
+  <% if charted.any? %>
+    <%= render(ButtonComponent.new(href: report_journal_path(j.filters), variant: :secondary, size: :sm)) { "Report (PDF)" } %>
+  <% end %>
+</div>
 
 <div class="mx-auto max-w-6xl space-y-4">
   <%# Filters in one row above everything; each applies at once (autosubmit). %>
@@ -35,35 +41,8 @@
   <% else %>
     <%# The headline: where you are, how far to the goal and whether it's closing,
         how fast you're improving, your best, and your weakest recent series. %>
-    <% best = j.personal_best %>
-    <% tiles = [ [ "Recent pace", j.recent_pace, "per 60, last #{pluralize([ charted.size, Journal::RECENT ].min, 'session')}" ] ]
-       tiles << if j.goal.nil?
-         [ "To goal", "–", "no goal set" ]
-       elsif j.to_goal <= 0
-         [ "To goal", "Reached", "#{-j.to_goal} over #{j.goal}" ]
-       else
-         [ "To goal", "#{j.to_goal} to go",
-           case j.closing
-           when nil then "to #{j.goal}"
-           when 0 then "same as the #{Journal::RECENT} before"
-           else "#{j.closing.abs} #{j.closing.positive? ? 'closer' : 'further'} than the #{Journal::RECENT} before"
-           end ]
-       end
-       tiles << if j.trend_ready?
-         rate = j.trend_per_month.round
-         [ "Trend", "#{'+' if rate.positive?}#{rate}",
-           if j.goal_forecast then "a month; at this rate #{j.goal} by #{j.goal_forecast.strftime(j.goal_forecast.year == Date.current.year ? '%b' : '%b %Y')}"
-           elsif j.goal && j.to_goal.positive? then "a month; not climbing yet"
-           else "a month"
-           end ]
-       else
-         more = [ Journal::TREND_SESSIONS - charted.size, 1 ].max
-         [ "Trend", "–", charted.size >= Journal::TREND_SESSIONS ? "needs 2 weeks of sessions" : "after #{pluralize(more, 'more session')}" ]
-       end
-       tiles << [ "Personal best", best.per_60, "set #{best.started_at.strftime('%b %-d')}" ]
-       tiles << [ "Worst series", j.worst_recent_series || "–", "last #{Journal::RECENT} sessions" ] %>
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      <% tiles.each do |label, value, note| %>
+      <% j.tiles.each do |label, value, note| %>
         <%= render(CardComponent.new) do %>
           <p class="text-sm <%= muted %>"><%= label %></p>
           <p class="text-3xl font-semibold tabular-nums"><%= value %></p>
@@ -87,9 +66,7 @@
       </p>
       <%= render(JournalChartComponent.new(
             kind: :line, label: "Score per 60 shots by session", max: 600, goal: j.goal, goal_label: (j.goal && "Goal #{j.goal}"),
-            points: charted.map { |s|
-              { label: s.started_at.strftime("%b %-d"), y: s.per_60, filled: s.kind != "practice", href: practice_session_path(s.session),
-                title: "#{s.started_at.strftime('%b %-d')} · #{Journal::KINDS[s.kind]} · #{s.per_60} per 60 · #{pluralize(s.count, 'shot')}" } })) %>
+            points: j.score_points(link))) %>
     <% end %>
 
     <% if series_points.any? %>
@@ -98,10 +75,7 @@
         <%= render(JournalChartComponent.new(
               kind: :range, label: "Worst, average and best 10-shot series by session", max: 100,
               goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"),
-              points: series_points.map { |s|
-                { label: s.started_at.strftime("%b %-d"), y: s.mean_series, low: s.worst_series, high: s.best_series,
-                  href: practice_session_path(s.session),
-                  title: "#{s.started_at.strftime('%b %-d')} · series #{s.series.join(', ')} · average #{s.mean_series}" } })) %>
+              points: j.series_points(link))) %>
       <% end %>
     <% end %>
   <% end %>

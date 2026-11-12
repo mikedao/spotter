@@ -20,6 +20,21 @@ RSpec.describe CardStats do
     expect(stats.mean_radius_mm).to be_within(0.05).of((Math.hypot(10, 2) * 2 + 4) / 3)
   end
 
+  it "scores in whole rings when the session does (pistol), decimals otherwise" do
+    shots = [ shot(-10, 0, ring: 9, decimal: 9.2), shot(10, 0, ring: 9, decimal: 9.4), shot(0, 6, ring: 10, decimal: 10.1) ]
+    rings = described_class.new(shots, spec, whole_rings: true)
+    expect([ rings.score, rings.score_average ]).to eq([ 28, 9.33 ])
+    decimals = described_class.new(shots, spec)
+    expect([ decimals.score, decimals.score_average ]).to eq([ 28.7, 9.57 ])
+  end
+
+  it "is scored in whole rings for pistol practice and matches, decimals for rifle and finals" do
+    expect(build(:practice_session, target: "pistol").whole_rings?).to be(true)
+    expect(build(:practice_session, target: "pistol", course: "match").whole_rings?).to be(true)
+    expect(build(:practice_session, target: "pistol", course: "final").whole_rings?).to be(false)
+    expect(build(:practice_session, target: "rifle").whole_rings?).to be(false)
+  end
+
   it "counts the shooter's call over the rules' proposal" do
     s = shot(-28, 0, ring: 6, decimal: 6.9)
     s.record_call!(ring: 7)

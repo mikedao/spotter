@@ -374,6 +374,32 @@ from there). The user commits; don't commit unless asked.
   before, trend per month + forecast date (least squares; only after 8 sessions
   over 2 weeks; no forecast unless climbing), personal best (date first set),
   worst recent series.
+- **Shotmetrix QR export** (2026-11-12): `/practice/:id/shotmetrix`, from the
+  session page's Export card. Open format (github.com/shotmetrix/Shotmetrix-QRCode,
+  Apache-2.0, no API key/registration): `ShotmetrixCode` is a port of their Python
+  reference encoder (X25519 + HKDF-SHA-256 + AES-256-GCM, Base32, always QR v24),
+  verified BYTE FOR BYTE against their test vectors (copied to
+  `spec/fixtures/files/shotmetrix/`). `ShotmetrixExport`: final values (call wins),
+  pistol whole rings / rifle + finals decimals, sighters flagged, penalized = 0
+  with NO position (else it fails their value-vs-position check, +-0.3 / +-1 ring),
+  a call too far from its position is sent as the position's own value, >120 shots
+  = several codes, id fixed per session+part (HMAC of secret_key_base) so a session
+  imports once. Their check measures from the pellet CENTRE (ISSF gauge); ours is
+  at most ~0.1 more generous - inside the tolerance. The name "Shotmetrix" may only
+  describe that we produce their codes (their NOTICE).
+- **Session report / PDF** (2026-11-12): `/practice/:id/report` (Export card),
+  `layout "report"`: paper, LIGHT ONLY (no dark: classes), no app menu; "Save as
+  PDF" = the browser's print dialog (`print_controller.js`), no PDF gem - targets
+  stay vector. Header (shooter, gun, pellets + lot, duration, exercises), the
+  session's numbers (`SessionSummary`, match total via `EventStats`), each card's
+  target + shot table (`break-inside-avoid`), notes. JOURNAL report:
+  `/journal/report` with the journal's filters (tiles, both charts with
+  `paper: true`, sessions, notes); `Journal#tiles/score_points/series_points`
+  are shared by page and report.
+- **Scores shown as the session is scored** (the shooter, 2026-11-12: "78 (81.8)
+  makes no sense"): `PracticeSession#whole_rings?` (pistol practice and matches =
+  whole rings; rifle and finals = decimals) -> `CardStats#score/score_average`.
+  Totals/averages never mix the two. Per-shot decimals still show per shot.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

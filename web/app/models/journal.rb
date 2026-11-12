@@ -76,6 +76,63 @@ class Journal
   def pellets = user.pellets.by_name
   def exercises = user.exercises.by_use
 
+  def plural(n, word) = "#{n} #{word.pluralize(n)}"
+
+  # The headline tiles, [ label, value, note ], shared by the page and the report.
+  def tiles
+    best = personal_best
+    out = [ [ "Recent pace", recent_pace, "per 60, last #{plural([ charted.size, RECENT ].min, 'session')}" ] ]
+    out << if goal.nil?
+      [ "To goal", "–", "no goal set" ]
+    elsif to_goal <= 0
+      [ "To goal", "Reached", "#{-to_goal} over #{goal}" ]
+    else
+      [ "To goal", "#{to_goal} to go",
+        case closing
+        when nil then "to #{goal}"
+        when 0 then "same as the #{RECENT} before"
+        else "#{closing.abs} #{closing.positive? ? 'closer' : 'further'} than the #{RECENT} before"
+        end ]
+    end
+    out << if trend_ready?
+      rate = trend_per_month.round
+      [ "Trend", "#{'+' if rate.positive?}#{rate}",
+        if goal_forecast then "a month; at this rate #{goal} by #{goal_forecast.strftime(goal_forecast.year == Date.current.year ? '%b' : '%b %Y')}"
+        elsif goal && to_goal.positive? then "a month; not climbing yet"
+        else "a month"
+        end ]
+    else
+      more = [ TREND_SESSIONS - charted.size, 1 ].max
+      [ "Trend", "–", charted.size >= TREND_SESSIONS ? "needs 2 weeks of sessions" : "after #{plural(more, 'more session')}" ]
+    end
+    out << [ "Personal best", best.per_60, "set #{best.started_at.strftime('%b %-d')}" ]
+    out << [ "Worst series", worst_recent_series || "–", "last #{RECENT} sessions" ]
+  end
+
+  # The charts' points (JournalChartComponent), each linking to its session.
+  def score_points(href)
+    charted.map do |s|
+      { label: s.started_at.strftime("%b %-d"), y: s.per_60, filled: s.kind != "practice", href: href.(s.session),
+        title: "#{s.started_at.strftime('%b %-d')} · #{KINDS[s.kind]} · #{s.per_60} per 60 · #{plural(s.count, 'shot')}" }
+    end
+  end
+
+  def series_points(href)
+    charted.select { it.series.any? }.map do |s|
+      { label: s.started_at.strftime("%b %-d"), y: s.mean_series, low: s.worst_series, high: s.best_series, href: href.(s.session),
+        title: "#{s.started_at.strftime('%b %-d')} · series #{s.series.join(', ')} · average #{s.mean_series}" }
+    end
+  end
+
+  # What the filters select, in words: "Air Pistol · Match · LP10 · Last 30 days".
+  def description
+    [ TargetSpec::SPECS.fetch(target).name.delete_prefix("10m "), KINDS[@filters[:kind]],
+      @filters[:gun] && user.guns.find_by(id: @filters[:gun])&.label,
+      @filters[:pellet] && user.pellets.find_by(id: @filters[:pellet])&.label,
+      @filters[:exercise] && user.exercises.find_by(id: @filters[:exercise])&.name,
+      PERIODS[@filters[:days]] || "All time" ].compact.join(" · ")
+  end
+
   private
     def pace(list) = list.any? ? (list.sum(&:per_60) / list.size.to_f).round : nil
 

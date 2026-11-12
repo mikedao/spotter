@@ -65,6 +65,23 @@ RSpec.describe "Journal" do
     expect(response.body).to include("Problems, fixes and lessons", "Flinched on the last series", "Breathe out first")
   end
 
+  it "prints the same view as a progress report, keeping the filters" do
+    gun = create(:gun, user:, name: "LP10")
+    session_with([ 9 ] * 20, at: 3.days.ago, gun:, problems: "Flinched")
+    session_with([ 10, 9 ] * 10, at: 1.day.ago, course: "match")
+    get journal_path(days: "30")
+    link = Nokogiri::HTML(response.body).at_css("a[href^='/journal/report']")["href"]
+    expect(Rack::Utils.parse_query(URI(link).query)).to eq("days" => "30", "target" => "pistol")
+
+    get report_journal_path(days: "30")
+    expect(response.body).to include("Save as PDF", "Journal: Air Pistol · Last 30 days", "2 sessions, 40 shots", "goal 565 per 60")
+    expect(response.body).to include("Recent pace", "Score per 60 shots", "Goal 565", "10-shot series", "Flinched", "LP10")
+    expect(response.body).not_to include("dark:")   # paper: light whatever the system setting
+
+    get report_journal_path(gun: gun.id)
+    expect(response.body).to include("Journal: Air Pistol · LP10 · All time", "1 session, 20 shots")
+  end
+
   it "shows only the user's own sessions" do
     other = create(:user)
     create(:practice_session, user: other).then { |s| create(:card, practice_session: s).then { |c| 10.times { create(:shot, card: c, ring: 3) } } }

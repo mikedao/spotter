@@ -77,7 +77,7 @@
             <li class="flex flex-wrap items-baseline justify-between gap-2 py-2">
               <span class="font-medium">Card <%= card.number %></span>
               <span class="tabular-nums text-gray-600 dark:text-gray-300">
-                <%= s.total %> · <%= s.decimal_total %> over <%= pluralize(s.count, "shot") %><%= " · group #{s.group_size_mm} mm" if s.group_size_mm %>
+                <%= s.score %> over <%= pluralize(s.count, "shot") %><%= " · group #{s.group_size_mm} mm" if s.group_size_mm %>
               </span>
             </li>
           <% end %>

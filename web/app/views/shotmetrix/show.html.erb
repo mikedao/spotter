@@ -1,0 +1,30 @@
+<% content_for :title, "Shotmetrix · #{@session.title}" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+
+<h1 class="mb-1 text-2xl font-semibold">Send to Shotmetrix</h1>
+<p class="mb-4 <%= muted %>"><%= link_to @session.title, practice_session_path(@session), class: "underline" %></p>
+
+<div class="max-w-xl space-y-4">
+  <% if @error %>
+    <%= render(CardComponent.new) do %>
+      <p>There's nothing to send: <%= @error %>.</p>
+    <% end %>
+  <% else %>
+    <%= render(CardComponent.new) do %>
+      <p class="mb-4 <%= muted %>">
+        Open the Shotmetrix app and scan <%= @urls.size > 1 ? "each code" : "the code" %>.
+        <%= pluralize(@export.shots.size, "shot") %>, <%= @export.decimal? ? "decimal scores" : "whole rings" %>;
+        sighters are marked as sighters. A session imports once: scanning it again won't add it twice.
+      </p>
+      <div class="space-y-6">
+        <% @urls.each_with_index do |url, i| %>
+          <div>
+            <% if @urls.size > 1 %><p class="mb-2 font-medium">Part <%= i + 1 %> of <%= @urls.size %></p><% end %>
+            <%= render(QrCodeComponent.new(text: url, label: "Shotmetrix QR code#{" part #{i + 1}" if @urls.size > 1}")) %>
+          </div>
+        <% end %>
+      </div>
+      <p class="mt-4 text-sm <%= muted %>">Turn the screen brightness up if it doesn't scan.</p>
+    <% end %>
+  <% end %>
+</div>

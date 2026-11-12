@@ -68,3 +68,5 @@ group :test do
   gem "capybara"
   gem "cuprite"
 end
+
+gem "rqrcode", "~> 3.2"

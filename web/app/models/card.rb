@@ -7,6 +7,6 @@ class Card < ApplicationRecord
   validates :number, presence: true, uniqueness: { scope: :practice_session_id }
 
   def scored_shots = shots.select(&:scored?)
-  def stats = CardStats.new(scored_shots, practice_session.target_spec)
+  def stats = CardStats.new(scored_shots, practice_session.target_spec, whole_rings: practice_session.whole_rings?)
   def next_shot_number = (shots.maximum(:number) || 0) + 1
 end

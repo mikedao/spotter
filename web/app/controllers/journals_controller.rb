@@ -3,7 +3,14 @@
 # lessons - filtered by type, kind, gun, pellets, exercise and period.
 class JournalsController < ApplicationController
   def show
-    @journal = Journal.new(Current.user, params.permit(:target, :kind, :gun, :pellet, :exercise, :days))
+    @journal = Journal.new(Current.user, filter_params)
+  end
+
+  # The same view as a printable progress report: the headline, both charts, the
+  # sessions and the notes, for the period and filters chosen.
+  def report
+    @journal = Journal.new(Current.user, filter_params)
+    render layout: "report"
   end
 
   # The goal line: score per 60 shots for a target type (blank = none).
@@ -17,4 +24,7 @@ class JournalsController < ApplicationController
     Current.user.update!(goals: (Current.user.goals || {}).merge(target => goal.presence&.to_i))
     redirect_to journal_path(target:), notice: goal.empty? ? "Goal line removed." : "Goal set to #{goal}."
   end
+
+  private
+    def filter_params = params.permit(:target, :kind, :gun, :pellet, :exercise, :days)
 end

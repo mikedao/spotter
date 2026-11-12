@@ -1,0 +1,124 @@
+<% content_for :title, "Report · #{@session.title}" %>
+<% s = @summary %>
+<% muted = "text-gray-600" %>
+<% fmt = ->(v) { v.nil? ? "–" : v } %>
+
+<%# Not printed: the way back and the print button. %>
+<div class="mb-6 flex items-center justify-between gap-3 print:hidden" data-controller="print">
+  <%= link_to "← Back to the session", practice_session_path(@session), class: "text-sm text-blue-700 underline" %>
+  <button type="button" data-action="print#print"
+          class="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">Save as PDF</button>
+</div>
+
+<header class="mb-6 border-b border-gray-300 pb-4">
+  <h1 class="text-2xl font-semibold"><%= @session.title %></h1>
+  <p class="mt-1 <%= muted %>">
+    <%= [ @session.user.name,
+          @session.gun&.label,
+          @session.pellet&.label,
+          (@session.ended_at && "#{((@session.ended_at - @session.started_at) / 60).round} min") ].compact.join(" · ") %>
+  </p>
+  <% if @session.exercises.any? %>
+    <p class="mt-2 flex flex-wrap gap-1.5 text-sm">
+      <% @session.exercises.each do |e| %><span class="rounded-full border border-gray-300 px-2"><%= e.name %></span><% end %>
+    </p>
+  <% end %>
+</header>
+
+<%# The numbers. %>
+<section class="mb-6 break-inside-avoid">
+  <% if @event&.any? %>
+    <p class="mb-3 text-lg">
+      <span class="font-semibold"><%= @event.course.name %>: <%= @event.whole_rings? ? @event.total : format("%.1f", @event.total) %></span>
+      <span class="<%= muted %>">· <%= @event.fired %> of <%= @event.course.shots %> shots<%= " · #{@event.penalties} out of time, scored zero" if @event.penalties.positive? %></span>
+    </p>
+  <% end %>
+  <dl class="grid grid-cols-4 gap-x-4 gap-y-3 text-sm">
+    <% [ [ "Shots", s.count ],
+         [ "Total", s.count.positive? ? (@session.whole_rings? ? s.total : format("%.1f", s.shots.sum { it.penalized? ? 0 : it.final_decimal.to_f })) : nil ],
+         [ "Per 60 shots", s.per_60 ],
+         [ "Average", s.count.positive? ? (@session.whole_rings? ? (s.total.to_f / s.count).round(2) : s.decimal_average) : nil ],
+         [ "10s", s.count.positive? ? "#{s.tens}#{" (#{s.tens_per_60} per 60)" if s.tens_per_60}" : nil ],
+         [ "Inner tens", s.inner_tens ],
+         [ "Group (per card)", s.group_mm && "#{s.group_mm} mm" ],
+         [ "Worst / best series", s.series.any? ? "#{s.worst_series} / #{s.best_series}" : nil ] ].each do |label, value| %>
+      <div>
+        <dt class="<%= muted %>"><%= label %></dt>
+        <dd class="text-lg font-semibold tabular-nums"><%= fmt.(value) %></dd>
+      </div>
+    <% end %>
+  </dl>
+  <% if s.series.any? %>
+    <p class="mt-3 text-sm"><span class="<%= muted %>">10-shot series:</span>
+      <span class="font-medium tabular-nums"><%= s.series.join("  ") %></span></p>
+  <% end %>
+</section>
+
+<%# Each card: its target and its shots. %>
+<% @session.cards.each do |card| %>
+  <% shots = card.shots.sort_by(&:number) %>
+  <% scored = shots.select(&:scored?) %>
+  <% next if shots.empty? %>
+  <% st = card.stats %>
+  <section class="mb-6 break-inside-avoid border-t border-gray-300 pt-4">
+    <h2 class="mb-3 font-semibold">
+      Card <%= card.number %>
+      <span class="font-normal <%= muted %>">
+        · <%= st.score %>
+        <%= "· group #{st.group_size_mm} mm" if st.group_size_mm %>
+        <%= "· mean radius #{st.mean_radius_mm} mm" if st.mean_radius_mm %>
+        <%= "· center #{st.mean_point_offset_mm} mm #{st.mean_point_direction}" if st.mean_point && st.mean_point_offset_mm.to_f >= 1 %>
+      </span>
+    </h2>
+    <div class="grid grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start gap-6">
+      <div class="rounded border border-gray-300 p-1">
+        <%= render(TargetSvgComponent.new(spec: @session.target_spec, shots: scored, label: "Card #{card.number}")) %>
+      </div>
+      <table class="w-full text-left text-sm tabular-nums">
+        <thead class="<%= muted %>">
+          <tr class="border-b border-gray-300"><th class="py-1 font-medium">#</th><th class="font-medium">Score</th><th class="font-medium">Direction</th><th class="font-medium">Note</th></tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <% shots.each do |shot| %>
+            <tr>
+              <td class="py-1 pr-2 <%= muted %>"><%= shot.sighter? ? "S" : (shot.match_number || shot.number) %></td>
+              <% if shot.scored? %>
+                <td class="pr-2 font-semibold"><%= shot.penalized? ? "0" : format("%.1f", shot.final_decimal) %></td>
+                <td class="pr-2"><%= shot.direction %></td>
+                <td class="<%= muted %>">
+                  <%= [ ("sighter" if shot.sighter?),
+                        (shot.penalty if shot.penalized?),
+                        ("called #{shot.call_ring}" if shot.called? && shot.call_ring),
+                        *(shot.called? ? [] : shot.flags) ].compact.join(", ") %>
+                </td>
+              <% else %>
+                <td colspan="3" class="<%= muted %>">not scored<%= " - #{shot.unscored_reason}" if shot.unscored_reason.present? %></td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% end %>
+
+<%# The diary. %>
+<% notes = [ [ "Gun adjustments", @session.gun_adjustments ], [ "Problems", @session.problems ],
+             [ "What fixed it", @session.fixes ], [ "What I learned", @session.learned ] ].select { it.last.present? } %>
+<% if notes.any? %>
+  <section class="mb-6 break-inside-avoid border-t border-gray-300 pt-4">
+    <h2 class="mb-2 font-semibold">Notes</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <% notes.each do |label, text| %>
+        <div>
+          <dt class="font-medium"><%= label %></dt>
+          <dd class="whitespace-pre-line <%= muted %>"><%= text %></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+<% end %>
+
+<footer class="border-t border-gray-300 pt-2 text-xs <%= muted %>">
+  Spotter · scores are the system's, with your calls where you made one · printed <%= Time.current.strftime("%b %-d, %Y") %>
+</footer>
