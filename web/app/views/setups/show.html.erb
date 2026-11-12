@@ -46,6 +46,8 @@
     <%= render(ListenPanelComponent.new(state: @listen, user: Current.user)) %>
   <% end %>
 
+  <%= render(VoicePickerComponent.new(user: Current.user)) %>
+
   <div class="flex flex-wrap items-center gap-3">
     <%= button_to "Find cameras and microphones", refresh_cameras_path(back: "setup"),
           class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",

@@ -72,6 +72,16 @@ python3 -m venv .venv
 On macOS, grant camera access in **System Settings > Privacy & Security >
 Camera** to Terminal or VS Code, then fully restart that app.
 
+The announcer voice (Kokoro text-to-speech) has its own Python 3.13 environment,
+because its dependencies have no builds for newer Pythons yet. It downloads a
+~350 MB model; without it, announcements use the Mac voice:
+
+```bash
+brew install python@3.13
+engine/voice/setup.sh
+engine/voice/.venv/bin/python engine/voice/speak.py say --voice af_heart "shot 3. 8.5, high left"
+```
+
 ## Usage
 
 ```bash

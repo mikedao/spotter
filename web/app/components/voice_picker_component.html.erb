@@ -1,0 +1,38 @@
+<%= render(CardComponent.new(title: "Announcer voice", id: "voice")) do %>
+  <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+    The voice in your earbuds after each shot. Play a few, pick one, and save. Each sample is a normal shot,
+    a flagged shot, the end of a card and "ready". Now: <strong class="text-gray-900 dark:text-gray-100"><%= chosen.name %></strong> (<%= chosen.accent %> <%= chosen.gender %>).
+  </p>
+  <% unless available? %>
+    <p class="mb-3 rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+      The voices aren't set up on this computer, so announcements use the Mac voice. Run <code>engine/voice/setup.sh</code> once (needs <code>brew install python@3.13</code>).
+    </p>
+  <% end %>
+
+  <%= form_with url: voice_path, method: :patch, data: { controller: "voice-preview" } do |f| %>
+    <div class="space-y-4">
+      <% groups.each do |accent, voices| %>
+        <fieldset>
+          <legend class="mb-2 text-sm font-medium"><%= accent %></legend>
+          <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <% voices.each do |v| %>
+              <div class="flex items-center gap-2 rounded-md border border-gray-300 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+                <button type="button" class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-l-md text-gray-700 hover:bg-gray-100 disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800"
+                        aria-label="Play <%= v.name %>" data-action="voice-preview#toggle" data-voice-preview-url-param="<%= voice_sample_path(v.id) %>"
+                        <%= "disabled" unless available? %>>▶</button>
+                <label class="flex min-h-11 flex-1 cursor-pointer items-center gap-2 pr-3">
+                  <%= f.radio_button :voice, v.id, checked: v.id == chosen.id, class: "accent-blue-600" %>
+                  <span><span class="font-medium"><%= v.name %></span> <span class="text-sm text-gray-600 dark:text-gray-300"><%= v.gender %></span></span>
+                </label>
+              </div>
+            <% end %>
+          </div>
+        </fieldset>
+      <% end %>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <%= render(ButtonComponent.new(type: :submit)) { "Use this voice" } %>
+      <span class="text-sm text-gray-600 dark:text-gray-300" data-voice-preview-target="status" aria-live="polite"></span>
+    </div>
+  <% end %>
+<% end %>

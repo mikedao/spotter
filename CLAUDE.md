@@ -72,6 +72,8 @@ The engine files below live in `engine/`; run engine commands from there.
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
+| `voicelines.py` | What the engine says, as pieces; the 28 Kokoro voices (shared with `voice/`) |
+| `voice/` | The Kokoro announcer: own Python 3.13 venv, `setup.sh`, `speak.py` (see "Announcer voice") |
 
 ### The central design idea
 
@@ -105,6 +107,7 @@ cd engine
 ./.venv/bin/python phase1.py listen --seconds 120      # what the default mic hears (--mic NAME)
 ./.venv/bin/python phase1.py shot --auto              # hands-free, mic-triggered
 ./.venv/bin/python selftest.py             # synthetic check, no camera
+./voice/.venv/bin/python voice/speak.py say --voice af_heart "ready"   # the announcer
 ```
 
 Add `--image out/snap_raw.png` to any command to work from a file.
@@ -247,6 +250,47 @@ from there). The user commits; don't commit unless asked.
 Not built yet (agreed order): import of the pre-web `engine/out/shots` log,
 session history with trends, match/final timing and a virtual RO (freETarget
 has both), and the model trained from reviewed calls.
+
+## Announcer voice: Kokoro (2026-11, IN PROGRESS)
+
+The shooter rejected the Mac voices (incl. Premium) for **Kokoro** (kokoro-onnx,
+Apache-2.0): all 28 English voices, each USER picks theirs.
+
+Built (uncommitted at the move to a faster computer):
+- `engine/voicelines.py` (pure Python, shared): `VOICES` (28 ids), `split(text)`
+  -> sentences -> pieces, `pieces()` = every piece the engine can say (~260:
+  "shot 1".."shot 60", "0.0".."10.9", directions, flags, fixed lines, "N shots"),
+  `SENTENCE_GAP_S` 0.55 / `COMMA_GAP_S` 0.25. **The shooter wants clear PAUSES
+  between statements** (run-together phrases are hard to take in while shooting):
+  each piece is rendered alone and joined with real silence, never one long text.
+- `engine/voice/`: own **Python 3.13** venv (Kokoro's onnxruntime/scipy have no
+  Python 3.15 builds; the engine venv is 3.15). `brew install python@3.13 &&
+  engine/voice/setup.sh` (venv + ~350 MB model, both gitignored with `cache/`).
+  `speak.py serve|prewarm|sample|samples|say|list`; pieces cached per voice in
+  `cache/<voice>/pieces/*.wav` (rendering one ~1.3 s on the old laptop).
+- Engine: `shot --auto --voice ID` -> `KokoroVoice` client (helper process,
+  JSON lines with request ids) + `_Speech` (tone, then the WAV; falls back to
+  `say` if the helper is missing/slow). Verified: demo run spoke in af_heart.
+- Web: `users.voice`, `Voice` model (mirrors VOICES; `voice_spec` checks they
+  match), Rig setup "Announcer voice" picker (`VoicePickerComponent`, play
+  buttons -> `GET /voices/:id/sample`, `PATCH /voice`), `EngineRunner` passes
+  `--voice`. 79 specs pass.
+
+**Decided next, NOT built yet:**
+1. **Pregenerate EVERY piece for EVERY voice** (no generating on the fly):
+   ~260 x 28 at ~1.3 s = ~2.5 h on the old laptop; moved to a faster computer
+   for this. Then drop the on-the-fly rendering paths.
+2. **Rails plays the sound, not the engine: in the BROWSER on the range
+   screen** (shooter's choice over the laptop speaker): the engine posts events
+   as now; Rails turns each into the announcement (pieces + gaps) and pushes it
+   to the open range screen, which plays the prepared files (works from a phone
+   at the firing line). Needs a "Sound on" tap per visit (browser autoplay
+   rules) and the tones (Glass/Sosumi/Basso/Hero/Tink) shipped as files. The
+   engine's own speech (`_announce`, `KokoroVoice`) then goes away for
+   web-started sessions; keep `say` for terminal use.
+   Open question: the `--speaker` mute assumed the ENGINE knows when its
+   announcement plays; with browser playback it doesn't (default is off:
+   the shooter uses earbuds).
 
 ## Deployment direction: Pi = camera, laptop = everything else (2026-11)
 
@@ -537,9 +581,9 @@ because ISSF awards the higher value when the hole touches the line.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.
-- Not yet built: shot-to-shot session logging, training metrics
-  (group size, mean radius, trend), piezo auto-trigger, Raspberry Pi
-  deployment, web UI.
+- Not yet built: trends across sessions, piezo auto-trigger, Raspberry Pi
+  deployment (session logging, group size, mean radius and the web UI are
+  built: see "Web app").
 
 ## Conventions
 

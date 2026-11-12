@@ -79,6 +79,9 @@
         <% if probe %>Cameras checked <%= helpers.time_ago_in_words(probe.found_at) %> ago.<% else %>Takes a few seconds; shows what each camera sees.<% end %>
       </span>
     </div>
-    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Wait for "ready" before your first shot.</p>
+    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+      Wait for "ready" before your first shot.
+      Announcer: <%= Voice.available? ? Voice.for(@user).name : "the Mac voice" %> (<%= link_to "change", helpers.setup_path(anchor: "voice"), class: "text-blue-700 underline dark:text-blue-300" %>).
+    </p>
   <% end %>
 <% end %>

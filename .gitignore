@@ -8,3 +8,7 @@ __pycache__/
 out/
 calib.json
 drift_log.json
+
+# announcer voice (engine/voice): model (~350 MB) and rendered audio
+engine/voice/models/
+engine/voice/cache/

@@ -1,0 +1,87 @@
+"""
+What Spotter says, broken into the short pieces a voice speaks - shared by the
+engine (which announces) and voice/speak.py (which renders with Kokoro, on its
+own Python). Pure Python, no dependencies, so both can import it.
+
+An announcement such as "shot 4. check. line call. 9.0, low" is spoken as
+pieces with real silence between them: a longer pause between sentences, a
+shorter one at commas (the shooter asked for clear pauses - run-together
+phrases are hard to take in while concentrating on the next shot). Each piece
+is rendered once per voice and cached, so playback is instant; PIECES lists
+every piece the engine can say, so the cache can be filled ahead of time.
+"""
+
+SENTENCE_GAP_S = 0.55
+COMMA_GAP_S = 0.25
+
+# Kokoro v1.0's English voices: id -> (name, accent, gender).
+VOICES = {
+    "af_heart": ("Heart", "American", "female"), "af_alloy": ("Alloy", "American", "female"),
+    "af_aoede": ("Aoede", "American", "female"), "af_bella": ("Bella", "American", "female"),
+    "af_jessica": ("Jessica", "American", "female"), "af_kore": ("Kore", "American", "female"),
+    "af_nicole": ("Nicole", "American", "female"), "af_nova": ("Nova", "American", "female"),
+    "af_river": ("River", "American", "female"), "af_sarah": ("Sarah", "American", "female"),
+    "af_sky": ("Sky", "American", "female"),
+    "am_adam": ("Adam", "American", "male"), "am_echo": ("Echo", "American", "male"),
+    "am_eric": ("Eric", "American", "male"), "am_fenrir": ("Fenrir", "American", "male"),
+    "am_liam": ("Liam", "American", "male"), "am_michael": ("Michael", "American", "male"),
+    "am_onyx": ("Onyx", "American", "male"), "am_puck": ("Puck", "American", "male"),
+    "am_santa": ("Santa", "American", "male"),
+    "bf_alice": ("Alice", "British", "female"), "bf_emma": ("Emma", "British", "female"),
+    "bf_isabella": ("Isabella", "British", "female"), "bf_lily": ("Lily", "British", "female"),
+    "bm_daniel": ("Daniel", "British", "male"), "bm_fable": ("Fable", "British", "male"),
+    "bm_george": ("George", "British", "male"), "bm_lewis": ("Lewis", "British", "male"),
+}
+DEFAULT_VOICE = "af_heart"
+
+# What the rig check / voice picker plays: a normal shot, a flagged one, the end
+# of a card, and the ready call.
+SAMPLE = ["shot 3. 8.5, high left",
+          "shot 4. check. line call. 9.0, low",
+          "shot 10. 10.3, centre, inner ten. 10 shots, change the card",
+          "ready"]
+
+DIRECTIONS = ["centre", "right", "high right", "high", "high left",
+              "left", "low left", "low", "low right"]
+FLAGS = ["line call", "ring uncertain", "overlaps a hole", "rough hole",
+         "found without a sound"]
+FIXED = ["ready", "check", "inner ten", "change the card", "card off", "new card",
+         "same card", "not scored", "view moving", "shot not scored",
+         "camera connection lost", "geometry warning", "consider a fresh card"]
+MAX_SHOTS = 60
+
+
+def lang(voice):
+    return "en-gb" if voice.startswith("b") else "en-us"
+
+
+def piece(text):
+    """The normal form of one piece: what the cache is keyed on."""
+    return " ".join(text.strip().strip(".,").lower().split())
+
+
+def split(text):
+    """An announcement -> sentences -> pieces."""
+    out = []
+    for sentence in text.split(". "):
+        parts = [piece(p) for p in sentence.split(",")]
+        parts = [p for p in parts if p]
+        if parts:
+            out.append(parts)
+    return out
+
+
+def pieces():
+    """Every piece the engine can say, most frequent first (fill order)."""
+    out = ["ready", "check"]
+    out += [f"shot {n}" for n in range(1, 11)]
+    out += [f"{r / 10:.1f}" for r in range(109, -1, -1)]      # 10.9 .. 0.0
+    out += DIRECTIONS + FLAGS + FIXED
+    out += [f"{n} shots" for n in range(1, MAX_SHOTS + 1)]
+    out += [f"shot {n}" for n in range(11, MAX_SHOTS + 1)]
+    seen, ordered = set(), []
+    for p in map(piece, out):
+        if p not in seen:
+            seen.add(p)
+            ordered.append(p)
+    return ordered

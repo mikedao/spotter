@@ -64,6 +64,12 @@ each shot with its 2-second camera check instead of the shot's sound.
 
 Neither runs during a session, and Start waits while a sound check runs.
 
+- *Announcer voice*: each shooter picks one of 28 Kokoro voices (play buttons
+  for a sample of real announcements) and the engine speaks in it from their
+  next session, with clear pauses between statements. Needs
+  `../engine/voice/setup.sh` once; without it, the Mac voice. Being reworked:
+  every sound pregenerated, played by the range screen (see CLAUDE.md).
+
 Start `bin/dev` from a terminal that has macOS camera and microphone permission:
 the engine inherits it.
 
@@ -100,6 +106,9 @@ run token).
 | `TargetSpec` | ISSF ring geometry and scoring, a port of the engine's `scoring.py` (specs pin the same values) |
 | `CardStats` | total, average, inner tens, group size, group centre, mean radius, time per shot |
 | `TargetSvgComponent` | the target drawn server-side as SVG, in mm |
+| `Voice` + `VoicePickerComponent` + `voice_preview_controller.js` | the announcer voices (mirrors `engine/voicelines.py`), Rig setup's picker and sample player |
+| `ShotReview` | walking a session's shots to call them: "Save and next" visits every shot |
+| `DeviceChoice` | what the camera / microphone pickers offer: only what the last search found |
 | `CloseupComponent` + `closeup_tap_controller.js` | straightened close-ups; a tap is a position label in mm |
 
 ## The data is the training set

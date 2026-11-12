@@ -740,30 +740,124 @@ SOUNDS = {"ready": "/System/Library/Sounds/Hero.aiff",
           "fail": "/System/Library/Sounds/Basso.aiff"}
 
 
-def _announce(kind, text, enabled=True):
+class KokoroVoice:
+    """
+    The announcer voice (engine/voice/speak.py, Kokoro on its own Python 3.13):
+    one helper process per session, asked for each announcement as a WAV with
+    real pauses between its pieces (voicelines). None of this may stop an
+    announcement: if the helper is not set up, dies, or is slow, `render`
+    returns None and the caller falls back to macOS `say`.
+    """
+    DIR = Path(__file__).resolve().parent / "voice"
+    TIMEOUT_S = 12.0          # a new piece takes ~1.3 s; an all-new line ~6 s
+
+    def __init__(self, voice):
+        import subprocess
+        import threading
+        self.voice, self.proc, self.lock = voice, None, threading.Lock()
+        python = self.DIR / ".venv" / "bin" / "python"
+        if not python.exists() or not (self.DIR / "models" / "kokoro-v1.0.onnx").exists():
+            print(f"  voice: Kokoro not set up (engine/voice/setup.sh) - using the Mac voice",
+                  flush=True)
+            return
+        try:
+            self.proc = subprocess.Popen(
+                [str(python), str(self.DIR / "speak.py"), "serve", "--voice", voice],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                text=True, bufsize=1)
+        except OSError as e:
+            print(f"  voice: could not start Kokoro ({e}) - using the Mac voice", flush=True)
+            return
+        print(f"  voice: Kokoro '{voice}' (pieces not yet cached are made on "
+              "first use, ~1.3 s each, and filled in meanwhile)", flush=True)
+
+    def _line(self, timeout):
+        import select
+        r, _, _ = select.select([self.proc.stdout], [], [], timeout)
+        return self.proc.stdout.readline() if r else None
+
+    def render(self, text):
+        """The announcement as a WAV path, or None (then use `say`)."""
+        import json
+        if self.proc is None or self.proc.poll() is not None:
+            return None
+        import time
+        with self.lock:
+            try:
+                if not getattr(self, "ready", False):       # model loading, once
+                    self.ready = bool(self._line(self.TIMEOUT_S))
+                self.seq = getattr(self, "seq", 0) + 1
+                self.proc.stdin.write(json.dumps({"id": self.seq, "text": text}) + "\n")
+                self.proc.stdin.flush()
+                deadline = time.time() + self.TIMEOUT_S
+                while (left := deadline - time.time()) > 0:
+                    line = self._line(left)
+                    if not line:                 # timed out, or the helper died
+                        break
+                    reply = json.loads(line)
+                    if reply.get("id") == self.seq:   # skip a late answer to an
+                        return reply.get("wav")       # earlier, timed-out request
+                print("  voice: Kokoro slow - this one in the Mac voice", flush=True)
+                return None
+            except (OSError, ValueError):
+                return None
+
+    def close(self):
+        if self.proc is not None and self.proc.poll() is None:
+            try:
+                self.proc.stdin.close()
+                self.proc.wait(timeout=2)
+            except Exception:
+                self.proc.kill()
+
+
+class _Speech:
+    """One announcement playing: its tone at once, then the voice (Kokoro if
+    it can, else `say`). poll() is None while it plays, like a Popen, so the
+    announcement mute (--speaker) knows exactly when it ended."""
+
+    def __init__(self, kind, text, voice):
+        import threading
+        self.done = False
+        threading.Thread(target=self._run, args=(kind, text, voice), daemon=True).start()
+
+    def _run(self, kind, text, voice):
+        import subprocess
+        try:
+            tone = subprocess.Popen(["afplay", SOUNDS[kind]], stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+            wav = voice.render(text) if (voice and text) else None   # while the tone plays
+            tone.wait()
+            if wav:
+                subprocess.run(["afplay", wav], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+            elif text:
+                subprocess.run(["say", text], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+        finally:
+            self.done = True
+
+    def poll(self):
+        return 0 if self.done else None
+
+
+def _announce(kind, text, enabled=True, voice=None):
     """
     Tell the shooter at the firing line what happened, without looking: a
-    distinct sound per outcome (ok / check / fail), then the result spoken
-    with macOS `say`. Non-blocking. Returns (start_time, process) so the
-    caller can ignore its OWN announcement on the trigger microphone for as
-    long as it actually plays: the laptop speaker near the mic measured
-    +52.6 dB for the fail tone - over the shot threshold - so an estimated
-    mute window let it retrigger itself.
+    distinct sound per outcome (ok / check / fail), then the result spoken -
+    by the Kokoro voice the shooter picked (`voice`, a KokoroVoice), with
+    clear pauses between its pieces, or macOS `say`. Non-blocking. Returns
+    {start, proc, end} so the caller can ignore its OWN announcement on the
+    trigger microphone for as long as it actually plays: the laptop speaker
+    near the mic measured +52.6 dB for the fail tone - over the shot
+    threshold - so an estimated mute window let it retrigger itself.
     """
-    import shlex
-    import subprocess
     import time
     if not enabled:
         return None
-    cmd = f"afplay {shlex.quote(SOUNDS[kind])}"
-    if text:
-        cmd += f"; say {shlex.quote(text)}"
-    try:
-        proc = subprocess.Popen(["sh", "-c", cmd], stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL)
-    except OSError:
-        return None
-    return {"start": time.time(), "proc": proc, "end": None}
+    return {"start": time.time(), "proc": _Speech(kind, text, voice), "end": None}
 
 
 def _track_announcements(announcements):
@@ -977,8 +1071,10 @@ def _shot_auto(a, spec):
         return {"before_image": lambda: ("before.png", png(before), "image/png"),
                 "after_image": lambda: ("after.png", png(after), "image/png")}
 
+    voice = KokoroVoice(a.voice) if (a.speak and a.voice) else None
+
     def say(kind, text):
-        an = _announce(kind, text, a.speak)
+        an = _announce(kind, text, a.speak, voice)
         if an:
             st["ann"].append(an)
             st["ann"][:] = st["ann"][-5:]
@@ -1351,6 +1447,8 @@ def _shot_auto(a, spec):
     finally:
         if view_srv is not None:
             view_srv.shutdown()
+        if voice is not None:
+            voice.close()
         cam.close()
         if rep is not None:
             emit("session_ended")
@@ -1817,6 +1915,11 @@ def main():
             s.add_argument("--speaker", action="store_true",
                            help="auto: announcements play from a speaker near "
                                 "the camera - ignore the mic while they play")
+            import voicelines
+            s.add_argument("--voice", default=None, choices=list(voicelines.VOICES),
+                           metavar="VOICE",
+                           help="auto: announce with this Kokoro voice, e.g. "
+                                "af_heart (engine/voice; default: the Mac voice)")
             s.add_argument("--stream-port", type=int, default=0,
                            help="auto: serve the live camera picture, rings "
                                 "drawn on, on 127.0.0.1:PORT (the web app's "

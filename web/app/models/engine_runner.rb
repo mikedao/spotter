@@ -101,7 +101,8 @@ class EngineRunner
         "--mic=#{session.mic.presence || mic}",
         "--report-to", web_url, "--session-id", session.engine_session_id,
         *([ "--per-card", session.per_card.to_s ] if session.per_card),
-        *([ "--stream-port", session.stream_port.to_s ] if session.stream_port) ]
+        *([ "--stream-port", session.stream_port.to_s ] if session.stream_port),
+        *([ "--voice", Voice.for(session.user).id ] if Voice.available?) ]
     end
 
     # The engine serves the live camera picture on this port (127.0.0.1 only);

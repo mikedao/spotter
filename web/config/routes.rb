@@ -14,6 +14,10 @@ Rails.application.routes.draw do
   end
   resources :shots, only: %i[ show update ]
 
+  # The announcer voice: pick one (Rig setup), hear each one's sample.
+  resource :voice, only: :update
+  get "voices/:id/sample", to: "voices#sample", as: :voice_sample
+
   # Rig setup: camera check (locate) and sound check (listen).
   resource :setup, only: :show do
     post :locate
