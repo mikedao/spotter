@@ -171,9 +171,11 @@ class Voice:
     def exported(self, p):
         return EXPORTED / self.voice / f"{slug(p)}.m4a"
 
-    def prewarm(self, stop=None, progress=False):
+    def prewarm(self, stop=None, progress=False, extra=()):
         # Exported pieces (in git) need no WAV: the range screen plays those.
-        todo = [p for p in voicelines.pieces()
+        # extra: more pieces the web app will want (the commentary's lines).
+        wanted = list(dict.fromkeys(voicelines.pieces() + [voicelines.piece(p) for p in extra if voicelines.piece(p)]))
+        todo = [p for p in wanted
                 if not self._piece_path(p).exists() and not self.exported(p).exists()]
         t0 = time.time()
         for n, p in enumerate(todo, 1):
@@ -183,7 +185,7 @@ class Voice:
             if progress:
                 log(f"  {n}/{len(todo)} {p!r} ({time.time() - t0:.0f} s)")
         if progress:
-            log(f"  {self.voice}: all {len(voicelines.pieces())} pieces cached")
+            log(f"  {self.voice}: all {len(wanted)} pieces cached")
 
 
 def serve(voice):
@@ -206,13 +208,17 @@ def main():
     p.add_argument("text", nargs="?")
     p.add_argument("--voice", default=voicelines.DEFAULT_VOICE)
     p.add_argument("--all", action="store_true", help="export: every voice")
+    p.add_argument("--extra", default=None, help="prewarm: a file of more pieces, one per line")
     a = p.parse_args()
     if a.command == "list":
         print(json.dumps(voicelines.VOICES))
     elif a.command == "serve":
         serve(a.voice)
     elif a.command == "prewarm":
-        Voice(a.voice).prewarm(progress=True)
+        extra = Path(a.extra).read_text().splitlines() if a.extra else ()
+        Voice(a.voice).prewarm(progress=True, extra=extra)
+        if a.extra:
+            Path(a.extra).unlink(missing_ok=True)
     elif a.command == "export":                 # the known pieces, as AAC for git (web/public/voice-pieces)
         for v in (voicelines.VOICES if a.all else [a.voice]):
             Voice(v).export(progress=True)

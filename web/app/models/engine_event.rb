@@ -34,6 +34,7 @@ class EngineEvent
 
     record = ActiveRecord::Base.transaction { send("apply_#{type}", session) }
     LiveBroadcast.new(session.reload).call
+    Commentary.after_event(session, type:, record:, data:)   # chatty mode: after the engine's own announcement
     record
   end
 

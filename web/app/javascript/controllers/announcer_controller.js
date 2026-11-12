@@ -8,7 +8,8 @@ import { Controller } from "@hotwired/stimulus"
 // and are kept for the visit; without Kokoro it falls back to the browser's own
 // voice. Tones are made here, no sound files.
 export default class extends Controller {
-  static targets = [ "button" ]
+  static targets = [ "button", "chatty" ]
+  static values = { chatty: Boolean, chattyUrl: String }
 
   connect() {
     this.on = false
@@ -17,11 +18,20 @@ export default class extends Controller {
     this.buffers = new Map()
     this.listener = (event) => this.enqueue(event.detail)
     window.addEventListener("announcer:say", this.listener)
+    // When the session ends the page reloads into its summary (a Turbo refresh):
+    // hold that until the announcer has finished, or the match summary is cut off.
+    this.holdRefresh = (event) => {
+      if (event.target.getAttribute?.("action") !== "refresh" || !this.busy()) return
+      const render = event.detail.render
+      event.detail.render = async (stream) => { await this.idle(); render(stream) }
+    }
+    document.addEventListener("turbo:before-stream-render", this.holdRefresh)
     this.render()
   }
 
   disconnect() {
     window.removeEventListener("announcer:say", this.listener)
+    document.removeEventListener("turbo:before-stream-render", this.holdRefresh)
     this.queue = []
     this.ctx?.close()
   }
@@ -36,6 +46,30 @@ export default class extends Controller {
       this.queue = []
     }
     this.render()
+  }
+
+  // Chatty mode on or off, saved for the shooter at once (no page load).
+  async toggleChatty() {
+    const token = document.querySelector("meta[name='csrf-token']")?.content
+    const response = await fetch(this.chattyUrlValue, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": token, "Accept": "application/json" },
+      body: JSON.stringify({ chatty: !this.chattyValue })
+    })
+    if (response.ok) this.chattyValue = (await response.json()).chatty
+  }
+
+  chattyValueChanged() {
+    if (!this.hasChattyTarget) return
+    this.chattyTarget.textContent = this.chattyValue ? "💬 Chatty" : "💬 Quiet"
+    this.chattyTarget.setAttribute("aria-pressed", String(this.chattyValue))
+    this.chattyTarget.title = this.chattyValue ? "The announcer comments. Tap for just the scores." : "Just the scores. Tap for commentary."
+  }
+
+  busy() { return this.playing || this.queue.length > 0 }
+
+  async idle() {
+    for (let i = 0; i < 600 && this.busy(); i++) await this.wait(0.2)   // at most 2 minutes
   }
 
   render() {

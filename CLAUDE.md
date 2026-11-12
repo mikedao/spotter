@@ -137,7 +137,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py samples)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 201 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 212 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -191,8 +191,9 @@ sticky target, 32rem column, compact match panel so the camera fits a laptop).
    visible under the clock and latest shot (a spec checks 1322x729).
 
 **Next:** hear the browser announcer on the rig (Sound on, a few shots, diagnostic
-mode on and off), then announcer PERSONALITIES (lines as pieces, many variations;
-see "Announcer voice"). Still open: CSV export; import of the pre-web
+mode on and off), then listen to chatty mode's commentary in a session, then announcer
+PERSONALITIES to choose from (each a `config/commentary/*.yml`; see "Announcer
+voice"). Still open: CSV export; import of the pre-web
 `engine/out/shots` log (53 called shots); the model trained from reviewed
 calls; Pi setup.
 
@@ -523,6 +524,29 @@ Built and committed:
   start renders only what is neither exported nor cached. Personalities plan:
   pick variations only among pieces already available, render the rest in the
   background, so the announcer never waits.
+- **Chatty mode = live COMMENTARY** (2026-11-12, the shooter's design; WRITTEN
+  RULES with many phrasings, not AI): `users.chatty` (Settings, and the range
+  screen's "💬 Chatty / Quiet" button - a JSON PATCH, no page load, since a load
+  turns Sound off). `Commentary` (Rails) runs after each engine event
+  (`EngineEvent#apply!` -> `Commentary.after_event`), competition shots only,
+  scored as the session is:
+  after a shot AT MOST ONE remark, in priority order - 3+ tens in a row, 5 or 10
+  in a row in the nine or better, three in a row on one side (+ advice), a flyer
+  (> 2.5x mean radius from the group), a 7 or worse, an inner ten; every 10
+  shots a SUMMARY (card / series total, best today or personal best or up/down
+  on the last, pace vs the journal goal - pistol whole rings only, not finals);
+  a match also "halfway" + total at 30 and "last series" at 50; when the RO's
+  phase is "done", the MATCH SUMMARY (final score, best series, goal reached or
+  {d} short at 60 shots). Lines: `config/commentary/default.yml` (a
+  PERSONALITY = another file like it; `say` never repeats the last phrasing,
+  via Rails.cache). Delivered as an Announcement of kind "chat" (no tone).
+  `Commentary.pieces(user)` = every line with numbers filled in, pre-rendered at
+  session start (`Voice.prewarm!(extra:)` -> `speak.py prewarm --extra FILE`);
+  NOT yet in the git export. The page's end-of-session Turbo refresh WAITS until
+  the announcer is idle (`turbo:before-stream-render`), so the match summary
+  isn't cut off. Verified: spec/models/commentary_spec.rb, a real demo run.
+  Not yet: personalities to choose from; qualifying-place remarks (needs other
+  shooters' scores).
 - **The 28 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
   (32 kbps AAC via macOS `afconvert`, 2.3 MB total; the shooter chose 32 kbps by
   ear), so a fresh clone can audition every voice without Kokoro.

@@ -52,4 +52,25 @@ RSpec.describe "Announcer on the range screen" do
     expected = [ "shot 4", "9.6", "shot a touch low" ].map { Voice.piece_url(user.voice || Voice::DEFAULT, it) }
     expect(fetched.map { URI(it).request_uri }).to match_array(expected)
   end
+
+  it "turns chatty mode on and off from the range screen, without a page load" do
+    session = create(:practice_session, user:, status: "shooting")
+    allow(EngineRunner).to receive(:reconcile!)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+
+    visit new_session_path
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
+    click_button "Sign in"
+    visit practice_session_path(session)
+
+    click_button "🔇 Sound off"
+    click_button "💬 Quiet"
+    expect(page).to have_button("💬 Chatty")
+    expect(user.reload.chatty).to be(true)
+    expect(page).to have_button("🔊 Sound on")   # still on: the page did not reload
+    click_button "💬 Chatty"
+    expect(page).to have_button("💬 Quiet")
+    expect(user.reload.chatty).to be(false)
+  end
 end

@@ -87,5 +87,8 @@ RSpec.describe "Announcer voice" do
     expect(user.reload.diagnostic_announcements).to be(true)
     patch settings_path, params: { user: { diagnostic_announcements: "0" } }
     expect(user.reload.diagnostic_announcements).to be(false)
+    patch settings_path, params: { user: { chatty: "1" } }
+    expect(user.reload.chatty).to be(true)
+    expect(user.diagnostic_announcements).to be(false)   # left as it was
   end
 end

@@ -114,11 +114,17 @@ class Voice
 
     # Render every piece the engine can say in this voice, in the background
     # (~5 min), so the first session in it speaks without delays.
-    def prewarm!(id)
+    # extra: more pieces to have ready (the commentary's lines and numbers).
+    def prewarm!(id, extra: [])
       return unless valid?(id) && available?
 
+      list = nil
+      if extra.any?
+        list = Rails.root.join("tmp", "voice-prewarm-#{id}-#{SecureRandom.hex(4)}.txt")
+        list.write(extra.join("\n"))
+      end
       pid = Process.spawn(render_env, "nice", "-n", "10", python.to_s, "speak.py", "prewarm", "--voice", id.to_s,
-                          chdir: dir.to_s, out: File::NULL, err: File::NULL, pgroup: true)
+                          *([ "--extra", list.to_s ] if list), chdir: dir.to_s, out: File::NULL, err: File::NULL, pgroup: true)
       Process.detach(pid)
     end
   end

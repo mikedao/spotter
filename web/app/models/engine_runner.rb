@@ -88,7 +88,8 @@ class EngineRunner
         chdir: engine_dir.to_s, out: log.to_s, err: [ :child, :out ], pgroup: true
       )
       session.update!(engine_pid: pid, engine_log: log.to_s)
-      Voice.prewarm!(Voice.for(user).id)   # render this voice's usual pieces now, so none waits mid-session
+      # Render what this voice will say (and the commentary, for chatty mode) now, so none waits mid-session.
+      Voice.prewarm!(Voice.for(user).id, extra: Commentary.pieces(user))
       watch(session, pid)
       session
     rescue Errno::ENOENT => e
