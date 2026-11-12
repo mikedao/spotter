@@ -14,6 +14,7 @@ class TargetSvgComponent < ApplicationComponent
   LINE_ON_BLACK = "#d6d3d1"
   SHOT = "#2563eb"
   FLAGGED = "#dc2626"
+  SIGHTER = "#6b7280"
   LATEST = "#f59e0b"
 
   def initialize(spec:, shots: [], latest: nil, zoom: :card, label: "Target")
@@ -76,11 +77,13 @@ class TargetSvgComponent < ApplicationComponent
       r = TargetSpec::PELLET_MM / 2.0
       @shots.sort_by { it == @latest ? 1 : 0 }.flat_map do |s|
         x, y = s.final_x_mm.round(2), -s.final_y_mm.round(2)
-        fill = s.flagged? && !s.called? ? FLAGGED : SHOT
+        # A sighter is grey and marked "S"; in a match or final a shot shows its
+        # number in the event, otherwise its number on the card.
+        fill = s.sighter? ? SIGHTER : (s.flagged? && !s.called? ? FLAGGED : SHOT)
         [
           (tag.circle(cx: x, cy: y, r: r + 1.1, fill: "none", stroke: LATEST, "stroke-width": 0.7) if s == @latest),
           tag.circle(cx: x, cy: y, r: r, fill: fill, "fill-opacity": 0.88, stroke: "#fff", "stroke-width": 0.3),
-          tag.text(s.number, x: x, y: y + 0.95, "text-anchor": "middle", "font-size": 2.7, "font-weight": 700,
+          tag.text(s.sighter? ? "S" : (s.match_number || s.number), x: x, y: y + 0.95, "text-anchor": "middle", "font-size": 2.7, "font-weight": 700,
                    fill: "#fff", "font-family": "system-ui, sans-serif")
         ].compact
       end

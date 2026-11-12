@@ -11,6 +11,8 @@ is rendered once per voice and cached, so playback is instant; PIECES lists
 every piece the engine can say, so the cache can be filled ahead of time.
 """
 
+import course                                   # noqa: E402 - pure Python too
+
 SENTENCE_GAP_S = 0.55
 COMMA_GAP_S = 0.25
 
@@ -54,6 +56,9 @@ FIXED = ["ready", "inner ten", "new card please", "card off", "new card",
          "same card", "not scored", "view moving", "shot not scored",
          "camera connection lost", "geometry warning", "consider a fresh card"]
 MAX_SHOTS = 60
+# A match or final (course.py): a sighter is "sighter"; a shot out of time is
+# flagged "<why>, scores zero".
+COURSE_SHOT = ["sighter", "out of time", "after the end", "extra shot", "scores zero"]
 
 
 def lang(voice):
@@ -81,7 +86,8 @@ def pieces():
     out = ["ready"]
     out += [f"shot {n}" for n in range(1, 11)]
     out += [f"{r / 10:.1f}" for r in range(109, -1, -1)]      # 10.9 .. 0.0
-    out += DIRECTION_PHRASES + FLAGS + FIXED
+    out += DIRECTION_PHRASES + FLAGS + FIXED + COURSE_SHOT
+    out += [p for text in course.phrases() for sentence in split(text) for p in sentence]
     out += [f"that's {n}" for n in range(1, MAX_SHOTS + 1)]    # end of card
     out += [f"shot {n}" for n in range(11, MAX_SHOTS + 1)]
     seen, ordered = set(), []

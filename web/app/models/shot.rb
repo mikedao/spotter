@@ -38,6 +38,12 @@ class Shot < ApplicationRecord
     [ ("line call" if line_call), ("ring uncertain" if ambiguous), ("overlaps a hole" if overlap) ].compact
   end
 
+  # --- in a match or final (Course): sighter or match shot, in time or not ---
+
+  def sighter? = stage == "sighter"
+  def penalized? = penalty.present?
+  def stage_label = sighter? ? "sighter" : (match_number && "shot #{match_number}")
+
   # --- what to show: the shooter's call wins over the proposal ---
 
   def final_x_mm = call_x_mm || x_mm

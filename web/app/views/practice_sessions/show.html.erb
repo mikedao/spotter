@@ -6,6 +6,7 @@
   <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
     <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
     <div class="space-y-4">
+      <%= render(CoursePanelComponent.new(session: @session)) %>
       <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
       <%= render(LiveCameraComponent.new(session: @session)) %>
       <%= render(LivePanelComponent.new(session: @session, section: :stats)) %>

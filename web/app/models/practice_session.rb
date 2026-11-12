@@ -13,6 +13,7 @@ class PracticeSession < ApplicationRecord
   validates :engine_session_id, presence: true, uniqueness: true
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }
   validates :status, inclusion: { in: STATUSES }
+  validates :course, inclusion: { in: Course::ALL.keys }, allow_nil: true
 
   scope :newest_first, -> { order(started_at: :desc) }
 
@@ -41,7 +42,8 @@ class PracticeSession < ApplicationRecord
     update!(status: value) unless status == "stopping"
   end
 
-  def title = "#{target_spec.name} · #{started_at.strftime('%b %-d, %H:%M')}"
+  def course_info = Course.for(self)
+  def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")
 
   private
     def refuse_while_live

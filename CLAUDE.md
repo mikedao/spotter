@@ -153,6 +153,23 @@ from there). The user commits; don't commit unless asked.
   click / link closes it); `main` has no max width, and the range screen's target
   grows to `100svh - 7.5rem` (cap 60rem). Installable as its own window
   (`/manifest`, `display: standalone`). Keep new screens app-like: no site chrome.
+- **Match and Final modes** (2026-11-11). `engine/course.py`: courses of fire
+  as DATA (`Say` / `Pause` / `Window`) and a `Runner` thread (the virtual RO)
+  on the wall clock; the shot loop only asks `ro.classify(impact_time)`.
+  Rules VERIFIED against the ISSF 2026 pistol rulebook: match = 60 shots in 75
+  min after 15 min sighting (unlimited sighters); pistol qualification whole
+  rings, finals/rifle decimals. Finals: the 2026 GTR 6.17 text could not be
+  found, so BOTH formats exist, picked per session: `final` (classic 24-shot,
+  freETarget / Paris 2024) and `ranking` (ISSF Dec 2022 doc: 5-shot series
+  then medal-match singles; 8 singles here, the fewest that reach 16 points).
+  Shooter's choices: "Start match" ends sighting early (SIGUSR1; the 30 s
+  pause becomes 10 s); out of time / extra shots are FLAGGED AND SCORE ZERO.
+  A camera-found shot gets 2x--watch grace (its time is when SEEN). Speech now
+  plays one announcement at a time (`_Speech.LOCK`), RO commands with no tone
+  (kind "ro"). Web: `Course` mirrors course.py (spec checks), `EventStats`
+  (sighters excluded, penalties zero, series), `CoursePanelComponent` +
+  `countdown_controller.js` (ticks to `ends_at` between events). The engine
+  ends the session itself after "the results are final".
 - **New session = a setup wizard, every time** (2026-11-11, the shooter's call:
   "Rig setup" as a separate page went). `SessionSetupController`,
   `/practice/new/{camera,check,microphone,start}`: pick camera + target, live

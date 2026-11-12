@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show stop destroy ]
+  before_action :set_session, only: %i[ show stop start_match destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(cards: :shots)
@@ -17,7 +17,7 @@ class PracticeSessionsController < ApplicationController
     params = start_params
     RigCheck.stop_for!(Current.user)
     session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card],
-                                  camera: params[:camera], mic: params[:mic])
+                                  camera: params[:camera], mic: params[:mic], course: params[:course])
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
     redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
@@ -33,6 +33,12 @@ class PracticeSessionsController < ApplicationController
   def stop
     EngineRunner.stop!(@session)
     redirect_to practice_session_path(@session)   # the header says "Stopping…" until it has
+  end
+
+  # "Start match": end the sighting time now; the range officer calls the match.
+  def start_match
+    EngineRunner.start_match!(@session)
+    redirect_to practice_session_path(@session)
   end
 
   # Delete a finished session and everything in it (cards, shots, your calls,
@@ -67,6 +73,6 @@ class PracticeSessionsController < ApplicationController
     end
 
     def start_params
-      params.expect(practice_session: [ :target, :per_card, :camera, :mic ])
+      params.expect(practice_session: [ :target, :per_card, :camera, :mic, :course ])
     end
 end

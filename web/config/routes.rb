@@ -26,6 +26,7 @@ Rails.application.routes.draw do
 
   resources :practice_sessions, only: %i[ index show create destroy ], path: "practice" do
     post :stop, on: :member
+    post :start_match, on: :member   # end a match's sighting time early
     get :camera, on: :member   # the live camera picture, relayed from the engine
   end
   resources :shots, only: %i[ show update ]

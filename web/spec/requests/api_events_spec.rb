@@ -90,4 +90,37 @@ RSpec.describe "Engine events API" do
     expect(response).to have_http_status(:unauthorized)
     expect(PracticeSession.count).to eq 1
   end
+
+  context "in a match" do
+    before { session.update!(course: "match", status: "ready") }
+
+    it "shows the range officer's clock, sighters, out-of-time zeros and the match total" do
+      post_event("course", { phase: "window", label: "Sighting", stage: "sighting", skippable: true,
+                             ends_at: "2026-11-11T15:46:00Z" })
+      expect(session.reload.course_state).to include("label" => "Sighting", "skippable" => true)
+
+      post_event("shot", shot_data("060", 1.0, -4.0, ring: 9, decimal: 9.4, course: { stage: "sighter", label: "Sighting" }))
+      post_event("shot", shot_data("061", 0.5, 0.5, ring: 10, decimal: 10.6,
+                                   course: { stage: "match", label: "Match", series: 1, number: 1 }))
+      post_event("shot", shot_data("062", 3.0, 9.0, ring: 9, decimal: 9.2,
+                                   course: { stage: "match", label: "Match", series: 1, number: 2, penalty: "out of time" }))
+
+      expect(session.shots.order(:id).pluck(:stage, :match_number, :penalty))
+        .to eq [ [ "sighter", nil, nil ], [ "match", 1, nil ], [ "match", 2, "out of time" ] ]
+
+      sign_in(session.user)
+      allow(EngineRunner).to receive(:reconcile!)   # no real engine behind it
+      get practice_session_path(session)
+      expect(response.body).to include("Match", "Start match", "data-countdown-ends-at-value",
+                                       "1 shot out of time, scored zero", "out of time - scores 0")
+      expect(response.body).to match(%r{Total</dt>\s*<dd[^>]*>10</dd>})   # whole rings; the sighter and the late shot add nothing
+    end
+
+    it "ends sighting time early when asked" do
+      sign_in(session.user)
+      allow(EngineRunner).to receive(:start_match!)
+      post start_match_practice_session_path(session)
+      expect(EngineRunner).to have_received(:start_match!).with(session)
+    end
+  end
 end

@@ -63,8 +63,11 @@ first shot:
    sound would trigger**; "No microphone - camera only" is the escape: the
    engine runs with `--mic none` and finds each shot with its 2-second camera
    check instead of the shot's sound.
-4. *Start*: what was chosen and whether each check passed, shots per card, then
-   Start session.
+4. *Start*: what was chosen and whether each check passed, **Practice, Match or
+   Final** (two final formats), shots per card, then Start session. In a match or
+   final the engine's virtual range officer (`engine/course.py`) calls every
+   command and the range screen shows its clock and the event score; "Start
+   match" ends a match's sighting time early; shots out of time score zero.
 
 Each step stops the previous step's check, so the camera and microphone are free
 for the next; neither check runs during a session.

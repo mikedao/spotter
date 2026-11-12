@@ -40,13 +40,14 @@ y UP**.
 
 | type | data |
 |---|---|
-| `session_started` | `target` ("pistol" / "rifle"), `rule` ("pellet" / "visible" / "gauge") |
+| `session_started` | `target` ("pistol" / "rifle"), `rule` ("pellet" / "visible" / "gauge"), `course` (null = practice, or "match" / "final" / "ranking") |
 | `ready` | — |
 | `card_off` | — |
 | `new_card` | — |
 | `shot` | see below |
 | `unscored` | `reason`, `trigger`, `engine_shot_id` (optional) |
 | `session_ended` | — |
+| `course` | the range officer's latest call (match / final only): `phase` ("command" / "window" / "pause" / "done"), `label` (the command said, or "Sighting" / "Match" / "Series 2" / "Shot 13"), `ends_at` (ISO time the window or pause ends), and for a window `stage` ("sighting" / "match"), `shots` (allowed, or null), `skippable` |
 
 `shot`:
 
@@ -61,6 +62,12 @@ y UP**.
 | `estimates` | every position estimate: `centroid` [x,y], `circle_fit` {x,y,ok,arc_deg}, `visible_edge_r_mm`, and `closeup` {centre: [x,y], px_per_mm, size_px} |
 | `region` | detected region: `dia_mm`, `circularity`, `peak` |
 | `geometry` | `ring_rms_mm`, `perspective`, `k1`, `k2` |
+| `course` | null in practice; in a match or final: `stage` ("sighter" / "match"), `label`, and for a match shot `series`, `number` (in the event) and `penalty` (null, "out of time", "after the end", "extra shot": scores zero) |
+
+Courses of fire live in `engine/course.py` (`web/app/models/course.rb` mirrors
+their names and shot counts; its spec checks they agree). The web app starts the
+engine with `--course KEY`; "Start match" sends the engine SIGUSR1, which ends a
+match's sighting time early.
 
 The close-ups are top-down (perspective and lens removed), `px_per_mm` pixels per
 millimetre, `size_px` square, centred on `closeup.centre`: pixel (u, v) is

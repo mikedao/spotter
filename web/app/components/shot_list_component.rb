@@ -27,8 +27,10 @@ class ShotListComponent < ApplicationComponent
 
     def scored_row(shot)
       safe_join([
-        tag.span("##{shot.number}", class: "w-8 text-gray-600 dark:text-gray-300"),
-        tag.span(format("%.1f", shot.final_decimal), class: "w-12 text-lg font-semibold tabular-nums"),
+        tag.span(shot.sighter? ? "S" : "##{shot.match_number || shot.number}", class: "w-8 text-gray-600 dark:text-gray-300",
+                 title: (shot.sighter? ? "sighter" : nil)),
+        tag.span(format("%.1f", shot.final_decimal),
+                 class: classes("w-12 text-lg font-semibold tabular-nums", ("text-gray-500 line-through" if shot.penalized?))),
         tag.span(shot.direction, class: "w-24"),
         tag.span(shot.trigger == "sound" ? "heard" : "seen", class: "text-sm text-gray-600 dark:text-gray-300"),
         badges(shot)
@@ -45,6 +47,8 @@ class ShotListComponent < ApplicationComponent
 
     def badges(shot)
       list = []
+      list << badge("sighter", "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200") if shot.sighter?
+      list << badge("#{shot.penalty} - scores 0", "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200") if shot.penalized?
       list << badge("called #{shot.call_ring}", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200") if shot.called?
       shot.flags.each { list << badge(it, "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200") } unless shot.called?
       tag.span(safe_join(list, " "), class: "ml-auto flex flex-wrap gap-1")

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_12_002739) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_12_030000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -68,6 +68,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_002739) do
     t.string "camera"
     t.string "mic"
     t.integer "stream_port"
+    t.string "course"
+    t.json "course_state"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["run_token"], name: "index_practice_sessions_on_run_token", unique: true
     t.index ["user_id"], name: "index_practice_sessions_on_user_id"
@@ -113,6 +115,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_002739) do
     t.datetime "called_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "stage"
+    t.integer "series"
+    t.integer "match_number"
+    t.string "penalty"
     t.index ["card_id", "number"], name: "index_shots_on_card_id_and_number"
     t.index ["card_id"], name: "index_shots_on_card_id"
     t.index ["engine_shot_id"], name: "index_shots_on_engine_shot_id"

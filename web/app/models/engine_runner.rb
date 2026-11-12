@@ -59,7 +59,7 @@ class EngineRunner
       nil
     end
 
-    def start!(user:, target:, per_card:, camera: nil, mic: nil, env: {})
+    def start!(user:, target:, per_card:, camera: nil, mic: nil, course: nil, env: {})
       if (busy = running)
         raise Busy, busy
       end
@@ -74,7 +74,8 @@ class EngineRunner
 
       session = user.practice_sessions.create!(
         engine_session_id: "#{Time.current.strftime('%Y%m%d-%H%M%S')}-#{SecureRandom.hex(2)}",
-        target:, per_card: per_card.presence, camera:, mic:, rule: "pellet", status: "starting", started_at: Time.current,
+        target:, per_card: per_card.presence, camera:, mic:, course: course.presence, rule: "pellet",
+        status: "starting", started_at: Time.current,
         stream_port: free_port
       )
       user.update!(last_camera: camera, last_mic: mic)
@@ -101,6 +102,7 @@ class EngineRunner
         "--mic=#{session.mic.presence || mic}",
         "--report-to", web_url, "--session-id", session.engine_session_id,
         *([ "--per-card", session.per_card.to_s ] if session.per_card),
+        *([ "--course", session.course ] if session.course),
         *([ "--stream-port", session.stream_port.to_s ] if session.stream_port),
         *([ "--voice", Voice.for(session.user).id ] if Voice.available?) ]
     end
@@ -129,6 +131,11 @@ class EngineRunner
       session.update!(status: "stopping")
       LiveBroadcast.new(session).call
       Process.kill("INT", session.engine_pid)
+    end
+
+    # "Start match": end a match's sighting time now (the engine's SIGUSR1).
+    def start_match!(session)
+      Process.kill("USR1", session.engine_pid) if alive?(session)
     end
 
     def alive?(session)

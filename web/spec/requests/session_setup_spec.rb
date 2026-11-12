@@ -98,11 +98,20 @@ RSpec.describe "New session setup" do
   it "says on Start what wasn't checked, and starts the session with the choices" do
     user.update!(last_camera: "1", last_mic: "Razer Kiyo")
     get setup_start_path
-    expect(response.body).to include("10m Air Pistol", "camera 1", "check not passed", "no shot heard")
+    expect(response.body).to include("10m Air Pistol", "camera 1", "check not passed", "no shot heard",
+                                     "Practice", "Match", "Final (ranking + medal match)")
 
     allow(EngineRunner).to receive(:start!).and_return(create(:practice_session, user:))
     post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: 10, camera: "1", mic: "Razer Kiyo" } }
-    expect(EngineRunner).to have_received(:start!).with(user:, target: "pistol", per_card: "10", camera: "1", mic: "Razer Kiyo")
+    expect(EngineRunner).to have_received(:start!).with(user:, target: "pistol", per_card: "10", camera: "1", mic: "Razer Kiyo",
+                                                         course: nil)
+  end
+
+  it "starts a match with the range officer" do
+    user.update!(last_camera: "1", last_mic: "Razer Kiyo")
+    allow(EngineRunner).to receive(:start!).and_return(create(:practice_session, user:))
+    post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: 10, camera: "1", mic: "Razer Kiyo", course: "match" } }
+    expect(EngineRunner).to have_received(:start!).with(hash_including(course: "match"))
   end
 
   it "sends you to the range screen if your session is already running" do

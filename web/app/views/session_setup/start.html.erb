@@ -39,6 +39,21 @@
     <%= f.hidden_field :target, value: @target.key %>
     <%= f.hidden_field :camera, value: @camera %>
     <%= f.hidden_field :mic, value: @mic %>
+    <fieldset>
+      <legend class="mb-2 text-sm font-medium">What are you shooting?</legend>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <% ([ [ "", "Practice", "No clock; every shot counts. Change cards whenever you like." ] ] +
+            Course::ALL.values.map { [ it.key, it.name, it.description ] }).each do |key, name, about| %>
+          <label class="flex cursor-pointer gap-3 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+            <%= f.radio_button :course, key, checked: key == "", class: "mt-1 accent-blue-600" %>
+            <span><span class="block font-medium"><%= name %></span><span class="text-sm text-gray-600 dark:text-gray-300"><%= about %></span></span>
+          </label>
+        <% end %>
+      </div>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        In a match or final the range officer calls each command and the clock runs; shots out of time score zero.
+      </p>
+    </fieldset>
     <div>
       <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
       <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>

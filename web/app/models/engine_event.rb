@@ -11,7 +11,7 @@
 class EngineEvent
   class Invalid < StandardError; end
 
-  TYPES = %w[ session_started ready card_off new_card shot unscored session_ended ].freeze
+  TYPES = %w[ session_started ready card_off new_card shot unscored session_ended course ].freeze
   IMAGES = %w[ before_image after_image closeup_before closeup_after ].freeze
 
   attr_reader :type, :session_id, :at, :data, :files
@@ -51,6 +51,12 @@ class EngineEvent
 
     def apply_session_ended(session) = session.tap { it.update!(status: "ended", ended_at: at) }
 
+    # The range officer's latest call, for the range screen's clock.
+    def apply_course(session)
+      session.update!(course_state: data.slice("phase", "label", "ends_at", "stage", "shots", "skippable"))
+      session
+    end
+
     def apply_shot(session)
       card = session.card_for_new_shot(at:)
       shot = card.shots.find_or_initialize_by(engine_shot_id: data["engine_shot_id"].presence)
@@ -61,12 +67,19 @@ class EngineEvent
         decimal_score: data["decimal"], ring: data["ring"], inner_ten: data["inner_ten"] || false,
         rule: data["rule"], line_mm: data["line_mm"], line_call: data["line_call"] || false,
         ambiguous: data["ambiguous"] || false, overlap: data["overlap"] || false,
-        estimates: data["estimates"], region: data["region"], geometry: data["geometry"]
+        estimates: data["estimates"], region: data["region"], geometry: data["geometry"],
+        **course_fields
       )
       shot.save!
       attach_images(shot)
       session.show_status!("shooting")
       shot
+    end
+
+    # Where the shot fell in a match or final (nil fields in practice).
+    def course_fields
+      c = data["course"] || {}
+      { stage: c["stage"], series: c["series"], match_number: c["number"], penalty: c["penalty"] }
     end
 
     def apply_unscored(session)

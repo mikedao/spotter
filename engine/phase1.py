@@ -23,6 +23,7 @@ import target0
 from geometry import (find_target_frame, refine_bull_ellipse, fit_perspective,
                       flatten_illumination, draw_rings, offscreen_sides)
 from scoring import SPECS, PISTOL, score_xy, decimal_step_mm, on_card
+import course as course_mod
 
 HERE = Path(__file__).resolve().parent
 
@@ -814,7 +815,12 @@ class KokoroVoice:
 class _Speech:
     """One announcement playing: its tone at once, then the voice (Kokoro if
     it can, else `say`). poll() is None while it plays, like a Popen, so the
-    announcement mute (--speaker) knows exactly when it ended."""
+    announcement mute (--speaker) knows exactly when it ended. Announcements
+    play one at a time (the range officer's "start" never talks over a shot
+    call); kind "ro" has no tone - the command is the signal."""
+
+    import threading as _threading
+    LOCK = _threading.Lock()
 
     def __init__(self, kind, text, voice):
         import threading
@@ -822,12 +828,17 @@ class _Speech:
         threading.Thread(target=self._run, args=(kind, text, voice), daemon=True).start()
 
     def _run(self, kind, text, voice):
+        with _Speech.LOCK:
+            self._play(kind, text, voice)
+
+    def _play(self, kind, text, voice):
         import subprocess
         try:
-            tone = subprocess.Popen(["afplay", SOUNDS[kind]], stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL)
+            tone = (subprocess.Popen(["afplay", SOUNDS[kind]], stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL) if kind in SOUNDS else None)
             wav = voice.render(text) if (voice and text) else None   # while the tone plays
-            tone.wait()
+            if tone is not None:
+                tone.wait()
             if wav:
                 subprocess.run(["afplay", wav], stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL)
@@ -1090,6 +1101,25 @@ def _shot_auto(a, spec):
         if an:
             st["ann"].append(an)
             st["ann"][:] = st["ann"][-5:]
+        return an["proc"] if an else None
+
+    # The virtual range officer (course.py), for a match or final: its own
+    # thread and clock; started at "ready". Practice has none.
+    ro = None
+    if getattr(a, "course", None):
+        import signal
+        import datetime
+
+        def phase(info):
+            if info.get("ends_at"):
+                info = dict(info, ends_at=datetime.datetime.fromtimestamp(
+                    info["ends_at"], datetime.timezone.utc).isoformat())
+            print(f"  RO: {info['phase']} - {info['label']}", flush=True)
+            emit("course", info)
+
+        ro = course_mod.Runner(course_mod.COURSES[a.course],
+                               speak=lambda text: say("ro", text), phase=phase)
+        signal.signal(signal.SIGUSR1, lambda *_: ro.skip())   # "Start match"
 
     def score_now(label, trigger="camera", sound_db=None, at=None):
         """Capture the after frame, score it against the baseline, report.
@@ -1179,15 +1209,25 @@ def _shot_auto(a, spec):
         k = len(st["prior"])                 # shot number ON THIS CARD
         full = a.per_card and k == a.per_card
         tail = f". that's {a.per_card}. new card please" if full else ""
-        # Lead with the shot number on this card, so a missed shot is noticed
-        # at once ("shot five" when you expected six).
+        # In a match or final: sighter or competition shot, and in time or not
+        # (the impact time; a camera-found shot was SEEN late, so its window
+        # gets the camera check's slack).
+        cls = (ro.classify(at, grace=0.0 if trigger == "sound" else 2 * a.watch)
+               if ro is not None else None)
+        if cls and cls.get("penalty"):
+            flags = flags + [f"{cls['penalty']}, scores zero"]
+        # Lead with the shot's number, so a missed shot is noticed at once
+        # ("shot five" when you expected six): on this card in practice, in
+        # the match in a match or final; a sighter is "sighter".
+        lead = ("sighter" if cls and cls["stage"] == "sighter" else
+                f"shot {cls['number']}" if cls else f"shot {k}")
         # A flagged shot: the score first (what the shooter is waiting for),
         # then why it is worth a look. The "check" tone already marks it, so no
         # spoken "check" (alone, it sounded wrong).
         if flags:
-            say("check", f"shot {k}. {words}. " + ", ".join(flags) + tail)
+            say("check", f"{lead}. {words}. " + ", ".join(flags) + tail)
         else:
-            say("ok", f"shot {k}. {words}" + tail)
+            say("ok", f"{lead}. {words}" + tail)
         if full:
             print(f"  -- {a.per_card} shots on card {st['card_no']}: change the "
                   "card (it will say 'card off', then 'new card, ready') --\n",
@@ -1214,7 +1254,7 @@ def _shot_auto(a, spec):
                 "line_call": bool(r["line_call"]),
                 "ambiguous": bool(r["ambiguous"]), "overlap": bool(r["overlap"]),
                 "estimates": est, "region": res["region"],
-                "geometry": res["geometry"]}, files, at)
+                "geometry": res["geometry"], "course": cls}, files, at)
         st["scored"] += 1
         st["before"], st["tf_b"] = after, res["tf"]
         return True
@@ -1228,9 +1268,12 @@ def _shot_auto(a, spec):
             return
         print("  baseline taken. Ready - fire when you like.\n")
         emit("session_started", {"target": a.target,
-                                 "rule": getattr(a, "rule", "pellet")})
+                                 "rule": getattr(a, "rule", "pellet"),
+                                 "course": getattr(a, "course", None)})
         emit("ready")
         say("ready", "ready")
+        if ro is not None:
+            ro.start()
 
         det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
         with (contextlib.nullcontext() if camera_only else
@@ -1382,6 +1425,11 @@ def _shot_auto(a, spec):
                 except queue.Empty:
                     blk = None
                 _track_announcements(st["ann"])
+                # "The results are final": end the session as Stop would, with
+                # its final check for an unscored hole.
+                if ro is not None and ro.done and time.time() - ro.finished > 3.0:
+                    print("\n  course complete.", flush=True)
+                    raise KeyboardInterrupt
                 if time.time() >= w["next"] and q.qsize() < 5:
                     w["next"] = time.time() + a.watch
                     try:
@@ -1941,6 +1989,11 @@ def main():
             s.add_argument("--per-card", type=int, default=None,
                            help="auto: announce 'new card please' after this "
                                 "many shots on a card")
+            s.add_argument("--course", default=None, choices=sorted(course_mod.COURSES),
+                           help="auto: a course of fire run by the virtual range "
+                                "officer (course.py): match, final, ranking. "
+                                "SIGUSR1 ends a match's sighting time early. "
+                                "Default: practice (no clock)")
         s.add_argument("--roi", action="store_true",
                        help="crop using calib.json's ROI (default: full frame)")
         s.add_argument("--every", type=int, default=3,

@@ -8,6 +8,7 @@ class LiveBroadcast
 
   def call
     replace("session_status", SessionStatusComponent.new(session: @session))
+    replace("live_course", CoursePanelComponent.new(session: @session)) if @session.course
     LivePanelComponent::SECTIONS.each do |section|
       replace("live_#{section}", LivePanelComponent.new(session: @session, section:))
     end
