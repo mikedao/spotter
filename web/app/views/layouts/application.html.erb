@@ -77,9 +77,7 @@
           <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
       <% end %>
-      <% flash.each do |kind, message| %>
-        <div class="<%= kind == "alert" ? "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200" : "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" %> mb-4 flow-root rounded-md px-4 py-3"><%= message %></div>
-      <% end %>
+      <%= render(FlashComponent.new(flash:)) %>
       <%= yield %>
     </main>
   </body>

@@ -137,7 +137,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py samples)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 212 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 214 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -226,6 +226,9 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
+- **Flash messages are TOASTS** (`FlashComponent` + `flash_controller.js`, 2026-11-12):
+  fixed over the top of the page (no layout shift); a notice fades after 5 s
+  (held while hovered), an alert stays until closed (role="alert").
 - **It's an APPLICATION, not a website** (2026-11-11, the shooter's words): no
   top nav bar. The menu is a drawer that slides out over the content from a ☰
   floated beside each screen's heading (`drawer_controller.js`; Esc / outside
