@@ -32,4 +32,12 @@ class LivePanelComponent < ApplicationComponent
   def stats = CardStats.new(scored, @session.target_spec)
   def spec = @session.target_spec
   def earlier_cards = @card ? @session.cards.to_a - [ @card ] : []
+
+  # The latest shot's arrow: CSS degrees clockwise from pointing right (screen y
+  # is down, target y is UP), or nil when the shot reads "center" (a dot instead).
+  def direction_angle(shot)
+    return if shot.direction.nil? || shot.direction == "center"
+
+    -Math.atan2(shot.final_y_mm, shot.final_x_mm) * 180.0 / Math::PI
+  end
 end

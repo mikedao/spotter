@@ -11,9 +11,20 @@
     <%= render(CardComponent.new(title: "Latest shot")) do %>
       <% if latest %>
         <%= link_to shot_path(latest), class: "block" do %>
-          <div class="flex flex-wrap items-baseline gap-x-3">
-            <span class="text-5xl font-bold tabular-nums"><%= format("%.1f", latest.final_decimal) %></span>
-            <span class="text-lg text-gray-600 dark:text-gray-300">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span class="text-7xl font-bold tabular-nums"><%= format("%.1f", latest.final_decimal) %></span>
+            <%# Points where the shot went, at its exact angle (y is UP in target mm). %>
+            <% if (angle = direction_angle(latest)) %>
+              <svg viewBox="0 0 24 24" class="size-12 shrink-0 text-gray-700 dark:text-gray-200" aria-hidden="true"
+                   style="transform: rotate(<%= angle.round %>deg)">
+                <path d="M3 12h15M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            <% else %>
+              <svg viewBox="0 0 24 24" class="size-12 shrink-0 text-gray-700 dark:text-gray-200" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="12" cy="12" r="3" fill="currentColor"/>
+              </svg>
+            <% end %>
+            <span class="text-2xl text-gray-600 dark:text-gray-300">
               <%= latest.stage_label || "shot #{latest.number}" %> · <%= latest.direction %><%= " · inner ten" if latest.final_inner_ten? %>
             </span>
           </div>
@@ -24,6 +35,21 @@
             <p class="mt-2 font-medium text-red-700 dark:text-red-300">Check by eye: <%= latest.flags.to_sentence %></p>
           <% end %>
         <% end %>
+        <%# Every shot on this card so far, oldest first, as whole rings (your call wins;
+            a penalized shot is 0). Amber = flagged and not yet checked by you. %>
+        <ol class="mt-4 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
+          <% scored.each do |shot| %>
+            <li>
+              <%= link_to (shot.penalized? ? 0 : shot.final_ring), shot_path(shot),
+                    "aria-label": "#{shot.stage_label || "Shot #{shot.number}"}: #{shot.penalized? ? 0 : shot.final_ring}",
+                    class: classes("grid h-9 min-w-9 place-items-center rounded-md border px-1.5 text-lg font-semibold tabular-nums hover:bg-gray-100 dark:hover:bg-gray-800",
+                                   if shot.penalized? then "border-red-400 text-red-700 dark:border-red-700 dark:text-red-300"
+                                   elsif shot.flagged? && !shot.called? then "border-amber-400 dark:border-amber-600"
+                                   else "border-gray-300 dark:border-gray-700" end,
+                                   ("bg-blue-50 ring-2 ring-blue-600 dark:bg-blue-950" if shot == latest)) %>
+            </li>
+          <% end %>
+        </ol>
       <% else %>
         <div class="flex flex-wrap items-baseline gap-x-3 text-gray-400 dark:text-gray-500">
           <span class="text-5xl font-bold tabular-nums">–</span>

@@ -22,6 +22,20 @@ RSpec.describe "Pages" do
       expect(response.body).to include("<svg", "Latest shot", "8.4", "Check by eye: line call")
     end
 
+    it "lines up the card's shots under the latest as whole rings, your call winning" do
+      create(:shot, card:, ring: 10, decimal_score: 10.4)
+      create(:shot, card:, ring: 9, decimal_score: 9.8, call_ring: 8)
+      create(:shot, card:, ring: 9, decimal_score: 9.1, penalty: "out of time")
+      get practice_session_path(session)
+      row = Nokogiri::HTML(response.body).at_css("ol[aria-label='Shots on this card']")
+      expect(row.css("a").map(&:text)).to eq(%w[ 8 10 8 0 ])
+    end
+
+    it "points an arrow where the latest shot went" do
+      get practice_session_path(session)   # x -20.5, y 2.8: left, a little high
+      expect(response.body).to include("rotate(-172deg)", "left")
+    end
+
     it "shows an empty card before the first shot" do
       fresh = create(:practice_session, user:, status: "ready")
       get practice_session_path(fresh)

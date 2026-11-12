@@ -5,9 +5,12 @@
 # With two or more shots the mean point of impact is a cross and the mean radius a
 # dashed circle about it.
 #
-#   render(TargetSvgComponent.new(spec:, shots:, latest:, zoom: :group))
+#   render(TargetSvgComponent.new(spec:, shots:, latest:))
 #
-# zoom: :card shows out to ring 1; :group frames the shots.
+# zoom: :fit (default) frames the black aiming mark and steps out a WHOLE ring at
+# a time, only as far as needed to show every shot in full - so the group is big
+# and the scale only changes when a shot lands further out (live, on each shot).
+# :card always shows out to ring 1.
 class TargetSvgComponent < ApplicationComponent
   PAPER = "#f6f1e7"
   LINE_ON_PAPER = "#4a3b2f"     # brown on the paper, pale on the black (fl-shooters' finding)
@@ -17,7 +20,7 @@ class TargetSvgComponent < ApplicationComponent
   SIGHTER = "#6b7280"
   LATEST = "#f59e0b"
 
-  def initialize(spec:, shots: [], latest: nil, zoom: :card, label: "Target")
+  def initialize(spec:, shots: [], latest: nil, zoom: :fit, label: "Target")
     @spec = spec
     @shots = shots.select { |s| s.final_x_mm && s.final_y_mm }
     @latest = latest
@@ -33,12 +36,16 @@ class TargetSvgComponent < ApplicationComponent
   end
 
   private
+    # Half the view's width in mm: ring n's radius plus a margin of half a ring,
+    # for the innermost n from the black outward that holds every shot (the view
+    # is square, so a shot fits when both |x| and |y| do).
     def half_extent
-      outer = @spec.ring_radius_mm(1) + 4
-      return outer unless @zoom == :group && @shots.any?
+      margin = @spec.step_mm / 2.0
+      return @spec.ring_radius_mm(1) + margin if @zoom == :card
 
-      far = @shots.map { |s| [ s.final_x_mm.abs, s.final_y_mm.abs ].max }.max + TargetSpec::PELLET_MM + 4
-      far.clamp(@spec.ring_radius_mm(9) + 2, outer)
+      far = @shots.map { |s| [ s.final_x_mm.abs, s.final_y_mm.abs ].max }.max.to_f + TargetSpec::PELLET_MM / 2.0 + 0.5
+      ring = @spec.black_ring.downto(1).find { far <= @spec.ring_radius_mm(it) + margin } || 1
+      @spec.ring_radius_mm(ring) + margin
     end
 
     def view_box
