@@ -73,6 +73,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
 | `voicelines.py` | What the engine says, as pieces; the 28 Kokoro voices (shared with `voice/`) |
+| `course.py` | Match / final courses of fire as data + the virtual range officer (`Runner`) |
 | `voice/` | The Kokoro announcer: own Python 3.13 venv, `setup.sh`, `speak.py` (see "Announcer voice") |
 
 ### The central design idea
@@ -110,6 +111,9 @@ cd engine
 ./voice/.venv/bin/python voice/speak.py say --voice af_heart "ready"   # the announcer
 ```
 
+`shot --auto --course match|final|ranking` runs a course with the virtual range
+officer; `kill -USR1 <pid>` ends a match's sighting time ("Start match").
+
 Add `--image out/snap_raw.png` to any command to work from a file.
 Add `--target rifle` for air rifle.
 
@@ -117,6 +121,63 @@ Rig: Razer Kiyo on **OpenCV device index 0** on the laptop (`cameras.py`
 re-checks this; it was 2 on the previous machine).
 macOS blocks camera access until Terminal/VS Code is granted it in
 System Settings > Privacy & Security > Camera, then fully restarted.
+
+## Setting up a machine (moving computers)
+
+Code is in git; everything below is NOT, and has to be rebuilt or copied:
+
+```bash
+# engine: Python 3.15 (Homebrew), pinned requirements
+cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m pip install -r requirements.txt
+./.venv/bin/python selftest.py                  # must pass
+
+# announcer voice (optional; else the Mac voice): Python 3.13 + ~350 MB model
+brew install python@3.13 && voice/setup.sh
+voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
+
+# web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 94 examples, 0 failures
+bin/dev                                          # http://localhost:3000, sign up (username + PIN)
+```
+
+- **Not in git, copy by hand if wanted:** `engine/out/` (shot log `calls.csv`,
+  every shot's before/after frames - the real-shot evidence behind "Known
+  limits", and `engine/out/shots/044-053`, which `bin/rails spotter:demo` replays),
+  `web/storage/*.sqlite3` (users, sessions, the shooter's CALLS - the future
+  training set; else start fresh), `engine/voice/cache/` (regenerates).
+- macOS camera AND microphone permission for the terminal / VS Code that runs
+  `bin/dev` (the engine inherits it), then restart that app.
+- Re-check the camera index with `cameras.py` (Kiyo was 2, then 0, on the last
+  two machines); the setup wizard shows pictures, so pick by what it sees.
+- Stale on the 2026-11-11 laptop: a root-level `.venv`, `__pycache__`,
+  `calib.json` and `out/` from before the `engine/` split - unused, ignore.
+
+## Where we left off (2026-11-11)
+
+All committed. Built this day and covered by specs, but **never yet tried on the
+real rig** - check these first:
+1. **Setup wizard** (camera > camera check > microphone > start): Next unlocks
+   LIVE via Turbo broadcast as a check passes; system specs cannot see live
+   updates, so drive it with the real Kiyo and a shot.
+2. **Match / Final end to end through the app**: engine + web together with
+   `--course` (the engine alone was run on a still photo: Start match -> 10 s
+   -> "match firing" -> 75-min window, correct). Watch the clock, sighters,
+   out-of-time zeros, and that the session ends itself after "the results are
+   final".
+3. **RO speech by ear**: the shooter heard none of it on the rig. Demo renders
+   in Bella were made; pending feedback, especially the single-word ISSF
+   commands "load" / "start" / "stop" (one-word pieces sounded wrong before:
+   "check", "low"). All wording is data in `engine/course.py`.
+4. Range screen target now `100svh - 7.5rem` (cap 60rem) without the nav bar:
+   check it with a live session on the laptop screen.
+5. Installing as an app (Chrome "Install Spotter", `/manifest`).
+
+Next feature, agreed order (from the freETarget comparison): **journal with
+trends** across sessions (+ structured diary fields: location, weather, pellets,
+gun adjustments, exercises, problems/solutions, learned), then **exports** (PDF
+report, CSV, Shotmetrix QR). Also still open: import of the pre-web
+`engine/out/shots` log, the model trained from reviewed calls, Pi setup, and
+browser-played sound (see "Announcer voice").
 
 ## Web app (`web/`, 2026-11)
 
@@ -280,21 +341,20 @@ from there). The user commits; don't commit unless asked.
   is split into `live_target/latest/stats/list` for that reason. The header (status
   pill + Stop) is broadcast too, so Stop goes away when the session ends.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
-  `100svh - 11rem`) so the whole card is visible without scrolling.
+  `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 
-Not built yet (agreed order): import of the pre-web `engine/out/shots` log,
-session history with trends, match/final timing and a virtual RO (freETarget
-has both), and the model trained from reviewed calls.
+Not built yet: see "Where we left off" for the agreed order.
 
-## Announcer voice: Kokoro (2026-11, IN PROGRESS)
+## Announcer voice: Kokoro (2026-11)
 
 The shooter rejected the Mac voices (incl. Premium) for **Kokoro** (kokoro-onnx,
 Apache-2.0): all 28 English voices, each USER picks theirs.
 
-Built (uncommitted at the move to a faster computer):
+Built and committed:
 - `engine/voicelines.py` (pure Python, shared): `VOICES` (28 ids), `split(text)`
-  -> sentences -> pieces, `pieces()` = every piece the engine can say (~260:
-  "shot 1".."shot 60", "0.0".."10.9", directions, flags, fixed lines, "that's N"),
+  -> sentences -> pieces, `pieces()` = every piece the engine can say (~300:
+  "shot 1".."shot 60", "0.0".."10.9", direction phrases, flags, fixed lines,
+  "that's N", the range officer's commands from `course.phrases()`),
   `SENTENCE_GAP_S` 0.55 / `COMMA_GAP_S` 0.25. **The shooter wants clear PAUSES
   between statements** (run-together phrases are hard to take in while shooting):
   each piece is rendered alone and joined with real silence, never one long text.
@@ -311,19 +371,24 @@ Built (uncommitted at the move to a faster computer):
   Python 3.15 builds; the engine venv is 3.15). `brew install python@3.13 &&
   engine/voice/setup.sh` (venv + ~350 MB model, both gitignored with `cache/`).
   `speak.py serve|prewarm|sample|samples|say|list`; pieces cached per voice in
-  `cache/<voice>/pieces/*.wav` (rendering one ~1.3 s on the old laptop).
+  `cache/<voice>/pieces/*.wav` (~1.3 s a piece on the old laptop; the 2026-11-11
+  laptop rendered all 28 samples in ~2 min). The cache is keyed by the piece's
+  TEXT: any wording change needs the samples rebuilt (`rm cache/*/sample.wav &&
+  speak.py samples`); stale pieces are just unused.
 - Engine: `shot --auto --voice ID` -> `KokoroVoice` client (helper process,
   JSON lines with request ids) + `_Speech` (tone, then the WAV; falls back to
   `say` if the helper is missing/slow). Verified: demo run spoke in af_heart.
 - Web: `users.voice`, `Voice` model (mirrors VOICES; `voice_spec` checks they
   match), Settings "Announcer voice" picker (`VoicePickerComponent`, play
   buttons -> `GET /voices/:id/sample`, `PATCH /voice`), `EngineRunner` passes
-  `--voice`. 79 specs pass.
+  `--voice`.
+- Speech plays ONE announcement at a time (`_Speech.LOCK`), so the RO's
+  "start" never talks over a shot call; RO commands (kind "ro") have no tone.
 
 **Decided next, NOT built yet:**
 1. **Pregenerate EVERY piece for EVERY voice** (no generating on the fly):
-   ~260 x 28 at ~1.3 s = ~2.5 h on the old laptop; moved to a faster computer
-   for this. Then drop the on-the-fly rendering paths.
+   ~300 x 28 pieces; ~2.5 h on the old laptop, much faster on the 2026-11-11
+   one (not yet run). Then drop the on-the-fly rendering paths.
 2. **Rails plays the sound, not the engine: in the BROWSER on the range
    screen** (shooter's choice over the laptop speaker): the engine posts events
    as now; Rails turns each into the announcement (pieces + gaps) and pushes it
@@ -625,9 +690,9 @@ because ISSF awards the higher value when the hole touches the line.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.
-- Not yet built: trends across sessions, piezo auto-trigger, Raspberry Pi
-  deployment (session logging, group size, mean radius and the web UI are
-  built: see "Web app").
+- Not yet built: trends across sessions, exports, piezo auto-trigger, Raspberry
+  Pi deployment (session logging, stats, match/final and the web UI are built:
+  see "Web app" and "Where we left off").
 
 ## Conventions
 

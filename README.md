@@ -63,7 +63,7 @@ crescent rather than taking its centroid).
 
 ```bash
 cd engine
-python3 -m venv .venv
+python3.15 -m venv .venv          # brew install python@3.15
 ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python probe.py        # check camera access
 ./.venv/bin/python cameras.py      # find your camera's index
@@ -130,11 +130,13 @@ lighting or rig stability.
 
 ## Status
 
-Working: geometry, hole detection, scoring, before/after shot detection with
-registration.
+Working: geometry, hole detection, scoring, hands-free shot detection (sound
+and camera), a web app (`web/`, see [web/README.md](web/README.md)) with a setup
+wizard, live range screen, shot review, card statistics, practice / match /
+final modes with a virtual range officer, and a natural announcer voice.
 
-Not yet built: session logging, training metrics (group size, mean radius,
-trends), piezo auto-trigger, Raspberry Pi deployment, web UI.
+Not yet built: trends across sessions, exports (PDF, CSV, Shotmetrix), Raspberry
+Pi deployment (Pi as camera only).
 
 See [CLAUDE.md](CLAUDE.md) for architecture, domain details, and the gotchas
 worth knowing before changing any of it.
