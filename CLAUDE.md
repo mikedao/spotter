@@ -147,12 +147,23 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
-- **Camera picker** on the Start form: "Find cameras" runs `cameras.py --json DIR`
+- **New session = a setup wizard, every time** (2026-11-11, the shooter's call:
+  "Rig setup" as a separate page went). `SessionSetupController`,
+  `/practice/new/{camera,check,microphone,start}`: pick camera + target, live
+  camera check, sound check, then Start. GATED with escapes: Next unlocks at
+  "Ready to shoot" ("Continue anyway") and once a sound would trigger ("camera
+  only"); the panels carry the Next button so a Turbo broadcast unlocks it live.
+  Each step `RigCheck.stop_for!(user)`s the previous check (SIGINT + wait) so the
+  camera/mic are free; `Locate.clear!` on each new check so a stale "Ready"
+  can't unlock it. Routes sit BEFORE `resources :practice_sessions`, else
+  `practice/new/camera` hits the session's `camera` member route. Voice picker
+  moved to Settings (`/settings`). UI says "session", not "match".
+- **Camera picker** (wizard step 1): New session / "Look again" runs `cameras.py --json DIR`
   (`CameraProbe`, ~5 s, refused while a session runs) and shows a preview per
   camera - pick by PICTURE, names are only a hint. Or a stream URL. Remembered as
   `users.last_camera`, recorded as `practice_sessions.camera`. The same probe
-  lists microphones; picking a camera selects its own mic (`CameraProbe.pair`:
-  same device name minus "camera"/"microphone"; `device_pair_controller.js`).
+  lists microphones; choosing a NEW camera selects its own mic (`CameraProbe.pair`:
+  same device name minus "camera"/"microphone"; `SessionSetupController#pair_mic`).
   `--mic none` = camera only: no sound trigger, every shot found by the camera
   check (2-4 s), and NOT flagged "found without a sound". The mic goes to the
   engine as one `--mic=NAME` argument; `valid_mic?` refuses control chars and a
@@ -176,7 +187,7 @@ from there). The user commits; don't commit unless asked.
   the engine log go too. Refused while live (`before_destroy ..., prepend: true`,
   so it runs before the cards cascade); `reconcile!` first, so a dead engine's
   session can be deleted. Deleted calls are gone from the future training set.
-- **Pickers list only what was found** (`DeviceChoice`, both Start and Rig setup):
+- **Pickers list only what was found** (`DeviceChoice`, the wizard's steps):
   the last probe's cameras/mics + stream URL + camera only. No built-in device
   (the web app used to default to "Kiyo" / camera 0 and show them even when
   absent). Pre-select: last choice if still found (a URL always) > `SPOTTER_*` if
@@ -186,7 +197,7 @@ from there). The user commits; don't commit unless asked.
   Careful: `str(None).lower() == "none"`, so camera-only is tested as
   `a.mic is not None and ...` - else no `--mic` silently meant camera only.
   Specs use `tmp/cameras-test`: they used to wipe the dev server's `tmp/cameras`.
-- **Rig setup page** (`/setup`, `SetupsController`), both checks LIVE through
+- **The wizard's checks** (were the Rig setup page), both LIVE through
   `RigCheck::LiveProcess` (runs an engine command printing JSON lines, streams
   each to the user's page over Turbo; one rig check at a time, never in a
   session; state in-process, `RigCheck.reset!` between specs; `at_exit` stops running checks, else a check outlives a server restart holding the camera or mic for minutes with nothing able to stop it - verified). Camera check =
@@ -198,8 +209,8 @@ from there). The user commits; don't commit unless asked.
   read as bow); sound check = `phase1.py listen --json` (`RigCheck::Listen`):
   "level" lines 4x/s drive a meter redrawn on its own (`ListenMeterComponent`),
   each sound marked `would_trigger` from the engine's own `TRIGGER_DB`/`TRIGGER_MS`
-  constants (shared with `shot --auto`'s defaults). Start refuses while any rig
-  check runs. VERIFIED in real Chrome against the dev server (Ferrum, no reload):
+  constants (shared with `shot --auto`'s defaults). Start stops the user's own
+  checks first and refuses while anyone else's runs. VERIFIED in real Chrome against the dev server (Ferrum, no reload):
   countdown and meter update live - which also confirms the Turbo push path the
   range screen uses. Note: system specs can't see live updates (test cable
   adapter); drive a real browser for that.
@@ -270,7 +281,7 @@ Built (uncommitted at the move to a faster computer):
   shot a touch low. line call"), and the direction is one piece "shot [degree]
   <dir>", degree by ring so pistol and rifle match: "a touch" 10-9, plain 8-7,
   "well" 6 or worse (`phase1._spoken_direction`, `voicelines.DIRECTION_PHRASES`).
-  Inner ten stays "centre, inner ten". End of card: "that's 10. new card please"
+  Inner ten stays "center, inner ten". End of card: "that's 10. new card please"
   (not "10 shots, change the card"). When Rails takes over the announcement
   (below), it must build the same text.
 - `engine/voice/`: own **Python 3.13** venv (Kokoro's onnxruntime/scipy have no
@@ -282,7 +293,7 @@ Built (uncommitted at the move to a faster computer):
   JSON lines with request ids) + `_Speech` (tone, then the WAV; falls back to
   `say` if the helper is missing/slow). Verified: demo run spoke in af_heart.
 - Web: `users.voice`, `Voice` model (mirrors VOICES; `voice_spec` checks they
-  match), Rig setup "Announcer voice" picker (`VoicePickerComponent`, play
+  match), Settings "Announcer voice" picker (`VoicePickerComponent`, play
   buttons -> `GET /voices/:id/sample`, `PATCH /voice`), `EngineRunner` passes
   `--voice`. 79 specs pass.
 

@@ -64,7 +64,7 @@ class EngineRunner
         raise Busy, busy
       end
       if (check = RigCheck.running_check)
-        raise RigCheck::Busy, "a #{check.label} is running - stop it on Rig setup first"
+        raise RigCheck::Busy, "#{User.find_by(id: check.user_id)&.name || "someone"}'s #{check.label} is running"
       end
       camera = camera.to_s.strip.presence || self.camera
       raise BadCamera, "pick a camera (Find cameras and microphones shows what this computer can see)" if camera.blank?

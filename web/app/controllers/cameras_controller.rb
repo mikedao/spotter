@@ -1,12 +1,13 @@
-# "Find cameras and microphones" (Start form and Rig setup), and the preview
+# "Look again" on the new-session wizard's camera step, and the preview
 # pictures it shows.
 class CamerasController < ApplicationController
   def refresh
-    back = params[:back] == "setup" ? setup_path : practice_sessions_path
+    back = params[:back] == "setup" ? setup_camera_path : practice_sessions_path
     if (running = EngineRunner.running)
       return redirect_to back, alert: "#{running.user.name}'s session is using the camera - stop it first."
     end
 
+    RigCheck.stop_for!(Current.user)   # a camera check holds the camera
     probe = CameraProbe.run!
     redirect_to back,
                 notice: "Found #{helpers.pluralize(probe.cameras.size, 'camera')} and #{helpers.pluralize(probe.microphones.size, 'microphone')}. " \

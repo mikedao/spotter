@@ -33,7 +33,7 @@ class RigCheck::CameraVerdict
 
     def rings
       unless data["perspective"]
-        return Verdict.new(:bad, "Ring fit", "The ring lines couldn't be fitted (#{data['perspective_reason']}). Scores would be wrong away from the centre.")
+        return Verdict.new(:bad, "Ring fit", "The ring lines couldn't be fitted (#{data['perspective_reason']}). Scores would be wrong away from the center.")
       end
 
       r = data["ring_rms_mm"]

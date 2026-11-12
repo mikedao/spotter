@@ -19,7 +19,7 @@ class CardStatsComponent < ApplicationComponent
         [ "Average", s.average || "–" ],
         [ "Inner tens", s.inner_tens ],
         [ "Group", s.group_size_mm ? "#{s.group_size_mm} mm" : "–" ],
-        [ "Group centre", s.count >= 2 ? "#{s.mean_point_offset_mm} mm #{s.mean_point_direction}" : "–" ],
+        [ "Group center", s.count >= 2 ? "#{s.mean_point_offset_mm} mm #{s.mean_point_direction}" : "–" ],
         [ "Mean radius", s.mean_radius_mm ? "#{s.mean_radius_mm} mm" : "–" ],
         [ "Time per shot", s.average_interval_s ? "#{s.average_interval_s} s" : "–" ]
       ]

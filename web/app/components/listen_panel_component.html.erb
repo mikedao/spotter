@@ -1,6 +1,6 @@
 <div id="listen_panel" class="space-y-3">
   <% if @state.nil? %>
-    <p class="text-sm text-gray-600 dark:text-gray-300">Not run yet.</p>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Press Listen, wait while it measures the room, then fire a shot or two.</p>
   <% else %>
     <div class="flex flex-wrap items-center gap-3">
       <% if running? %>
@@ -8,7 +8,7 @@
           <span class="inline-block size-2.5 animate-pulse rounded-full bg-current"></span>
           Sound check on <%= data["mic"] %>
         </span>
-        <%= button_to "Stop", helpers.stop_listen_setup_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
+        <%= button_to "Stop", helpers.setup_stop_listen_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
       <% else %>
         <span class="font-medium">Finished: <%= data["mic"] %></span>
       <% end %>
@@ -66,4 +66,16 @@
       <% end %>
     <% end %>
   <% end %>
+
+  <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <% if heard_a_shot? %>
+      <%= render(ButtonComponent.new(href: helpers.setup_start_path, size: :lg)) { "Next: start" } %>
+    <% else %>
+      <%= render(ButtonComponent.new(size: :lg, disabled: true)) { "Next: start" } %>
+      <span class="text-sm text-gray-600 dark:text-gray-300">Unlocks once a shot would trigger.</span>
+    <% end %>
+    <%= button_to "No microphone - camera only", helpers.setup_microphone_path, params: { mic: CameraProbe::NO_MIC },
+          class: "ml-auto cursor-pointer text-sm text-gray-600 underline dark:text-gray-300",
+          form: { data: { turbo_confirm: "Without a microphone the camera finds each shot instead: slower, 2-4 s per shot. Continue?" } } %>
+  </div>
 </div>

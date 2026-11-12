@@ -1,0 +1,25 @@
+<% content_for :title, "New session: microphone" %>
+<%= turbo_stream_from Current.user, :setup %>
+
+<h1 class="mb-1 text-2xl font-semibold">New session</h1>
+<%= render(WizardStepsComponent.new(current: :microphone)) %>
+
+<%= render(CardComponent.new(title: "Does the microphone hear your shots?")) do %>
+  <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+    The sound of each shot tells Spotter to look. Listen, stay quiet while it measures the room, then fire a shot or two:
+    each should say "would trigger".
+  </p>
+  <% mics = @choice.microphones.map(&:name) %>
+  <%= form_with url: setup_microphone_path, class: "mb-4 flex flex-wrap items-end gap-4" do |f| %>
+    <div>
+      <%= f.label :mic, "Microphone", class: "mb-1 block text-sm font-medium" %>
+      <% if mics.any? %>
+        <%= f.select :mic, mics, { selected: @choice.mic }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
+      <% else %>
+        <p class="min-h-11 py-2.5 text-sm text-gray-600 dark:text-gray-300">None found - go back to Camera and press Look again, or use camera only.</p>
+      <% end %>
+    </div>
+    <%= render(ButtonComponent.new(type: :submit, variant: :secondary, disabled: mics.empty?, data: { turbo_submits_with: "Starting…" })) { @state ? "Listen again" : "Listen" } %>
+  <% end %>
+  <%= render(ListenPanelComponent.new(state: @state, user: Current.user)) %>
+<% end %>

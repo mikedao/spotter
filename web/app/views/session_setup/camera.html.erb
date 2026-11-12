@@ -1,0 +1,66 @@
+<% content_for :title, "New session: camera" %>
+
+<h1 class="mb-1 text-2xl font-semibold">New session</h1>
+<%= render(WizardStepsComponent.new(current: :camera)) %>
+
+<%= render(CardComponent.new(title: "Which camera is on the target?")) do %>
+  <% cameras, probe = @choice.cameras, @choice.probe %>
+  <%= form_with url: setup_camera_path, id: "setup_camera", class: "space-y-5" do |f| %>
+    <fieldset>
+      <legend class="mb-2 text-sm text-gray-600 dark:text-gray-300">Pick it by what it sees - the names are only a hint.</legend>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <% cameras.each do |cam| %>
+          <label class="cursor-pointer">
+            <%= f.radio_button :camera, cam.value, checked: cam.value == @choice.camera.to_s, class: "peer sr-only" %>
+            <span class="block overflow-hidden rounded-md border-2 border-gray-300 peer-checked:border-blue-600 dark:border-gray-700">
+              <%= image_tag camera_preview_path(cam.index, v: probe.found_at.to_i), alt: "What camera #{cam.index} sees", class: "aspect-video w-full bg-black object-cover" %>
+              <span class="block px-3 py-2">
+                <span class="font-medium"><%= cam.label %></span>
+                <span class="text-sm text-gray-600 dark:text-gray-300"> · camera <%= cam.index %></span>
+                <% if cam.dark? %><span class="block text-sm text-amber-700 dark:text-amber-300">Dark - covered, off, or not sharing</span><% end %>
+              </span>
+            </span>
+          </label>
+        <% end %>
+
+        <% if cameras.empty? %>
+          <p class="flex min-h-24 items-center rounded-md border-2 border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+            <%= probe ? "No cameras found." : "No cameras looked for yet." %>
+            Press Look again, or use a stream URL.
+          </p>
+        <% end %>
+
+        <label class="cursor-pointer">
+          <%= f.radio_button :camera, "url", checked: @choice.camera_url?, class: "peer sr-only" %>
+          <span class="flex h-full min-h-24 flex-col justify-center gap-2 rounded-md border-2 border-gray-300 px-3 py-2 peer-checked:border-blue-600 dark:border-gray-700">
+            <span class="font-medium">Stream URL</span>
+            <%= f.url_field :camera_url, value: (@choice.camera if @choice.camera_url?), placeholder: "http://<pi>:8080/stream", class: TextFieldComponent::INPUT %>
+          </span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend class="mb-1 text-sm font-medium">Target</legend>
+      <div class="flex gap-2">
+        <% TargetSpec::SPECS.each_value do |spec| %>
+          <label class="cursor-pointer">
+            <%= f.radio_button :target, spec.key, checked: spec.key == @target, class: "peer sr-only" %>
+            <span class="inline-flex min-h-11 items-center rounded-md border border-gray-300 px-3 font-medium peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= spec.name %></span>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+  <% end %>
+
+  <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <%= render(ButtonComponent.new(type: :submit, size: :lg, form: "setup_camera", data: { turbo_submits_with: "Opening the camera…" })) { "Next: check the camera" } %>
+    <%= button_to "Look again", refresh_cameras_path(back: "setup"),
+          class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",
+          data: { turbo_submits_with: "Looking…" } %>
+    <span class="text-sm text-gray-600 dark:text-gray-300">
+      <% if probe %>Looked <%= time_ago_in_words(probe.found_at) %> ago.<% end %>
+    </span>
+    <%= link_to "Cancel", practice_sessions_path, class: "ml-auto text-sm text-gray-600 underline dark:text-gray-300" %>
+  </div>
+<% end %>

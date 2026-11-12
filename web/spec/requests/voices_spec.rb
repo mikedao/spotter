@@ -5,9 +5,9 @@ RSpec.describe "Announcer voice" do
 
   before { sign_in(user) }
 
-  it "lists every voice on Rig setup with the user's choice selected" do
+  it "lists every voice in Settings with the user's choice selected" do
     user.update!(voice: "bm_george")
-    get setup_path
+    get settings_path
     expect(response.body).to include("Announcer voice", "George", "Heart", voice_sample_path("af_heart"))
     expect(response.body).to match(/value="bm_george"[^>]*checked|checked[^>]*value="bm_george"/)
   end

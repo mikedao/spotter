@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Plays an announcer voice's sample on Rig setup, one at a time: press ▶ to
+// Plays an announcer voice's sample in Settings, one at a time: press ▶ to
 // play, press it again (or another voice) to stop. A voice whose sample hasn't
 // been made yet takes ~20 s the first time; the status line says so.
 export default class extends Controller {

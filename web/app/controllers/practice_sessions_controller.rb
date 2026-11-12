@@ -11,21 +11,22 @@ class PracticeSessionsController < ApplicationController
     EngineRunner.reconcile!(@session)
   end
 
-  # Start: create the session and launch the engine for it.
+  # Start: the setup wizard's last step. Create the session and launch the
+  # engine for it, once this user's checks have let go of the camera and mic.
   def create
     params = start_params
-    camera = params[:camera] == "url" ? params[:camera_url] : params[:camera]
+    RigCheck.stop_for!(Current.user)
     session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card],
-                                  camera:, mic: params[:mic])
+                                  camera: params[:camera], mic: params[:mic])
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
-    redirect_to practice_sessions_path, alert: "#{e.message.capitalize}."
+    redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
   rescue RigCheck::Busy => e
-    redirect_to practice_sessions_path, alert: "#{e.message.capitalize}."
+    redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
   rescue EngineRunner::Busy => e
     redirect_to practice_sessions_path, alert: "#{e.message} - one session at a time on this rig."
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to practice_sessions_path, alert: e.record.errors.full_messages.to_sentence
+    redirect_to setup_start_path, alert: e.record.errors.full_messages.to_sentence
   end
 
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.
@@ -66,6 +67,6 @@ class PracticeSessionsController < ApplicationController
     end
 
     def start_params
-      params.expect(practice_session: [ :target, :per_card, :camera, :camera_url, :mic ])
+      params.expect(practice_session: [ :target, :per_card, :camera, :mic ])
     end
 end

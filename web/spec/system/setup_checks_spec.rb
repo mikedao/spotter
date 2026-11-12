@@ -1,8 +1,9 @@
 require "rails_helper"
 
-# The rig setup page with both checks' results, in a real browser.
-RSpec.describe "Rig setup" do
-  let(:user) { create(:user, name: "Mike", last_mic: "Razer Kiyo") }
+# The new-session wizard's camera check and sound check with their results, in
+# a real browser: both passed, so both Next buttons are unlocked.
+RSpec.describe "New session setup checks" do
+  let(:user) { create(:user, name: "Mike", last_camera: "1", last_mic: "Razer Kiyo") }
 
   before do
     FileUtils.mkdir_p(RigCheck::Locate.dir)
@@ -24,18 +25,29 @@ RSpec.describe "Rig setup" do
 
   after { FileUtils.rm_rf(RigCheck::Locate.dir) }
 
-  it "shows the camera verdicts and which sounds would trigger" do
+  it "shows the camera verdicts and which sounds would trigger, and lets you on" do
     visit new_session_path
     fill_in "Username", with: user.username
     fill_in "PIN", with: "1010"
     click_button "Sign in"
-    click_on "Rig setup"
+    expect(page).to have_button("New session")
+    visit setup_check_path
 
+    expect(page).to have_text("2. Camera check")
     expect(page).to have_text("Ready to shoot")
     expect(page).to have_text("Slightly bowed")
     expect(page).to have_text("Sharpness 772")
+    page.save_screenshot(Rails.root.join("tmp/screenshots/setup_check.png")) if ENV["SCREENSHOTS"]
+    click_on "Next: microphone"
+
+    expect(page).to have_text("3. Microphone")
     expect(page).to have_text("would trigger")
     expect(page).to have_text("1 sound would trigger out of 2 heard")
-    page.save_screenshot(Rails.root.join("tmp/screenshots/rig_setup.png")) if ENV["SCREENSHOTS"]
+    page.save_screenshot(Rails.root.join("tmp/screenshots/setup_microphone.png")) if ENV["SCREENSHOTS"]
+    click_on "Next: start"
+
+    expect(page).to have_text("✓ check passed")
+    expect(page).to have_text("✓ heard a shot")
+    expect(page).to have_button("Start session")
   end
 end

@@ -47,6 +47,6 @@ RSpec.describe TargetSpec do
     expect(described_class.direction(0, 20)).to eq "high"
     expect(described_class.direction(15, 15)).to eq "high right"
     expect(described_class.direction(-14, -12)).to eq "low left"
-    expect(described_class.direction(0.3, 0.2)).to eq "centre"
+    expect(described_class.direction(0.3, 0.2)).to eq "center"
   end
 end

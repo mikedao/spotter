@@ -1,0 +1,53 @@
+<% content_for :title, "New session: start" %>
+
+<h1 class="mb-1 text-2xl font-semibold">New session</h1>
+<%= render(WizardStepsComponent.new(current: :start)) %>
+
+<%= render(CardComponent.new(title: "Ready")) do %>
+  <% passed = "text-green-700 dark:text-green-300" %>
+  <% skipped = "text-amber-700 dark:text-amber-300" %>
+  <dl class="mb-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+    <dt class="text-gray-600 dark:text-gray-300">Target</dt>
+    <dd class="font-medium"><%= @target.name %></dd>
+
+    <dt class="text-gray-600 dark:text-gray-300">Camera</dt>
+    <dd>
+      <span class="font-medium"><%= @camera.include?("://") ? @camera : "camera #{@camera}" %></span>
+      <% if @camera_ok %><span class="<%= passed %>">✓ check passed</span>
+      <% else %><span class="<%= skipped %>">! check not passed - <%= link_to "check again", setup_check_path, class: "underline" %></span><% end %>
+    </dd>
+
+    <dt class="text-gray-600 dark:text-gray-300">Microphone</dt>
+    <dd>
+      <% if @mic == CameraProbe::NO_MIC %>
+        <span class="font-medium">None - camera only</span> <span class="text-gray-600 dark:text-gray-300">(2-4 s per shot)</span>
+      <% else %>
+        <span class="font-medium"><%= @mic %></span>
+        <% if @mic_ok %><span class="<%= passed %>">✓ heard a shot</span>
+        <% else %><span class="<%= skipped %>">! no shot heard - <%= link_to "listen again", setup_microphone_path, class: "underline" %></span><% end %>
+      <% end %>
+    </dd>
+
+    <dt class="text-gray-600 dark:text-gray-300">Announcer</dt>
+    <dd>
+      <span class="font-medium"><%= Voice.available? ? Voice.for(Current.user).name : "the Mac voice" %></span>
+      (<%= link_to "change in Settings", settings_path(anchor: "voice"), class: "text-blue-700 underline dark:text-blue-300" %>)
+    </dd>
+  </dl>
+
+  <%= form_with model: PracticeSession.new, url: practice_sessions_path, id: "start_session", class: "space-y-5" do |f| %>
+    <%= f.hidden_field :target, value: @target.key %>
+    <%= f.hidden_field :camera, value: @camera %>
+    <%= f.hidden_field :mic, value: @mic %>
+    <div>
+      <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
+      <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+    </div>
+  <% end %>
+
+  <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <%= render(ButtonComponent.new(type: :submit, size: :lg, form: "start_session", data: { turbo_submits_with: "Starting…" })) { "Start session" } %>
+    <span class="text-sm text-gray-600 dark:text-gray-300">Wait for "ready" before your first shot.</span>
+    <%= link_to "Cancel", practice_sessions_path, class: "ml-auto text-sm text-gray-600 underline dark:text-gray-300" %>
+  </div>
+<% end %>

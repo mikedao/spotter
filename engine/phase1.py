@@ -93,8 +93,8 @@ def establish(gray, spec, verbose=True):
             print(f"  lens        : k1 {pinfo['k1']:+.3f}  k2 {pinfo['k2']:+.3f}")
             print(f"  perspective : scale varies {pinfo['scale_spread_pct']:.1f}% "
                   f"across the aiming mark")
-            print(f"                true centre is {pinfo['centre_shift_px']:.1f} px "
-                  f"from the ellipse centre")
+            print(f"                true center is {pinfo['centre_shift_px']:.1f} px "
+                  f"from the ellipse center")
             fw, (fr, fa) = pinfo["flat_worst_mm"], pinfo["flat_worst_at"]
             flag = "OK" if abs(fw) <= 0.1 else "NOT FLAT"
             print(f"  card flat   : worst {fw:+.2f} mm (ring {fr}, {fa} deg; "
@@ -109,17 +109,17 @@ def establish(gray, spec, verbose=True):
             if tf.axis_ratio < 0.98:
                 print("  ! The camera is off-axis but the perspective fit "
                       "failed, so scores")
-                print("    will be wrong away from the centre. Check the ring "
+                print("    will be wrong away from the center. Check the ring "
                       "lines are visible.")
-        print(f"  centre      : ({tf.cx:.2f}, {tf.cy:.2f}) px")
-        print(f"  scale       : {tf.mm_per_px:.5f} mm/px at the centre "
+        print(f"  center      : ({tf.cx:.2f}, {tf.cy:.2f}) px")
+        print(f"  scale       : {tf.mm_per_px:.5f} mm/px at the center "
               f"({1/tf.mm_per_px:.1f} px/mm)")
         from scoring import ring_radius_mm as _rr
         over = offscreen_sides(tf, _rr(spec, 1), gray.shape)
         if over:
             print(f"\n  ! The ring-1 scoring edge runs outside the frame on the "
                   f"{', '.join(over)}.")
-            print("    Shots landing there cannot be seen. Recentre the card.")
+            print("    Shots landing there cannot be seen. Recenter the card.")
     return tf, info
 
 
@@ -890,12 +890,12 @@ def _muted(announcements, when, tail=0.7):
 
 def _direction(x_mm, y_mm, inner_ten=False):
     """Where the shot is from the centre, in the shooter's words: high, high
-    right, right, low right, low, low left, left, high left - or centre for an
+    right, right, low right, low, low left, left, high left - or center for an
     inner ten. Target +y is up (image-up through the centre, see
     geometry.fit_perspective)."""
     import math
     if inner_ten or math.hypot(x_mm, y_mm) < 1.0:
-        return "centre"
+        return "center"
     names = ["right", "high right", "high", "high left",
              "left", "low left", "low", "low right"]
     ang = math.degrees(math.atan2(y_mm, x_mm)) % 360.0
@@ -908,7 +908,7 @@ def _spoken_direction(r):
     the 8 and 7, "well" in the 6 or worse. Each phrase is one voice piece
     (voicelines.DIRECTION_PHRASES): "low" said on its own sounded wrong."""
     d = _direction(r["x_mm"], r["y_mm"], r["inner_ten"])
-    if d == "centre":
+    if d == "center":
         return d
     ring = r["integer"]
     degree = "a touch " if ring >= 9 else ("" if ring >= 7 else "well ")
@@ -1748,7 +1748,7 @@ def cmd_live(a):
     print("    view    camera may sit off to the side; ring fit RMS want <= 0.25 mm")
     print("    RMS     want <= 0.50 px (focus)")
     print("    fill    want 85-95%     (move closer/further)")
-    print("    offset  want ~0,0       (recentre the card)")
+    print("    offset  want ~0,0       (recenter the card)")
     print("    q quit    s save snapshot\n")
 
     while True:

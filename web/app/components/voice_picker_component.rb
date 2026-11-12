@@ -1,4 +1,4 @@
-# Rig setup's announcer voice picker: every Kokoro voice with a play button (its
+# The announcer voice picker (Settings): every Kokoro voice with a play button (its
 # sample: a normal shot, a flagged one, the end of a card, "ready") and a choice.
 # The chosen voice is saved on the user and used from their next session.
 class VoicePickerComponent < ApplicationComponent

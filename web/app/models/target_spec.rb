@@ -59,11 +59,11 @@ class TargetSpec
 
   def score_xy(x_mm, y_mm, **) = score(Math.hypot(x_mm, y_mm), **)
 
-  # Where a point is from the centre, in a shooter's words (as the engine says it).
+  # Where a point is from the center, in a shooter's words (as the engine says it).
   DIRECTIONS = [ "right", "high right", "high", "high left", "left", "low left", "low", "low right" ].freeze
 
   def self.direction(x_mm, y_mm, inner_ten: false)
-    return "centre" if inner_ten || Math.hypot(x_mm, y_mm) < 1.0
+    return "center" if inner_ten || Math.hypot(x_mm, y_mm) < 1.0
 
     angle = Math.atan2(y_mm, x_mm) * 180.0 / Math::PI % 360.0
     DIRECTIONS[(((angle + 22.5) % 360.0) / 45.0).floor]

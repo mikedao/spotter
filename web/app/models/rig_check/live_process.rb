@@ -1,5 +1,5 @@
 # Runs an engine command that prints one JSON line per event, and streams each
-# event to the user's rig setup page as it happens. Subclasses say which command
+# event to the user's setup wizard page as it happens. Subclasses say which command
 # (`command`), how an event changes their state (`apply`), and what to redraw
 # (`broadcast`). Stop = SIGINT = Ctrl+C: the engine ends cleanly and reports.
 class RigCheck::LiveProcess

@@ -1,6 +1,6 @@
 <div id="locate_result" class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
   <figure>
-    <%= image_tag helpers.locate_overlay_setup_path(v: "#{@check.checked_at.to_i}-#{@check.seq}"), alt: "What the camera sees, with the fitted rings", class: "w-full rounded" %>
+    <%= image_tag helpers.setup_overlay_path(v: "#{@check.checked_at.to_i}-#{@check.seq}"), alt: "What the camera sees, with the fitted rings", class: "w-full rounded" %>
     <figcaption class="mt-1 text-sm text-gray-600 dark:text-gray-300">
       Camera <%= @check.camera %><%= @live ? ", live" : ", checked #{helpers.time_ago_in_words(@check.checked_at)} ago" %>.
       <% if @check.found? %>The yellow rings should sit on the printed ones.<% end %>

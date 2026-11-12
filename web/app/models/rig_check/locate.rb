@@ -15,6 +15,9 @@ class RigCheck::Locate < RigCheck::LiveProcess
     def overlay_path(user) = dir.join("locate-#{user.id}.png")
     def result_path(user) = dir.join("locate-#{user.id}.json")
 
+    # Forget the last result, so a new check starts from "not ready".
+    def clear!(user) = [ result_path(user), overlay_path(user) ].each { FileUtils.rm_f(it) }
+
     def latest(user)
       path = result_path(user)
       path.exist? ? RigCheck::CameraVerdict.new(JSON.parse(path.read), path.mtime) : nil

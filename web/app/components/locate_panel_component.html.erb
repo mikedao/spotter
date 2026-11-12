@@ -5,7 +5,7 @@
         <span class="inline-block size-2.5 animate-pulse rounded-full bg-current"></span>
         Live: re-checking every second<%= " · #{@state.data['remaining']} s left" if @state.data["remaining"] %>. Aim and focus while you watch.
       </span>
-      <%= button_to "Stop", helpers.stop_locate_setup_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
+      <%= button_to "Stop", helpers.setup_stop_check_path, class: "cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" %>
     </div>
   <% end %>
   <% if @state&.error %>
@@ -15,7 +15,22 @@
     <%= render(LocateResultComponent.new(check: @latest, live: running?)) %>
   <% elsif running? %>
     <p class="text-sm text-gray-600 dark:text-gray-300">Opening the camera…</p>
-  <% else %>
-    <p class="text-sm text-gray-600 dark:text-gray-300">Shows what the camera sees with the rings fitted, re-checked every second for two minutes, with a verdict on focus, framing, distance, flatness and light. Adjust the camera until it says "Ready to shoot".</p>
   <% end %>
+
+  <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <% if ready? %>
+      <%= render(ButtonComponent.new(href: helpers.setup_microphone_path, size: :lg)) { "Next: microphone" } %>
+    <% else %>
+      <%= render(ButtonComponent.new(size: :lg, disabled: true)) { "Next: microphone" } %>
+      <span class="text-sm text-gray-600 dark:text-gray-300">Unlocks at "Ready to shoot".</span>
+    <% end %>
+    <% unless running? %>
+      <%= button_to "Check again", helpers.setup_check_path, class: "inline-flex min-h-11 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800",
+            data: { turbo_submits_with: "Starting…" } %>
+    <% end %>
+    <% unless ready? %>
+      <%= link_to "Continue anyway", helpers.setup_microphone_path, class: "ml-auto text-sm text-gray-600 underline dark:text-gray-300",
+            data: { turbo_confirm: "The camera check hasn't passed, so scores may be wrong. Continue anyway?" } %>
+    <% end %>
+  </div>
 </div>

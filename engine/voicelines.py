@@ -38,16 +38,16 @@ DEFAULT_VOICE = "af_heart"
 # of a card, and the ready call.
 SAMPLE = ["shot 3. 8.5, shot high left",
           "shot 4. 9.0, shot a touch low. line call",
-          "shot 10. 10.3, centre, inner ten. that's 10. new card please",
+          "shot 10. 10.3, center, inner ten. that's 10. new card please",
           "ready"]
 
-DIRECTIONS = ["centre", "right", "high right", "high", "high left",
+DIRECTIONS = ["center", "right", "high right", "high", "high left",
               "left", "low left", "low", "low right"]
 # How a direction is said (phase1._spoken_direction): "shot low", with how far
 # out - "a touch" (rings 10-9), plain (8-7), "well" (6 or worse). One piece each,
 # because a direction said on its own ("low.") sounded wrong.
 DEGREES = ["a touch ", "", "well "]
-DIRECTION_PHRASES = ["centre"] + [f"shot {g}{d}" for g in DEGREES for d in DIRECTIONS[1:]]
+DIRECTION_PHRASES = ["center"] + [f"shot {g}{d}" for g in DEGREES for d in DIRECTIONS[1:]]
 FLAGS = ["line call", "ring uncertain", "overlaps a hole", "rough hole",
          "found without a sound"]
 FIXED = ["ready", "inner ten", "new card please", "card off", "new card",

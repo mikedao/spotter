@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# The Start form's camera picker, in a real browser: preview pictures behind the
-# login, the remembered choice, and the URL option.
+# The new-session wizard's camera picker, in a real browser: preview pictures
+# behind the login and the remembered choice.
 RSpec.describe "Starting a session" do
   let(:user) { create(:user, name: "Mike", last_camera: "1") }
 
@@ -25,18 +25,12 @@ RSpec.describe "Starting a session" do
 
   it "shows each camera's picture and pre-selects the one used last" do
     sign_in_as(user)
+    visit setup_camera_path
+    expect(page).to have_text("1. Camera")
     expect(page).to have_text("Razer Kiyo")
     expect(page).to have_css("img[src*='/cameras/0/preview']")
     expect(find("input[value='1']", visible: :all)).to be_checked
-    expect(page).to have_select("Microphone", selected: "Razer Kiyo")
-    page.save_screenshot(Rails.root.join("tmp/screenshots/start_session.png")) if ENV["SCREENSHOTS"]
-  end
-
-  it "switches to the chosen camera's own microphone" do
-    sign_in_as(user)
-    find("img[src*='/cameras/0/preview']").click
-    expect(page).to have_select("Microphone", selected: "MacBook Neo Microphone")
-    find("img[src*='/cameras/1/preview']").click
-    expect(page).to have_select("Microphone", selected: "Razer Kiyo")
+    expect(find("input[value='pistol']", visible: :all)).to be_checked
+    page.save_screenshot(Rails.root.join("tmp/screenshots/setup_camera.png")) if ENV["SCREENSHOTS"]
   end
 end

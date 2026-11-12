@@ -1,6 +1,6 @@
 # The announcer voices: Kokoro text-to-speech, run by the engine's helper
 # (../engine/voice/speak.py, on its own Python 3.13). Each shooter picks one on
-# Rig setup (users.voice); EngineRunner starts the engine with it, and the
+# Settings (users.voice); EngineRunner starts the engine with it, and the
 # engine speaks every announcement in it, with pauses between its pieces.
 #
 # ALL mirrors the engine's voicelines.VOICES (spec/models/voice_spec.rb checks

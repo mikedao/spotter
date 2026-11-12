@@ -23,7 +23,7 @@
         <%= link_to "Spotter", root_path, class: "text-lg font-semibold tracking-tight" %>
         <% if current_user %>
           <%= link_to "Practice", practice_sessions_path, class: "text-gray-300 hover:text-white" %>
-          <%= link_to "Rig setup", setup_path, class: "text-gray-300 hover:text-white" %>
+          <%= link_to "Settings", settings_path, class: "text-gray-300 hover:text-white" %>
           <span class="ml-auto text-gray-300"><%= current_user.name %></span>
           <%= button_to "Sign out", session_path, method: :delete, class: "cursor-pointer text-gray-300 hover:text-white" %>
         <% else %>

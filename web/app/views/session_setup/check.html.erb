@@ -1,0 +1,12 @@
+<% content_for :title, "New session: camera check" %>
+<%= turbo_stream_from Current.user, :setup %>
+
+<h1 class="mb-1 text-2xl font-semibold">New session</h1>
+<%= render(WizardStepsComponent.new(current: :check)) %>
+
+<%= render(CardComponent.new(title: "Can the camera score the card?")) do %>
+  <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+    Camera <%= @camera %>. Aim and focus while you watch; the verdicts say what to fix.
+  </p>
+  <%= render(LocatePanelComponent.new(state: @state, latest: @latest)) %>
+<% end %>

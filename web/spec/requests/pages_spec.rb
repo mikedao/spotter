@@ -14,29 +14,7 @@ RSpec.describe "Pages" do
 
     it "lists the user's sessions with a way to start one" do
       get root_path
-      expect(response.body).to include("10m Air Pistol", "Start a session")
-    end
-
-    it "lists only the cameras and microphones the last search found" do
-      user.update!(last_camera: "3", last_mic: "Razer Kiyo")   # gone since
-      FileUtils.mkdir_p(CameraProbe.dir)
-      CameraProbe.results_path.write({ cameras: [ { index: 0, name_hint: "MacBook Neo Camera" } ],
-                                       microphones: [ { name: "MacBook Neo Microphone" } ] }.to_json)
-      get root_path
-      expect(response.body).to include("MacBook Neo Camera", "MacBook Neo Microphone")
-      expect(response.body).not_to include("Kiyo", "Camera 3")
-      get setup_path
-      expect(response.body).to include("MacBook Neo Camera", "MacBook Neo Microphone")
-      expect(response.body).not_to include("Kiyo", "Camera 3")
-    ensure
-      FileUtils.rm_rf(CameraProbe.dir)
-    end
-
-    it "asks for a device search before there is anything to pick" do
-      FileUtils.rm_rf(CameraProbe.dir)
-      get root_path
-      expect(response.body).to include("No cameras looked for yet")
-      expect(response.body).not_to include("Kiyo")
+      expect(response.body).to include("10m Air Pistol", "New session")
     end
 
     it "shows the range screen with the target, latest shot and stats" do
