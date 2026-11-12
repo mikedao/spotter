@@ -136,7 +136,7 @@ brew install python@3.13 && voice/setup.sh
 voice/.venv/bin/python voice/speak.py samples   # the picker's 28 samples, ~2 min on the 2026 laptop
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 114 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 181 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -151,33 +151,48 @@ bin/dev                                          # http://localhost:3000, sign u
   two machines); the setup wizard shows pictures, so pick by what it sees.
 - Stale on the 2026-11-11 laptop: a root-level `.venv`, `__pycache__`,
   `calib.json` and `out/` from before the `engine/` split - unused, ignore.
+- **A database made before 2026-11-11's sign-in change** has email + password,
+  not username + PIN: that commit EDITED the existing `create_users` migration
+  instead of adding one, so an old database never gets the change (sign-in then
+  fails: "no such column: users.username" / "One or more password arguments are
+  required"). A fresh `db:prepare` is fine. On the old laptop it was repaired by
+  hand (add `username`, rename `password_digest` -> `pin_digest`, then
+  `users:reset_pin`). Never let `db:migrate` on such a database re-dump
+  `schema.rb`: it writes the stale users table into the repo (happened once).
+  Rule from this: add a NEW migration, never edit one that has run anywhere.
+- Restart `bin/dev` after `bundle install` (a new gem, e.g. `rqrcode`, isn't
+  loaded by a running server: "uninitialized constant ... RQRCode").
 
-## Where we left off (2026-11-11)
+## Where we left off (2026-11-12)
 
-All committed. Built this day and covered by specs, but **never yet tried on the
-real rig** - check these first:
-1. **Setup wizard** (camera > camera check > microphone > start): Next unlocks
-   LIVE via Turbo broadcast as a check passes; system specs cannot see live
-   updates, so drive it with the real Kiyo and a shot.
-2. **Match / Final end to end through the app**: engine + web together with
-   `--course` (the engine alone was run on a still photo: Start match -> 10 s
-   -> "match firing" -> 75-min window, correct). Watch the clock, sighters,
-   out-of-time zeros, and that the session ends itself after "the results are
-   final".
-3. **RO speech by ear**: the shooter heard none of it on the rig. Demo renders
-   in Bella were made; pending feedback, especially the single-word ISSF
-   commands "load" / "start" / "stop" (one-word pieces sounded wrong before:
-   "check", "low"). All wording is data in `engine/course.py`.
-4. Range screen target now `100svh - 7.5rem` (cap 60rem) without the nav bar:
-   check it with a live session on the laptop screen.
-5. Installing as an app (Chrome "Install Spotter", `/manifest`).
+All committed. Moving to the faster computer again (see "Setting up a machine";
+nothing extra to copy unless the real-shot evidence / old sessions are wanted).
 
-Next feature, agreed order (from the freETarget comparison): **journal with
-trends** across sessions (+ structured diary fields: location, weather, pellets,
-gun adjustments, exercises, problems/solutions, learned), then **exports** (PDF
-report, CSV, Shotmetrix QR). Also still open: import of the pre-web
-`engine/out/shots` log, the model trained from reviewed calls, Pi setup, and
-browser-played sound (see "Announcer voice").
+Built 2026-11-12 (all covered by specs; see "Web app" for each): guns + pellets
+(per lot), session diary (exercise tags, problems / fixes / learned), the
+JOURNAL (score per 60 vs the 565 trials benchmark, series, trend + forecast),
+session and journal REPORTS (print to PDF), the SHOTMETRIX QR export, ring-only
+card totals for pistol, and range-screen layout work (zoom, ring numbers,
+sticky target, 32rem column, compact match panel so the camera fits a laptop).
+
+**Never yet tried for real - check these first:**
+1. **Shotmetrix:** scan a real session's code with the Shotmetrix app (the
+   encoder matches their test vectors byte for byte and the QR decodes, but no
+   code has been redeemed yet). If refused, note the app's message.
+2. **Print to PDF from Chrome** (session and journal reports; checked only as
+   headless-Chrome PDFs).
+3. **The rig items from 2026-11-11, still open:** setup wizard live with the
+   Kiyo and a shot; a match / final end to end through the app (clock, sighters,
+   out-of-time zeros, session ends itself); the range officer's speech by ear
+   (single-word "load" / "start" / "stop"); installing as an app.
+4. The range screen in a live MATCH on the laptop: the camera must be fully
+   visible under the clock and latest shot (a spec checks 1322x729).
+
+**Next, in the shooter's order:** CSV export (the one export left; small).
+Then still open: the announcer - pregenerate every voice piece and play in the
+BROWSER (see "Announcer voice", decided, not built); import of the pre-web
+`engine/out/shots` log (53 called shots; would feed the journal and the future
+model); the model trained from reviewed calls; Pi setup.
 
 ## Web app (`web/`, 2026-11)
 
@@ -762,9 +777,9 @@ because ISSF awards the higher value when the hole touches the line.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.
-- Not yet built: trends across sessions, exports, piezo auto-trigger, Raspberry
-  Pi deployment (session logging, stats, match/final and the web UI are built:
-  see "Web app" and "Where we left off").
+- Not yet built: CSV export, browser-played announcer, piezo auto-trigger,
+  Raspberry Pi deployment (see "Where we left off"; the journal, reports and
+  Shotmetrix export are built).
 
 ## Conventions
 

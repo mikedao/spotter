@@ -135,8 +135,12 @@ and camera), a web app (`web/`, see [web/README.md](web/README.md)) with a setup
 wizard, live range screen, shot review, card statistics, practice / match /
 final modes with a virtual range officer, and a natural announcer voice.
 
-Not yet built: trends across sessions, exports (PDF, CSV, Shotmetrix), Raspberry
-Pi deployment (Pi as camera only).
+Also built: guns and pellets, a session diary, a journal with trends against a
+goal (default 565 for air pistol), printable session and journal reports (save
+as PDF), and a Shotmetrix QR export.
+
+Not yet built: CSV export, announcements played in the browser, Raspberry Pi
+deployment (Pi as camera only).
 
 See [CLAUDE.md](CLAUDE.md) for architecture, domain details, and the gotchas
 worth knowing before changing any of it.
