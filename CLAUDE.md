@@ -147,6 +147,12 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
+- **It's an APPLICATION, not a website** (2026-11-11, the shooter's words): no
+  top nav bar. The menu is a drawer that slides out over the content from a ☰
+  floated beside each screen's heading (`drawer_controller.js`; Esc / outside
+  click / link closes it); `main` has no max width, and the range screen's target
+  grows to `100svh - 7.5rem` (cap 60rem). Installable as its own window
+  (`/manifest`, `display: standalone`). Keep new screens app-like: no site chrome.
 - **New session = a setup wizard, every time** (2026-11-11, the shooter's call:
   "Rig setup" as a separate page went). `SessionSetupController`,
   `/practice/new/{camera,check,microphone,start}`: pick camera + target, live

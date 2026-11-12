@@ -44,4 +44,7 @@ Rails.application.routes.draw do
   end
 
   get "up" => "rails/health#show", as: :rails_health_check
+
+  # Installable as an app (its own window, no browser tabs or address bar).
+  get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
 end
