@@ -27,7 +27,10 @@ class Announcement
   def payload
     voice = Voice.for(@session.user).id
     gaps = @data["gaps"] || {}
-    { kind:, kokoro: Voice.available?,
+    # kokoro: the voice's files can be played - every piece is in the committed
+    # export, or the server can render the missing ones; else the browser's voice.
+    playable = Voice.available? || sentences.flatten.all? { Voice.exported_path(voice, it).exist? }
+    { kind:, kokoro: playable,
       gaps: { sentence: gaps["sentence"] || 0.55, comma: gaps["comma"] || 0.25 },
       sentences: sentences.map { |pieces| pieces.map { [ it, Voice.piece_url(voice, it) ] } } }
   end

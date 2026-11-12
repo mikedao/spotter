@@ -45,4 +45,12 @@ RSpec.describe Announcement do
     expect(Turbo::StreamsChannel).to have_received(:broadcast_append_to)
       .with(session, target: "announcements", html: a_string_including('data-controller="announcement"'))
   end
+
+  it "plays the committed voice files even where the voice can't be rendered, else the browser's voice" do
+    allow(Voice).to receive(:available?).and_return(false)
+    allow(Voice).to receive(:exported_path).and_return(Pathname(__FILE__))   # every piece "in git"
+    expect(described_class.new(session, shot).payload[:kokoro]).to be(true)
+    allow(Voice).to receive(:exported_path).and_return(Pathname("/nonexistent.m4a"))
+    expect(described_class.new(session, shot).payload[:kokoro]).to be(false)
+  end
 end

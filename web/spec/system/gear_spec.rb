@@ -34,7 +34,7 @@ RSpec.describe "Choosing a gun and pellets" do
     fill_in "Lot", with: "5678"
     page.save_screenshot(Rails.root.join("tmp/screenshots/gear_start.png")) if ENV["SCREENSHOTS"]
 
-    allow(EngineRunner).to receive(:start!) { |**args| create(:practice_session, user:, **args[:gear]) }
+    allow(EngineRunner).to receive(:start!) { |**args| create(:practice_session, user:, started_at: Time.current, **args[:gear]) }
     click_button "Start session"
     expect(page).to have_text("Gun and pellets")
     expect(user.practice_sessions.newest_first.first.pellet.label).to eq("RWS R10 Match · 4.49 mm · 7.0 gr · lot 5678")
