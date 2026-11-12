@@ -71,10 +71,14 @@ class SessionSetupController < ApplicationController
     path.exist? ? send_file(path, type: "image/png", disposition: "inline") : head(:not_found)
   end
 
+  # The sound check - skipped when this microphone passed one before and is
+  # still connected (?again=1 checks anyway).
   def microphone
     RigCheck::Locate.stop!(Current.user)
     @choice = DeviceChoice.new(user: Current.user)
     @state = RigCheck::Listen.state_for(Current.user)
+    remember_sound_check(@state)
+    redirect_to setup_start_path if params[:again].blank? && @state.nil? && remembered_mic?(@choice)
   end
 
   # Listen on the chosen microphone; or, for camera only, straight on to Start.
@@ -107,12 +111,33 @@ class SessionSetupController < ApplicationController
     @mic = Current.user.last_mic.presence || CameraProbe::NO_MIC
     @camera_ok = RigCheck::Locate.latest(Current.user)&.then { it.ok? && it.camera.to_s == @camera }
     listen = RigCheck::Listen.state_for(Current.user)
-    @mic_ok = listen && listen.data["mic"] == @mic && listen.data["sounds"].any? { it["would_trigger"] }
+    remember_sound_check(listen)
+    @mic_ok = Current.user.sound_checked?(@mic)
+    @mic_checked_at = Current.user.sound_checked_at if @mic_ok
     @gear = GearChoice.new(user: Current.user, target: @target.key)
   end
 
   private
     def target = session[:setup_target].presence_in(TargetSpec::SPECS.keys) || "pistol"
+
+    # A sound check that heard a shot that would trigger: kept for next time.
+    def remember_sound_check(state)
+      data = state&.data || {}
+      heard = (data["sounds"] || []).select { it["would_trigger"] }
+      return if data["mic"].blank? || heard.empty?
+
+      Current.user.update!(sound_check: { "mic" => data["mic"], "at" => Time.current.iso8601,
+                                          "loudest_db" => heard.map { it["over_db"].to_f }.max.round(1),
+                                          "trigger_db" => data["trigger_db"], "trigger_ms" => data["trigger_ms"] })
+    end
+
+    # The microphone the user will shoot with passed a sound check before and is
+    # still connected (in the last device search).
+    def remembered_mic?(choice)
+      mic = Current.user.last_mic
+      mic.present? && mic != CameraProbe::NO_MIC && Current.user.sound_checked?(mic) &&
+        choice.microphones.map(&:name).include?(mic)
+    end
 
     def refuse_while_shooting
       return unless (running = EngineRunner.running)

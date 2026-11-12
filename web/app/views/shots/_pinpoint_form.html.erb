@@ -1,0 +1,18 @@
+<%# Score a capture by hand: tap the new hole on its after picture (pinpoint_controller.js). %>
+<%= form_with url: pinpoint_shot_path(shot), method: :post, class: "mt-4 space-y-3",
+      data: { controller: "pinpoint", turbo_submits_with: "Scoring…" } do |f| %>
+  <p class="font-medium">Was it a shot? Tap the new hole on the picture to score it.</p>
+  <div class="relative cursor-crosshair overflow-hidden rounded" data-action="click->pinpoint#pick">
+    <%= image_tag url_for(shot.after_image), alt: "After: tap the new hole", class: "block w-full select-none",
+          draggable: false, data: { pinpoint_target: "image" } %>
+    <span hidden data-pinpoint-target="mark"
+          class="pointer-events-none absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-400 shadow-[0_0_0_2px_rgba(0,0,0,0.6)]"></span>
+  </div>
+  <%= hidden_field_tag :px, nil, data: { pinpoint_target: "px" } %>
+  <%= hidden_field_tag :py, nil, data: { pinpoint_target: "py" } %>
+  <div class="flex flex-wrap items-center gap-3">
+    <%= render(ButtonComponent.new(type: :submit, disabled: true, data: { pinpoint_target: "submit" })) { "Score this hole" } %>
+    <% if local_assigns[:cancel] %><%= cancel %><% end %>
+    <span class="text-sm text-gray-600 dark:text-gray-300"><%= hint %></span>
+  </div>
+<% end %>

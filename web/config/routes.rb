@@ -28,12 +28,16 @@ Rails.application.routes.draw do
     post :stop, on: :member
     patch :diary, on: :member        # the session diary: exercises, problems, fixes, learned
     post :start_match, on: :member   # end a match's sighting time early
+    post :refind, on: :member        # the camera got bumped: re-locate the target
     get :camera, on: :member   # the live camera picture, relayed from the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)
     resources :cards, only: :show, param: :number   # any card of the session, its shots deletable
   end
-  resources :shots, only: %i[ show update destroy ]
+  resources :shots, only: %i[ show update destroy ] do
+    post :pinpoint, on: :member   # score a capture by tapping its hole
+    get :plot, on: :member        # ...in a panel over the live range screen
+  end
 
   # The journal: trends across sessions, against the shooter's goal.
   resource :journal, only: %i[ show update ] do

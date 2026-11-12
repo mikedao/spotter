@@ -233,6 +233,48 @@ def cmd_locate(a):
     print("  Check the yellow rings sit on the printed ones.\n")
 
 
+def cmd_pinpoint(a):
+    """
+    `pinpoint --image AFTER [--before BEFORE] --px X Y --out DIR`: the web app's
+    "score it by hand" for a capture the engine could not score. The shooter
+    tapped the hole at pixel (X, Y) of the saved after frame; the target is
+    located in THAT frame (perspective + lens, as for every shot) and the tap
+    becomes target mm. Writes the straightened close-ups (closeup_before.jpg /
+    closeup_after.jpg, as a scored shot has) to DIR. One JSON line on stdout:
+    {"found": true, "x_mm", "y_mm", "closeup": {...}} or {"found": false, "reason"}.
+    """
+    import contextlib
+    import io
+    import json
+    from report import closeup, jpeg
+    spec = SPECS[a.target]
+
+    def frame(path):
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return None, None
+        img = img.astype(np.float32)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return img, establish(img, spec, verbose=False)[0]
+
+    after, tf = frame(a.image)
+    if tf is None:
+        print(json.dumps({"found": False, "reason": "could not locate the target in the picture"}))
+        return
+    x_mm, y_mm = (float(v) for v in tf.to_mm(a.px[0], a.px[1]))
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    centre = (x_mm, y_mm)
+    (out / "closeup_after.jpg").write_bytes(jpeg(closeup(after, tf, centre)))
+    if a.before:
+        before, tf_b = frame(a.before)
+        if tf_b is not None:
+            (out / "closeup_before.jpg").write_bytes(jpeg(closeup(before, tf_b, centre)))
+    print(json.dumps({"found": True, "x_mm": round(x_mm, 3), "y_mm": round(y_mm, 3),
+                      "closeup": {"centre": [round(x_mm, 3), round(y_mm, 3)],
+                                  "px_per_mm": 20.0, "size_px": 480}}))
+
+
 def _locate_json(a, spec):
     """
     `locate --json [--overlay PATH]`: the camera check for the web app's rig
@@ -986,6 +1028,40 @@ def _same_card(old_img, old_tf, new_img, new_tf, holes_mm, r_mm=1.5):
     return still >= 0.5 * len(holes_mm)
 
 
+def _fit_ok(info, rms_mm=0.4, points=1000):
+    """A geometry fit good enough to be a BASELINE: the full perspective + lens
+    model, from enough ring points, fitting them closely. 2026-11-12, camera
+    moved below the card: the baseline taken as a card went up fitted badly (the
+    inner rings drawn low and squashed for the whole card) while every frame a
+    moment later fitted all 10 rings to 0.08 mm from ~3550 points. Limits set
+    on all 328 saved frames: genuine fits <= 0.32 mm (a card torn by many
+    holes) from >= 3071 points; misfits have no perspective model, 0-132
+    points, >= 1.8 mm."""
+    return bool(info) and bool(info.get("perspective")) and \
+        info.get("rms_mm", 9.9) <= rms_mm and info.get("points", 0) >= points
+
+
+def _same_view(tf, ref, shift_mm=15.0, scale=0.15):
+    """
+    Is a frame's fitted geometry plausibly the SAME view as the baseline's? A
+    second after the shot the camera hasn't moved; a fit that jumps tens of mm
+    or changes scale by tens of % is a MISFIT, not movement. 2026-11-12: two
+    real shots on the aiming mark's rim (the bright hole notching the black's
+    outline) solved 63-69 mm off at ~-88% scale; that made the frames read 45%
+    "changed", the movement guard rejected both shots ("not scored, view
+    moving"), and the camera check scored them seconds later. With the
+    baseline's geometry they scored within 0.1 mm of the later scores. Limits
+    far from both: across all 144 real before/after pairs the largest genuine
+    difference was 4.2 mm / 4% (shot 074, a real small view change, which keeps
+    its own geometry).
+    """
+    import math
+    if tf is None or ref is None:
+        return False
+    moved = math.hypot(tf.cx - ref.cx, tf.cy - ref.cy) * ref.mm_per_px
+    return moved <= shift_mm and abs(tf.mm_per_px / ref.mm_per_px - 1.0) <= scale
+
+
 def _scene_moving(f0, t0, f1, t1, spec, thresh=30.0, frac=0.01):
     """
     Did a large part of the card change between two frames? A person, a hand
@@ -1078,6 +1154,33 @@ def _shot_auto(a, spec):
         with contextlib.redirect_stdout(io.StringIO()):
             return establish(img, spec, verbose=False)[0]
 
+    def locate_info(img):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return establish(img, spec, verbose=False)
+
+    def baseline(first=None, tries=5):
+        """A frame and its geometry to compare shots against, VERIFIED (_fit_ok):
+        up to `tries` frames, the first that fits well - else the best that
+        fitted at all (frame, tf), or (frame, None) if the target wasn't found."""
+        best = None
+        for i in range(tries):
+            frame = first if (i == 0 and first is not None) else cam.grab(a.frames)
+            tf, info = locate_info(frame)
+            if tf is not None and _fit_ok(info):
+                if i:
+                    print(f"  (baseline: a good fit on try {i + 1})", flush=True)
+                return frame, tf
+            if tf is not None:
+                score = (bool(info.get("perspective")), -info.get("rms_mm", 9.9))
+                if best is None or score > best[0]:
+                    best = (score, frame, tf)
+            time.sleep(0.3)
+        if best is not None:
+            print("  ! baseline: no frame fitted well - using the best; the rings "
+                  "may be off (\"Re-find target\" tries again)", flush=True)
+            return best[1], best[2]
+        return frame, None
+
     print(f"\n  AUTO: listening on '{info['name']}', camera {a.device}. "
           "Ctrl+C to finish.")
     print(f"  sound trigger: > +{a.trigger_db:.0f} dB over the room, "
@@ -1087,6 +1190,14 @@ def _shot_auto(a, spec):
     cam = _LiveCamera(a.device)
     st = {"prior": [], "scored": 0, "card_no": 1, "ann": [],
           "last_fail_say": -1e9, "dirty": False}
+    # "Re-find the target" (the web app's button, after the camera was jostled):
+    # SIGUSR2 asks for a fresh look - a new baseline from the card as it sits
+    # now - taken in the main loop, not in the handler.
+    import signal as _signal
+    _signal.signal(_signal.SIGUSR2, lambda *_: st.__setitem__("refind", True))
+    # The web app sends SIGUSR2 only to an engine that printed this (an older
+    # one would be killed by it).
+    print("  re-find target: SIGUSR2", flush=True)
     # The live picture for the web app's range screen (the engine holds the
     # camera, so it serves it): rings from the current baseline drawn on.
     view_srv = None
@@ -1171,8 +1282,19 @@ def _shot_auto(a, spec):
         # while the shooter, in the baseline frame, was mounting the card).
         # Solved ONCE here and handed to _score_pair, which used to solve the
         # same frame again (~0.5-1 s per shot on a slow laptop).
-        with contextlib.redirect_stdout(io.StringIO()):
-            tf_a, geo_a = establish(after, spec, verbose=False)
+        tf_a, info_a = locate_info(after)
+        geo_a = info_a                       # the fit's health, for the geometry warning
+        if tf_a is not None and not _fit_ok(info_a) and st["tf_b"] is not None:
+            print("  ! the after frame fitted poorly - using the baseline's "
+                  "geometry", flush=True)
+            tf_a, geo_a = st["tf_b"], None
+        if tf_a is not None and not _same_view(tf_a, st["tf_b"]):
+            # A misfit (see _same_view): the camera didn't move in a second, so
+            # the baseline's geometry holds. Real movement still shows - the
+            # frames then differ under that geometry, and the guard below says so.
+            print("  ! the after frame's geometry is off (a hole on the aiming "
+                  "mark's edge?) - using the baseline's", flush=True)
+            tf_a, geo_a = st["tf_b"], None
         if tf_a is not None and _scene_moving(st["before"], st["tf_b"], after,
                                               tf_a, spec):
             stamp = time.strftime("%H%M%S")  # never silent, never lose frames
@@ -1310,8 +1432,7 @@ def _shot_auto(a, spec):
 
     try:
         time.sleep(1.0)                          # let exposure settle
-        st["before"] = cam.grab(a.frames)
-        st["tf_b"] = locate(st["before"])
+        st["before"], st["tf_b"] = baseline()
         if st["tf_b"] is None:
             print("  could not locate the target - check framing and lighting")
             return
@@ -1409,8 +1530,7 @@ def _shot_auto(a, spec):
                         print("  ! re-baselining over an unscored change - "
                               "check the saved unscored_* frames", flush=True)
                     st["rebase_tries"] = 0
-                    new = cam.grab(a.frames)
-                    tf_new = locate(new)
+                    new, tf_new = baseline()
                     if tf_new is not None:
                         if st["prior"] and not _same_card(
                                 st["before"], st["tf_b"], new, tf_new,
@@ -1432,8 +1552,7 @@ def _shot_auto(a, spec):
                     if w["still"] < 2:
                         return
                     w["card_on"], w["still"], st["dirty"] = True, 0, False
-                    new = cam.grab(a.frames)
-                    tf_new = locate(new)
+                    new, tf_new = baseline()
                     if tf_new is None:
                         w["card_on"] = False
                         return
@@ -1468,6 +1587,22 @@ def _shot_auto(a, spec):
                 else:
                     w["cand"] = pos
 
+            def refind():
+                """A fresh baseline from the card as it sits now (the shooter
+                bumped the camera): the rings follow it. A shot fired since the
+                last baseline and not yet scored would be absorbed - the button
+                is for between shots."""
+                frame, tf_new = baseline()
+                if tf_new is None:
+                    print("  re-find: the target isn't in view - not changed\n", flush=True)
+                    say("info", "card off")
+                    return
+                st["before"], st["tf_b"] = frame, tf_new
+                w["cand"], w["last"], w["still"] = None, None, 0
+                print("  -- re-found the target: new baseline. Ready --\n", flush=True)
+                emit("ready")
+                say("ready", "ready")
+
             while True:
                 try:
                     blk = q.get(timeout=0.2)
@@ -1479,6 +1614,11 @@ def _shot_auto(a, spec):
                 if ro is not None and ro.done and time.time() - ro.finished > 3.0:
                     print("\n  course complete.", flush=True)
                     raise KeyboardInterrupt
+                if st.pop("refind", False):
+                    try:
+                        refind()
+                    except CameraLost:
+                        camera_lost()
                 if time.time() >= w["next"] and q.qsize() < 5:
                     w["next"] = time.time() + a.watch
                     try:
@@ -1957,6 +2097,14 @@ def main():
     _stop_signals()
     p = argparse.ArgumentParser(description="Phase 1 - self-locating scorer")
     sub = p.add_subparsers(dest="cmd", required=True)
+    pp = sub.add_parser("pinpoint", help="a tapped pixel of a saved frame -> target mm "
+                                         "(the web app's hand-scoring of a capture)")
+    pp.set_defaults(func=cmd_pinpoint)
+    pp.add_argument("--target", choices=sorted(SPECS), default="pistol")
+    pp.add_argument("--image", required=True, help="the after frame (PNG)")
+    pp.add_argument("--before", default=None, help="the before frame, for its close-up")
+    pp.add_argument("--px", type=float, nargs=2, required=True, metavar=("X", "Y"))
+    pp.add_argument("--out", required=True, help="where to write the close-ups")
     for name, fn, h in (("locate", cmd_locate, "show the derived geometry"),
                         ("score", cmd_score, "find and score holes"),
                         ("shot", cmd_shot, "before/after: score the new hole"),

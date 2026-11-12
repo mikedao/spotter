@@ -11,6 +11,13 @@
     <%# No heading: the big score and "shot 10 · high left" say what it is, and the
         space goes to the camera below (it must fit on a laptop screen while live). %>
     <%= render(CardComponent.new("aria-label": "Latest shot")) do %>
+      <% if (missed = unplotted_capture) %>
+        <%= link_to helpers.plot_shot_path(missed), data: { turbo_frame: "plot" },
+              class: "mb-3 flex min-h-11 items-center justify-between gap-3 rounded-md border border-amber-400 bg-amber-50 px-3 py-2 font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" do %>
+          <span>Shot not scored <span class="font-normal">- <%= missed.unscored_reason %></span></span>
+          <span class="whitespace-nowrap underline">Plot it →</span>
+        <% end %>
+      <% end %>
       <% if latest %>
         <%= link_to shot_path(latest), class: "block" do %>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -67,7 +74,7 @@
   </div>
 <% when :list %>
   <div id="<%= dom_id %>" class="space-y-4">
-    <%= render(ShotListComponent.new(shots:)) %>
+    <%= render(ShotListComponent.new(shots:, plot: @session.live?)) %>
 
     <% if earlier_cards.any? %>
       <%= render(CardComponent.new(title: "Earlier cards this session")) do %>

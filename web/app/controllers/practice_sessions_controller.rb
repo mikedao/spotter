@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update diary stop start_match destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match refind destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -54,6 +54,12 @@ class PracticeSessionsController < ApplicationController
   def stop
     EngineRunner.stop!(@session)
     redirect_to practice_session_path(@session)   # the header says "Stopping…" until it has
+  end
+
+  # "Re-find target": the engine re-locates the card (after a bump). No page
+  # load - that would stop the sound; the status line and "ready" answer it.
+  def refind
+    EngineRunner.refind!(@session) ? head(:no_content) : head(:conflict)   # 409: an engine too old for it
   end
 
   # "Start match": end the sighting time now; the range officer calls the match.

@@ -91,6 +91,22 @@ RSpec.describe "Engine events API" do
     expect(PracticeSession.count).to eq 1
   end
 
+  it "takes the engine's later find of a just-plotted shot as the same shot, not a second one" do
+    card = create(:card, practice_session: session, number: 1)
+    plotted = create(:shot, card:, number: 1, engine_shot_id: nil, x_mm: -9.0, y_mm: 3.0, ring: 9, decimal_score: 9.3,
+                            pinpointed_at: 1.minute.ago, fired_at: 2.minutes.ago)
+    post_event("shot", shot_data("080", -8.2, 3.5, trigger: "camera", ring: 9, decimal: 9.4))   # its hole, found by the camera
+    expect(card.shots.count).to eq 1
+    expect(plotted.reload).to have_attributes(engine_shot_id: "080", x_mm: -8.2, pinpointed_at: nil, number: 1)
+  end
+
+  it "keeps a new shot that lands next to a plotted one: it came with a sound" do
+    card = create(:card, practice_session: session, number: 1)
+    create(:shot, card:, number: 1, engine_shot_id: nil, x_mm: -9.0, y_mm: 3.0, pinpointed_at: 1.minute.ago, fired_at: 2.minutes.ago)
+    post_event("shot", shot_data("081", -8.0, 3.0, trigger: "sound"))
+    expect(card.shots.count).to eq 2
+  end
+
   it "hands an announcement to the range screen without redrawing it" do
     allow(Announcement).to receive(:new).and_call_original
     allow(LiveBroadcast).to receive(:new).and_call_original
@@ -135,6 +151,28 @@ RSpec.describe "Engine events API" do
       post_event("shot", shot_data("074", 4.0, 1.0, ring: 10, decimal: 10.2,
                                    course: { stage: "match", label: "Match", series: 1, number: 4 }))   # the engine still counts 4
       expect(session.shots.order(:match_number).pluck(:engine_shot_id, :match_number)).to eq [ [ "071", 1 ], [ "073", 2 ], [ "074", 3 ] ]
+    end
+
+    it "asks the engine to re-find the target, without a page load" do
+      sign_in(session.user)
+      allow(EngineRunner).to receive(:refind!).and_return(true)
+      post refind_practice_session_path(session)
+      expect(response).to have_http_status(:no_content)
+      expect(EngineRunner).to have_received(:refind!).with(session)
+    end
+
+    it "never signals an engine that doesn't understand re-find (it would die)" do
+      log = Rails.root.join("tmp", "engine-refind-spec.log")
+      log.write("  baseline taken. Ready - fire when you like.\n")   # an older engine: no "re-find target" line
+      session.update!(engine_pid: Process.pid, engine_log: log.to_s)
+      allow(Process).to receive(:kill).and_call_original
+      expect(EngineRunner.refind!(session)).to be(false)
+      expect(Process).not_to have_received(:kill).with("USR2", anything)
+      log.write("  re-find target: SIGUSR2\n")
+      allow(Process).to receive(:kill).with("USR2", Process.pid)
+      expect(EngineRunner.refind!(session)).to be(true)
+    ensure
+      FileUtils.rm_f(log)
     end
 
     it "ends sighting time early when asked" do

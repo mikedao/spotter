@@ -144,7 +144,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 215 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 226 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -240,6 +240,14 @@ from there). The user commits; don't commit unless asked.
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
+- **Live rig checks MORPH** (`RigCheck::LiveProcess#push`: `attributes: { method:
+  :morph }` - a plain `method:` option is silently dropped by turbo-rails 2.0):
+  the camera check's picture is the same `<img>` across updates, so it no longer
+  blanks and jumps every second; it keeps a 16:9 box. Specs use their own
+  `tmp/setup-test` (they used to wipe the running app's camera check).
+- **Voice prewarm: ONE per voice, 2 cores** (`speak.py prewarm` takes a lock in
+  the cache; 2026-11-12 three at once, all cores each, pushed the load to ~170
+  and slowed a live engine).
 - **Flash messages are TOASTS** (`FlashComponent` + `flash_controller.js`, 2026-11-12):
   fixed over the top of the page (no layout shift); a notice fades after 5 s
   (held while hovered), an alert stays until closed (role="alert").
@@ -277,6 +285,15 @@ from there). The user commits; don't commit unless asked.
   can't unlock it. Routes sit BEFORE `resources :practice_sessions`, else
   `practice/new/camera` hits the session's `camera` member route. Voice picker
   moved to Settings (`/settings`). UI says "session", not "match".
+- **A passed sound check is remembered** (2026-11-12, the shooter: don't redo it
+  for a setup that passed before): `users.sound_check` {mic, at, loudest_db,
+  trigger_db, trigger_ms}, written when a check hears a shot that would trigger
+  (`SessionSetupController#remember_sound_check`, on the microphone and start
+  steps). The microphone step then REDIRECTS to Start when the user's mic passed
+  before and is still in the last device search; Start says "✓ heard a shot
+  (sound check Nov 12) - check again or change" -> `?again=1`. A different or
+  missing mic asks again. (Not invalidated by a TRIGGER_DB change - stored for
+  that, unused yet.)
 - **Camera picker** (wizard step 1): New session / "Look again" runs `cameras.py --json DIR`
   (`CameraProbe`, ~5 s, refused while a session runs) and shows a preview per
   camera - pick by PICTURE, names are only a hint. Or a stream URL. Remembered as
@@ -301,6 +318,32 @@ from there). The user commits; don't commit unless asked.
   back to the session; if all were already called, it steps on in order.
   `after_save` must be asked BEFORE `record_call!`. Shot page shows "Shot N of M"
   and previous/next links.
+- **Scoring a capture by hand** (2026-11-12): an unscored capture's page shows its
+  after picture - tap the hole, "Score this hole". `ShotPinpoint` runs the ENGINE's
+  `phase1.py pinpoint --image AFTER --before BEFORE --px X Y --out DIR` (locates
+  the target in THAT frame, perspective + lens; the tap -> target mm; writes the
+  straightened close-ups), then `Shot#score_by_hand!`: scored by the Ruby
+  `TargetSpec` (pellet rule), placed in FIRING ORDER (later shots on the card
+  renumber; in a match it takes the stage of the shot before it and the next
+  competition number, later ones renumbered), `pinpointed_at` set = "scored by
+  you" (badge; the shot page says "Placed by you, by hand"). Fine-tune with the
+  usual call circle. Verified: a round trip on real shot 044 came back within
+  0.001 mm; a real-Chrome tap on its picture scored 6.5 like the engine (0.1 mm,
+  click precision on the downsized picture). Not built: adding a shot the system
+  never saw at all (no capture).
+  MID-SESSION (the shooter: "it says not scored - can I simply plot a shot?"): the
+  live range screen's latest panel shows "Shot not scored - Plot it ->" (and
+  "Not scored" rows in the list link the same way); it loads the capture into a
+  `<dialog>`'s turbo-frame (`ShotsController#plot`, `plot_dialog_controller.js`)
+  OVER the range screen - never leave the page, or the sound stops. Scored, the
+  frame shows the result and the dialog closes itself; the panels update, the
+  announcer reads it ("shot 4. 9.3, shot a touch low": `Announcement.for_shot`,
+  worded as the engine words a shot) and chatty mode comments. NO DOUBLE COUNT:
+  the engine kept its baseline, so its camera check may still find that hole
+  later - an engine shot within `EngineEvent::TWIN_MM` (3 mm) of a shot plotted
+  on that card in the last 15 min, found by the CAMERA (a new shot comes with a
+  sound), updates the plotted shot instead of adding one. Camera-only sessions
+  (no mic) could in theory merge a genuinely new shot within 3 mm of a plot.
 - **Deleting a shot** (shot page, with a confirm; 2026-11-12): `Shot#remove!` -
   pictures and call go, and EVERYTHING after it renumbers (the shooter: "always
   renumber"): card numbers, and in a match / final the competition numbers, with
@@ -515,8 +558,12 @@ Built and committed:
   `Announcement` (Rails) drops diagnostic sentences unless
   `users.diagnostic_announcements` (Settings, "What the announcer says"; off by
   default) and Turbo-APPENDS it to `#announcements`; `announcement_controller.js`
-  hands it to `announcer_controller.js` (`AnnouncerComponent`, the "Sound off /
-  Sound on" button beside Stop - outside every broadcast part): one at a time, a
+  hands it to `announcer_controller.js` (`AnnouncerComponent`, the Sound button
+  beside Stop - outside every broadcast part; ON BY DEFAULT, turned off it is
+  remembered per device in localStorage; browsers play only after a tap or key
+  press on the page - arriving via the app's own Start usually counts (Turbo keeps
+  the document), else "Tap anywhere for sound" and the first tap/key anywhere
+  starts it, keeping only the latest announcement meanwhile): one at a time, a
   WebAudio tone (made in JS - no Apple sound files in a public repo; none for
   "ro"), then each piece fetched from `GET /voices/:id/piece?text=` and
   scheduled gap-exact. No Kokoro on the server -> the browser's own voice.
@@ -737,6 +784,31 @@ because ISSF awards the higher value when the hole touches the line.
   re-baseline SWALLOWED a real hole). A capture whose view changed that much
   is not scored; after movement, once still for two checks, a fresh baseline
   is taken - but only after checking the old baseline for a new hole first.
+- **Every BASELINE is verified** (2026-11-12, camera moved BELOW the card, ~30 deg,
+  looking up: the baseline taken as a card went up fitted badly - inner rings
+  drawn low and squashed for the whole card, on the live view and in the camera
+  check - while frames a moment later fitted all 10 rings to 0.08 mm). `baseline()`
+  in `_shot_auto` (session start, after movement, card back, re-find) tries up to
+  5 frames and keeps the first `_fit_ok` one (perspective model, <= 0.4 mm,
+  >= 1000 ring points; set on all 328 saved frames: genuine <= 0.32 mm from >=
+  3071 points, misfits 0-132 points / no perspective), else the best. After a
+  shot, an after frame that fits poorly also uses the baseline's geometry.
+- **"⌖ Re-find target"** (range screen, beside Stop; the shooter bumps the camera
+  sometimes): `EngineRunner.refind!` -> SIGUSR2 -> the engine takes a new verified
+  baseline from the card as it sits now and says "ready". Only sent to an engine
+  whose log says "re-find target: SIGUSR2" (an older one DIES of SIGUSR2). A shot
+  fired since the last baseline and not yet scored would be absorbed - between
+  shots only.
+- **A hole on the aiming mark's RIM can misfit the after frame** (2026-11-12:
+  two shots ~27 mm out, the black ends at 29.75): the after frame solved 63-69 mm
+  off at ~-88% scale, the frames then read 45% "changed", the movement guard
+  rejected the shot ("not scored, view moving") and the camera check scored it
+  seconds later - the shooter heard "not scored", a pause, then the score.
+  `score_now` now checks `_same_view(tf_after, tf_baseline)` (15 mm / 15%; all
+  144 real pairs differ by <= 4.2 mm / 4%) and on a misfit uses the BASELINE's
+  geometry (the camera can't move in a second; real movement still shows under
+  it) - both shots then scored within 0.1 mm of the later scores. The camera
+  check's own `locate` is unchanged (a misfit there must repeat twice to count).
 - `_scene_moving` is measured INSIDE RING 1 only: the card's outer edge is
   beyond the fitted rings, its registration is an extrapolation that shifts
   2-3 px between frames minutes apart, and the outline alone read 2.1%

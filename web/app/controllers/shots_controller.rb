@@ -18,6 +18,35 @@ class ShotsController < ApplicationController
     redirect_to shot_path(@shot), alert: e.record.errors.full_messages.to_sentence
   end
 
+  # Score a capture the engine couldn't: the shooter tapped the hole on its
+  # picture (pixel x, y of the after frame).
+  # In the live range screen's plot panel (a turbo-frame): the capture to tap.
+  def plot
+  end
+
+  # From the plot panel the answer stays in the panel (the range screen keeps
+  # going); from the shot's own page, back to it. Mid-session the range screen
+  # updates and the announcer reads the shot as for any other.
+  def pinpoint
+    ShotPinpoint.new(@shot).call(params.require(:px), params.require(:py))
+    session = @shot.practice_session.reload
+    if session.live?
+      LiveBroadcast.new(session).call
+      Announcement.for_shot(@shot).deliver!
+      Commentary.after_event(session, type: "shot", record: @shot)
+    end
+    return render(:plotted) if turbo_frame_request?
+
+    redirect_to shot_path(@shot), notice: "Scored by hand: card #{@shot.card.number}, shot #{@shot.number}. " \
+                                          "Drag the amber circle to fine-tune it."
+  rescue ShotPinpoint::Failed, ArgumentError => e
+    if turbo_frame_request?
+      @error = e.message
+      return render(:plot, status: :unprocessable_content)
+    end
+    redirect_to shot_path(@shot), alert: "Couldn't score it: #{e.message}."
+  end
+
   # Delete a shot that wasn't a real one; the card renumbers, a live range
   # screen updates.
   def destroy

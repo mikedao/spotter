@@ -13,6 +13,12 @@
       centred together: on a wide screen the spare width becomes even margins
       rather than a stretched column. %>
   <% if @session.live? %>
+    <%# The plot panel: a capture loads into it (ShotsController#plot) and it opens
+        over the range screen, which keeps going underneath. %>
+    <dialog data-controller="plot-dialog" aria-label="Plot a shot that wasn't scored"
+            class="m-auto w-[min(56rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/60 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+      <turbo-frame id="plot" data-plot-dialog-target="frame"></turbo-frame>
+    </dialog>
     <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
       <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
       <div id="range_side" class="space-y-3">

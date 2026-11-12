@@ -3,16 +3,21 @@ import { Controller } from "@hotwired/stimulus"
 // The range screen's announcer: plays each announcement the engine makes, ONE
 // at a time - a short tone for the kind of news, then the voice, piece by piece
 // with real silence between (longer between sentences, shorter at commas: the
-// shooter asked for clear pauses). Browsers only play sound after a tap, so it
-// starts off: "Sound on". Pieces come from the server (VoicesController#piece)
-// and are kept for the visit; without Kokoro it falls back to the browser's own
-// voice. Tones are made here, no sound files.
+// shooter asked for clear pauses). Pieces come from the committed files or the
+// server and are kept for the visit; without them, the browser's own voice.
+// Tones are made here, no sound files.
+//
+// Sound is ON by default (turned off: remembered on this device). Browsers play
+// sound only once the page has had a tap or key press; arriving from the app's
+// own Start button usually counts already. If not, the button says "Tap
+// anywhere for sound" and the first tap or key press anywhere turns it on.
 export default class extends Controller {
   static targets = [ "button", "chatty" ]
   static values = { chatty: Boolean, chattyUrl: String }
 
   connect() {
-    this.on = false
+    this.on = this.storedPreference() !== "off"
+    this.waiting = false
     this.queue = []
     this.playing = false
     this.buffers = new Map()
@@ -26,21 +31,53 @@ export default class extends Controller {
       event.detail.render = async (stream) => { await this.idle(); render(stream) }
     }
     document.addEventListener("turbo:before-stream-render", this.holdRefresh)
+    this.unlock = () => this.start()
+    if (this.on) this.start()
     this.render()
+  }
+
+  // Make the sound live: running at once if the page has had a tap, else wait
+  // for the first tap or key press anywhere.
+  start() {
+    this.ctx ||= new AudioContext()
+    this.ctx.resume()
+    if (this.ctx.state === "running") {
+      this.waiting = false
+      document.removeEventListener("pointerdown", this.unlock, true)
+      document.removeEventListener("keydown", this.unlock, true)
+      if (this.queue.length && !this.playing) this.next()
+    } else {
+      this.waiting = true
+      document.addEventListener("pointerdown", this.unlock, true)
+      document.addEventListener("keydown", this.unlock, true)
+      this.ctx.onstatechange = () => { if (this.ctx.state === "running" && this.waiting) this.start(); this.render() }
+    }
+    this.render()
+  }
+
+  storedPreference() {
+    try { return localStorage.getItem("spotter.sound") } catch { return null }
+  }
+
+  storePreference(value) {
+    try { localStorage.setItem("spotter.sound", value) } catch { /* private window: on by default anyway */ }
   }
 
   disconnect() {
     window.removeEventListener("announcer:say", this.listener)
     document.removeEventListener("turbo:before-stream-render", this.holdRefresh)
+    document.removeEventListener("pointerdown", this.unlock, true)
+    document.removeEventListener("keydown", this.unlock, true)
     this.queue = []
     this.ctx?.close()
   }
 
   toggle() {
+    if (this.on && this.waiting) return this.start()   // the tap that unlocks it, not a "turn off"
     this.on = !this.on
+    this.storePreference(this.on ? "on" : "off")
     if (this.on) {
-      this.ctx ||= new AudioContext()
-      this.ctx.resume()
+      this.start()
       this.tone("ready")
     } else {
       this.queue = []
@@ -66,21 +103,24 @@ export default class extends Controller {
     this.chattyTarget.title = this.chattyValue ? "The announcer comments. Tap for just the scores." : "Just the scores. Tap for commentary."
   }
 
-  busy() { return this.playing || this.queue.length > 0 }
+  busy() { return !this.waiting && (this.playing || this.queue.length > 0) }   // waiting for a tap: nothing will play
 
   async idle() {
     for (let i = 0; i < 600 && this.busy(); i++) await this.wait(0.2)   // at most 2 minutes
   }
 
   render() {
-    this.buttonTarget.textContent = this.on ? "🔊 Sound on" : "🔇 Sound off"
-    this.buttonTarget.title = this.on ? "Announcements play here. Tap to mute." : "Tap to hear the announcer on this screen"
+    const label = !this.on ? "🔇 Sound off" : (this.waiting ? "🔈 Tap anywhere for sound" : "🔊 Sound on")
+    this.buttonTarget.textContent = label
+    this.buttonTarget.title = !this.on ? "Tap to hear the announcer on this screen"
+      : (this.waiting ? "The browser needs one tap or key press first" : "Announcements play here. Tap to mute.")
     this.buttonTarget.setAttribute("aria-pressed", String(this.on))
     this.element.dataset.on = String(this.on)
   }
 
   enqueue(announcement) {
     if (!this.on) return
+    if (this.waiting) { this.queue = [ announcement ]; return }   // only the latest, once there's sound
     this.queue.push(announcement)
     if (!this.playing) this.next()
   }

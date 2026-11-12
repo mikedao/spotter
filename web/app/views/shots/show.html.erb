@@ -46,6 +46,8 @@
     <%= render(CardComponent.new) do %>
       <p>The engine heard or saw something here but did not score it: <strong><%= @shot.unscored_reason %></strong>.</p>
       <% if @shot.after_image.attached? %>
+        <%= render("shots/pinpoint_form", shot: @shot,
+                   hint: "Compare with the before picture below. Afterwards you can drag the circle to fine-tune.") %>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
           <% [ [ "Before", @shot.before_image ], [ "After", @shot.after_image ] ].each do |label, img| %>
             <% next unless img.attached? %>
@@ -113,9 +115,14 @@
           <dl class="grid grid-cols-2 gap-2 text-sm">
             <dt class="text-gray-600 dark:text-gray-300">Score</dt><dd class="tabular-nums"><%= format("%.1f", @shot.decimal_score) %> · ring <%= @shot.ring %> · <%= @shot.rule %> rule</dd>
             <dt class="text-gray-600 dark:text-gray-300">Edge to nearest line</dt><dd class="tabular-nums"><%= @shot.line_mm ? "#{@shot.line_mm.round(2)} mm" : "–" %></dd>
-            <dt class="text-gray-600 dark:text-gray-300">Picked up by</dt><dd><%= @shot.trigger == "sound" ? "sound (+#{@shot.sound_db&.round} dB)" : @shot.trigger %></dd>
-            <dt class="text-gray-600 dark:text-gray-300">Region</dt><dd class="tabular-nums"><%= (@shot.region || {})["dia_mm"]&.round(1) %> mm across</dd>
-            <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
+            <% if @shot.pinpointed? %>
+              <dt class="text-gray-600 dark:text-gray-300">Placed by</dt>
+              <dd>you, by hand (<%= @shot.unscored_reason.presence || "not scored by the engine" %>), <%= @shot.pinpointed_at.strftime("%b %-d, %H:%M") %></dd>
+            <% else %>
+              <dt class="text-gray-600 dark:text-gray-300">Picked up by</dt><dd><%= @shot.trigger == "sound" ? "sound (+#{@shot.sound_db&.round} dB)" : @shot.trigger %></dd>
+              <dt class="text-gray-600 dark:text-gray-300">Region</dt><dd class="tabular-nums"><%= (@shot.region || {})["dia_mm"]&.round(1) %> mm across</dd>
+              <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
+            <% end %>
           </dl>
         <% end %>
       </div>

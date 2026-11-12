@@ -53,9 +53,13 @@ class RigCheck::LiveProcess
         broadcast(user, state, nil)
       end
 
+      # Morphed, not swapped: only what changed is touched, so the camera
+      # check's picture keeps showing the last frame until the next has loaded
+      # (a swapped <img> starts empty every second: flicker and the page jumping).
       def push(user, target, component)
         Rails.application.executor.wrap do
-          Turbo::StreamsChannel.broadcast_replace_to([ user, :setup ], target:, renderable: component, layout: false)
+          Turbo::StreamsChannel.broadcast_replace_to([ user, :setup ], target:, renderable: component, layout: false,
+                                                     attributes: { method: :morph })
         end
       end
   end

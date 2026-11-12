@@ -1,0 +1,7 @@
+<%# Plotted: the dialog shows the result for a moment and closes itself. %>
+<%= turbo_frame_tag "plot" do %>
+  <div class="p-5" data-plot-done>
+    <p class="text-lg font-semibold">Scored <%= format("%.1f", @shot.decimal_score) %> · ring <%= @shot.ring %> · <%= @shot.direction %></p>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Card <%= @shot.card.number %>, shot <%= @shot.number %> - scored by you.</p>
+  </div>
+<% end %>

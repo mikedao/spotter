@@ -18,6 +18,25 @@ RSpec.describe "Announcer on the range screen" do
 
   after { FileUtils.rm_f(wav) }
 
+  it "is on by default, and stays off once turned off (on this device)" do
+    session = create(:practice_session, user:, status: "shooting")
+    allow(EngineRunner).to receive(:reconcile!)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    visit new_session_path
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
+    click_button "Sign in"
+    visit practice_session_path(session)
+
+    expect(page).to have_css("button", text: /Sound on|Tap anywhere for sound/)
+    find("h1").click   # a tap anywhere starts it
+    expect(page).to have_button("🔊 Sound on")
+    click_button "🔊 Sound on"
+    expect(page).to have_button("🔇 Sound off")
+    visit practice_session_path(session)
+    expect(page).to have_button("🔇 Sound off")   # remembered
+  end
+
   it "plays an announcement once sound is on, fetching each piece" do
     session = create(:practice_session, user:, status: "shooting")
     allow(EngineRunner).to receive(:reconcile!)
@@ -31,7 +50,8 @@ RSpec.describe "Announcer on the range screen" do
     click_button "Sign in"
     visit practice_session_path(session)
 
-    click_button "🔇 Sound off"
+    # On by default; the browser may still want its first tap.
+    click_button "🔈 Tap anywhere for sound" if page.has_button?("🔈 Tap anywhere for sound", wait: 1)
     expect(page).to have_button("🔊 Sound on")
 
     # What a Turbo broadcast appends (Announcement#deliver!).
@@ -64,7 +84,7 @@ RSpec.describe "Announcer on the range screen" do
     click_button "Sign in"
     visit practice_session_path(session)
 
-    click_button "🔇 Sound off"
+    click_button "🔈 Tap anywhere for sound" if page.has_button?("🔈 Tap anywhere for sound", wait: 1)
     click_button "💬 Quiet"
     expect(page).to have_button("💬 Chatty")
     expect(user.reload.chatty).to be(true)
