@@ -1,0 +1,20 @@
+<%# The live range screen's plot panel (a dialog, plot_dialog_controller.js): this
+    capture's after picture to tap, without leaving the range screen. %>
+<%= turbo_frame_tag "plot" do %>
+  <div class="p-4 sm:p-5">
+    <div class="mb-1 flex items-start justify-between gap-3">
+      <h2 class="text-lg font-semibold">Card <%= @shot.card.number %>: shot not scored</h2>
+      <button type="button" data-action="plot-dialog#close" aria-label="Close"
+              class="-mr-2 -mt-1 grid size-9 cursor-pointer place-items-center rounded-md opacity-70 hover:opacity-100">✕</button>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-300">The engine said: <%= @shot.unscored_reason %>.</p>
+    <% if @error %>
+      <p role="alert" class="mt-3 rounded-md bg-red-50 px-3 py-2 text-red-900 dark:bg-red-950 dark:text-red-200">Couldn't score it: <%= @error %>.</p>
+    <% end %>
+    <% if @shot.after_image.attached? %>
+      <%= render("shots/pinpoint_form", shot: @shot, hint: "Fine-tune later from the shot's page if you need to.") %>
+    <% else %>
+      <p class="mt-3">There's no picture to plot it on.</p>
+    <% end %>
+  </div>
+<% end %>

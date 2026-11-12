@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_050000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_060000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -170,6 +170,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_050000) do
     t.integer "series"
     t.integer "match_number"
     t.string "penalty"
+    t.datetime "pinpointed_at"
     t.index ["card_id", "number"], name: "index_shots_on_card_id_and_number"
     t.index ["card_id"], name: "index_shots_on_card_id"
     t.index ["engine_shot_id"], name: "index_shots_on_engine_shot_id"

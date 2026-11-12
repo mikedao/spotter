@@ -233,6 +233,48 @@ def cmd_locate(a):
     print("  Check the yellow rings sit on the printed ones.\n")
 
 
+def cmd_pinpoint(a):
+    """
+    `pinpoint --image AFTER [--before BEFORE] --px X Y --out DIR`: the web app's
+    "score it by hand" for a capture the engine could not score. The shooter
+    tapped the hole at pixel (X, Y) of the saved after frame; the target is
+    located in THAT frame (perspective + lens, as for every shot) and the tap
+    becomes target mm. Writes the straightened close-ups (closeup_before.jpg /
+    closeup_after.jpg, as a scored shot has) to DIR. One JSON line on stdout:
+    {"found": true, "x_mm", "y_mm", "closeup": {...}} or {"found": false, "reason"}.
+    """
+    import contextlib
+    import io
+    import json
+    from report import closeup, jpeg
+    spec = SPECS[a.target]
+
+    def frame(path):
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return None, None
+        img = img.astype(np.float32)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return img, establish(img, spec, verbose=False)[0]
+
+    after, tf = frame(a.image)
+    if tf is None:
+        print(json.dumps({"found": False, "reason": "could not locate the target in the picture"}))
+        return
+    x_mm, y_mm = (float(v) for v in tf.to_mm(a.px[0], a.px[1]))
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    centre = (x_mm, y_mm)
+    (out / "closeup_after.jpg").write_bytes(jpeg(closeup(after, tf, centre)))
+    if a.before:
+        before, tf_b = frame(a.before)
+        if tf_b is not None:
+            (out / "closeup_before.jpg").write_bytes(jpeg(closeup(before, tf_b, centre)))
+    print(json.dumps({"found": True, "x_mm": round(x_mm, 3), "y_mm": round(y_mm, 3),
+                      "closeup": {"centre": [round(x_mm, 3), round(y_mm, 3)],
+                                  "px_per_mm": 20.0, "size_px": 480}}))
+
+
 def _locate_json(a, spec):
     """
     `locate --json [--overlay PATH]`: the camera check for the web app's rig
@@ -1949,6 +1991,14 @@ def main():
     _stop_signals()
     p = argparse.ArgumentParser(description="Phase 1 - self-locating scorer")
     sub = p.add_subparsers(dest="cmd", required=True)
+    pp = sub.add_parser("pinpoint", help="a tapped pixel of a saved frame -> target mm "
+                                         "(the web app's hand-scoring of a capture)")
+    pp.set_defaults(func=cmd_pinpoint)
+    pp.add_argument("--target", choices=sorted(SPECS), default="pistol")
+    pp.add_argument("--image", required=True, help="the after frame (PNG)")
+    pp.add_argument("--before", default=None, help="the before frame, for its close-up")
+    pp.add_argument("--px", type=float, nargs=2, required=True, metavar=("X", "Y"))
+    pp.add_argument("--out", required=True, help="where to write the close-ups")
     for name, fn, h in (("locate", cmd_locate, "show the derived geometry"),
                         ("score", cmd_score, "find and score holes"),
                         ("shot", cmd_shot, "before/after: score the new hole"),

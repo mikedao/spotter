@@ -35,6 +35,13 @@ class LivePanelComponent < ApplicationComponent
   def spec = @session.target_spec
   def earlier_cards = @card ? @session.cards.to_a - [ @card ] : []
 
+  # The card's most recent capture, when it wasn't scored and can still be
+  # plotted (it has a picture): the range screen offers to plot it.
+  def unplotted_capture
+    last = shots.max_by(&:fired_at)
+    last if last&.unscored? && last.after_image.attached? && @session.live?
+  end
+
   # The latest shot's arrow: CSS degrees clockwise from pointing right (screen y
   # is down, target y is UP), or nil when the shot reads "center" (a dot instead).
   def direction_angle(shot)

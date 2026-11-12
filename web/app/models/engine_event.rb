@@ -61,12 +61,24 @@ class EngineEvent
       session
     end
 
+    # A shot the shooter just PLOTTED by hand (a capture the engine couldn't
+    # score) may be found by the engine's camera check moments later - the hole
+    # was there, only missed at the time. Within TWIN_MM of the plotted one, on
+    # the same card, found by the camera (a new shot comes with a sound): the
+    # same shot - the engine's measurement replaces the plot, no second shot.
+    TWIN_MM = 3.0
+    TWIN_WITHIN = 15.minutes
+
     def apply_shot(session)
       card = session.card_for_new_shot(at:)
-      shot = card.shots.find_or_initialize_by(engine_shot_id: data["engine_shot_id"].presence)
-      course = course_fields(session, shot)
+      id = data["engine_shot_id"].presence
+      shot = card.shots.find_by(engine_shot_id: id) if id
+      twin = shot.nil? && plotted_twin(card)
+      shot ||= twin || card.shots.new(engine_shot_id: id)
+      course = twin ? {} : course_fields(session, shot)   # a twin keeps its place in the order
       shot.assign_attributes(
-        status: "scored", fired_at: at, number: shot.number || card.next_shot_number,
+        engine_shot_id: id, pinpointed_at: (twin ? nil : shot.pinpointed_at),
+        status: "scored", fired_at: twin ? shot.fired_at : at, number: shot.number || card.next_shot_number,
         trigger: data["trigger"], sound_db: data["sound_db"],
         x_mm: data["x_mm"], y_mm: data["y_mm"], r_mm: data["r_mm"],
         decimal_score: data["decimal"], ring: data["ring"], inner_ten: data["inner_ten"] || false,
@@ -79,6 +91,13 @@ class EngineEvent
       attach_images(shot)
       session.show_status!("shooting")
       shot
+    end
+
+    def plotted_twin(card)
+      return if data["trigger"] == "sound" || data["x_mm"].nil?
+
+      card.shots.where(engine_shot_id: nil, status: "scored").where(pinpointed_at: TWIN_WITHIN.ago..)
+          .detect { Math.hypot(it.x_mm.to_f - data["x_mm"].to_f, it.y_mm.to_f - data["y_mm"].to_f) <= TWIN_MM }
     end
 
     # Where the shot fell in a match or final (nil fields in practice). The

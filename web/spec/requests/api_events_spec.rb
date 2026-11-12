@@ -91,6 +91,22 @@ RSpec.describe "Engine events API" do
     expect(PracticeSession.count).to eq 1
   end
 
+  it "takes the engine's later find of a just-plotted shot as the same shot, not a second one" do
+    card = create(:card, practice_session: session, number: 1)
+    plotted = create(:shot, card:, number: 1, engine_shot_id: nil, x_mm: -9.0, y_mm: 3.0, ring: 9, decimal_score: 9.3,
+                            pinpointed_at: 1.minute.ago, fired_at: 2.minutes.ago)
+    post_event("shot", shot_data("080", -8.2, 3.5, trigger: "camera", ring: 9, decimal: 9.4))   # its hole, found by the camera
+    expect(card.shots.count).to eq 1
+    expect(plotted.reload).to have_attributes(engine_shot_id: "080", x_mm: -8.2, pinpointed_at: nil, number: 1)
+  end
+
+  it "keeps a new shot that lands next to a plotted one: it came with a sound" do
+    card = create(:card, practice_session: session, number: 1)
+    create(:shot, card:, number: 1, engine_shot_id: nil, x_mm: -9.0, y_mm: 3.0, pinpointed_at: 1.minute.ago, fired_at: 2.minutes.ago)
+    post_event("shot", shot_data("081", -8.0, 3.0, trigger: "sound"))
+    expect(card.shots.count).to eq 2
+  end
+
   it "hands an announcement to the range screen without redrawing it" do
     allow(Announcement).to receive(:new).and_call_original
     allow(LiveBroadcast).to receive(:new).and_call_original

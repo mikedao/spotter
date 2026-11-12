@@ -33,7 +33,10 @@ Rails.application.routes.draw do
     resource :report, only: :show   # the session as a printable report (Save as PDF)
     resources :cards, only: :show, param: :number   # any card of the session, its shots deletable
   end
-  resources :shots, only: %i[ show update destroy ]
+  resources :shots, only: %i[ show update destroy ] do
+    post :pinpoint, on: :member   # score a capture by tapping its hole
+    get :plot, on: :member        # ...in a panel over the live range screen
+  end
 
   # The journal: trends across sessions, against the shooter's goal.
   resource :journal, only: %i[ show update ] do

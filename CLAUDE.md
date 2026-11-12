@@ -141,7 +141,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --all     # (and `samples` for the picker)
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 215 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 222 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -297,6 +297,32 @@ from there). The user commits; don't commit unless asked.
   back to the session; if all were already called, it steps on in order.
   `after_save` must be asked BEFORE `record_call!`. Shot page shows "Shot N of M"
   and previous/next links.
+- **Scoring a capture by hand** (2026-11-12): an unscored capture's page shows its
+  after picture - tap the hole, "Score this hole". `ShotPinpoint` runs the ENGINE's
+  `phase1.py pinpoint --image AFTER --before BEFORE --px X Y --out DIR` (locates
+  the target in THAT frame, perspective + lens; the tap -> target mm; writes the
+  straightened close-ups), then `Shot#score_by_hand!`: scored by the Ruby
+  `TargetSpec` (pellet rule), placed in FIRING ORDER (later shots on the card
+  renumber; in a match it takes the stage of the shot before it and the next
+  competition number, later ones renumbered), `pinpointed_at` set = "scored by
+  you" (badge; the shot page says "Placed by you, by hand"). Fine-tune with the
+  usual call circle. Verified: a round trip on real shot 044 came back within
+  0.001 mm; a real-Chrome tap on its picture scored 6.5 like the engine (0.1 mm,
+  click precision on the downsized picture). Not built: adding a shot the system
+  never saw at all (no capture).
+  MID-SESSION (the shooter: "it says not scored - can I simply plot a shot?"): the
+  live range screen's latest panel shows "Shot not scored - Plot it ->" (and
+  "Not scored" rows in the list link the same way); it loads the capture into a
+  `<dialog>`'s turbo-frame (`ShotsController#plot`, `plot_dialog_controller.js`)
+  OVER the range screen - never leave the page, or the sound stops. Scored, the
+  frame shows the result and the dialog closes itself; the panels update, the
+  announcer reads it ("shot 4. 9.3, shot a touch low": `Announcement.for_shot`,
+  worded as the engine words a shot) and chatty mode comments. NO DOUBLE COUNT:
+  the engine kept its baseline, so its camera check may still find that hole
+  later - an engine shot within `EngineEvent::TWIN_MM` (3 mm) of a shot plotted
+  on that card in the last 15 min, found by the CAMERA (a new shot comes with a
+  sound), updates the plotted shot instead of adding one. Camera-only sessions
+  (no mic) could in theory merge a genuinely new shot within 3 mm of a plot.
 - **Deleting a shot** (shot page, with a confirm; 2026-11-12): `Shot#remove!` -
   pictures and call go, and EVERYTHING after it renumbers (the shooter: "always
   renumber"): card numbers, and in a match / final the competition numbers, with
@@ -511,8 +537,12 @@ Built and committed:
   `Announcement` (Rails) drops diagnostic sentences unless
   `users.diagnostic_announcements` (Settings, "What the announcer says"; off by
   default) and Turbo-APPENDS it to `#announcements`; `announcement_controller.js`
-  hands it to `announcer_controller.js` (`AnnouncerComponent`, the "Sound off /
-  Sound on" button beside Stop - outside every broadcast part): one at a time, a
+  hands it to `announcer_controller.js` (`AnnouncerComponent`, the Sound button
+  beside Stop - outside every broadcast part; ON BY DEFAULT, turned off it is
+  remembered per device in localStorage; browsers play only after a tap or key
+  press on the page - arriving via the app's own Start usually counts (Turbo keeps
+  the document), else "Tap anywhere for sound" and the first tap/key anywhere
+  starts it, keeping only the latest announcement meanwhile): one at a time, a
   WebAudio tone (made in JS - no Apple sound files in a public repo; none for
   "ro"), then each piece fetched from `GET /voices/:id/piece?text=` and
   scheduled gap-exact. No Kokoro on the server -> the browser's own voice.

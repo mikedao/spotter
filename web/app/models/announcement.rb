@@ -7,6 +7,25 @@
 #
 #   Announcement.new(session, data).deliver!
 class Announcement
+  # A shot the shooter plotted by hand, read like the engine reads a shot:
+  # "shot 4. 9.3, shot a touch low" (phase1._spoken / _spoken_direction).
+  def self.for_shot(shot)
+    lead = shot.sighter? ? "sighter" : "shot #{shot.match_number || shot.number}"
+    words = [ format("%.1f", shot.final_decimal), spoken_direction(shot) ]
+    words << "inner ten" if shot.final_inner_ten?
+    new(shot.practice_session, { "kind" => "ok", "plain_kind" => "ok",
+                                 "sentences" => [ { "pieces" => [ lead ] }, { "pieces" => words } ] })
+  end
+
+  # "shot a touch low" (rings 10-9), "shot low" (8-7), "shot well low" (6 or worse).
+  def self.spoken_direction(shot)
+    direction = shot.direction
+    return "center" if direction.nil? || direction == "center"
+
+    ring = shot.final_ring.to_i
+    "shot #{ring >= 9 ? 'a touch ' : (ring >= 7 ? '' : 'well ')}#{direction}"
+  end
+
   def initialize(session, data)
     @session = session
     @data = data || {}

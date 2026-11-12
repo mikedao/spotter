@@ -3,7 +3,10 @@
 # row opens the shot's review page.
 class ShotListComponent < ApplicationComponent
   # deletable: a Delete button on each row (the card page), back to that page after.
-  def initialize(shots:, title: "Shots", deletable: false) = (@shots, @title, @deletable = shots, title, deletable)
+  # plot: a capture that wasn't scored opens the live range screen's plot panel.
+  def initialize(shots:, title: "Shots", deletable: false, plot: false)
+    @shots, @title, @deletable, @plot = shots, title, deletable, plot
+  end
 
   def call
     render(CardComponent.new(title: @title)) do
@@ -21,7 +24,9 @@ class ShotListComponent < ApplicationComponent
     def row(shot)
       tag.li(class: "flex items-center") do
         safe_join([
-          link_to(shot_path(shot), class: "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
+          link_to(plot?(shot) ? helpers.plot_shot_path(shot) : shot_path(shot),
+                  data: (plot?(shot) ? { turbo_frame: "plot" } : {}),
+                  class: "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
             shot.scored? ? scored_row(shot) : unscored_row(shot)
           end,
           (delete_button(shot) if @deletable)
@@ -50,17 +55,21 @@ class ShotListComponent < ApplicationComponent
       ])
     end
 
+    def plot?(shot) = @plot && shot.unscored? && shot.after_image.attached?
+
     def unscored_row(shot)
       safe_join([
         tag.span("–", class: "w-8 text-gray-600 dark:text-gray-300"),
         tag.span("Not scored", class: "font-medium text-amber-700 dark:text-amber-300"),
-        tag.span(shot.unscored_reason, class: "text-sm text-gray-600 dark:text-gray-300")
-      ])
+        tag.span(shot.unscored_reason, class: "text-sm text-gray-600 dark:text-gray-300"),
+        (tag.span("Plot it →", class: "ml-auto text-sm font-medium text-amber-700 underline dark:text-amber-300") if plot?(shot))
+      ].compact)
     end
 
     def badges(shot)
       list = []
       list << badge("sighter", "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200") if shot.sighter?
+      list << badge("scored by you", "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200") if shot.pinpointed?
       list << badge("#{shot.penalty} - scores 0", "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200") if shot.penalized?
       list << badge("called #{shot.call_ring}", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200") if shot.called?
       shot.flags.each { list << badge(it, "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200") } unless shot.called?
