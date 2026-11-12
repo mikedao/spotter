@@ -76,7 +76,7 @@ for the next; neither check runs during a session.
 (play buttons for a sample of real announcements; `public/voice-samples`), turns
 *diagnostic mode* on or off (off: after a shot only its number, score and
 direction; on: also line calls, overlaps, shots found without a sound...) and
-*chatty mode* (commentary: streaks, bests, patterns, pace, a summary every 10
+*chatty mode* (commentary: streaks, bests, patterns, a summary every 10
 shots and after a match; also a button on the range screen). The range screen
 plays the announcements in the browser (tap "Sound off" once per visit). Every
 piece the engine says is in git (`public/voice-pieces`, all 19 voices); chatty

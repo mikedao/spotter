@@ -22,7 +22,8 @@
                         <%= "disabled" unless available? %>>▶</button>
                 <label class="flex min-h-11 flex-1 cursor-pointer items-center gap-2 pr-3">
                   <%= f.radio_button :voice, v.id, checked: v.id == chosen.id, class: "accent-blue-600" %>
-                  <span><span class="font-medium"><%= v.name %></span> <span class="text-sm text-gray-600 dark:text-gray-300"><%= v.gender %></span></span>
+                  <span><span class="font-medium"><%= v.name %></span> <span class="text-sm text-gray-600 dark:text-gray-300"><%= v.gender %></span>
+                    <% if built_in?(v) %><span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" title="Chatty mode's remarks are built in: no delay">💬 built in</span><% end %></span>
                 </label>
               </div>
             <% end %>
@@ -35,4 +36,35 @@
       <span class="text-sm text-gray-600 dark:text-gray-300" data-voice-preview-target="status" aria-live="polite"></span>
     </div>
   <% end %>
+
+  <div id="chatty_readiness" class="mt-4 border-t border-gray-200 pt-4 text-sm dark:border-gray-800">
+    <h3 class="mb-1 font-medium">Chatty mode in <%= chosen.name %></h3>
+    <% if built_in?(chosen) %>
+      <p class="text-gray-600 dark:text-gray-300">All of chatty mode's remarks are built into <%= chosen.name %>: they play straight away.</p>
+    <% else %>
+      <p class="mb-2 text-gray-600 dark:text-gray-300">
+        <% if built_in_names.any? %>Chatty mode's remarks are built into <%= built_in_names.to_sentence %> only.<% end %>
+        In other voices each remark is made on the fly the first time it is said, which takes a second or more and
+        can hold up the announcer mid-session. Prepare them once and they play without a delay from then on.
+      </p>
+      <% if readiness.complete? %>
+        <p class="text-emerald-800 dark:text-emerald-300">✓ All <%= number_with_delimiter(readiness.total) %> remarks are prepared in <%= chosen.name %>.</p>
+      <% elsif preparing? %>
+        <p class="text-gray-900 dark:text-gray-100">
+          Preparing in the background: <%= number_with_delimiter(readiness.ready) %> of <%= number_with_delimiter(readiness.total) %> ready
+          (about <%= pluralize(readiness.minutes_left, "minute") %> left). <%= link_to "Check again", settings_path(anchor: "chatty_readiness"), class: "underline" %>
+        </p>
+      <% elsif !available? %>
+        <p class="text-amber-900 dark:text-amber-200"><%= number_with_delimiter(readiness.ready) %> of <%= number_with_delimiter(readiness.total) %> ready. Preparing them needs the voices set up on this computer (see above).</p>
+      <% else %>
+        <div class="flex flex-wrap items-center gap-3">
+          <%= render(ButtonComponent.new(href: prepare_voice_path, method: :post, variant: :secondary)) { "Prepare chatty remarks now" } %>
+          <span class="text-gray-600 dark:text-gray-300">
+            <%= number_with_delimiter(readiness.ready) %> of <%= number_with_delimiter(readiness.total) %> ready; the rest takes about
+            <%= pluralize(readiness.minutes_left, "minute") %>, in the background (you can keep using the app).
+          </span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
 <% end %>

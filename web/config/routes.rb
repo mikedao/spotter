@@ -49,7 +49,9 @@ Rails.application.routes.draw do
   get "settings", to: "settings#show", as: :settings
   patch "settings", to: "settings#update"
   patch "settings/chatty", to: "settings#chatty", as: :chatty_setting   # the range screen's Chatty button
-  resource :voice, only: :update
+  resource :voice, only: :update do
+    post :prepare   # render chatty mode's lines in the user's voice now, in the background
+  end
   get "voices/:id/sample", to: "voices#sample", as: :voice_sample
   get "voices/:id/piece", to: "voices#piece", as: :voice_piece   # ?text=shot%204: one announcement piece
 

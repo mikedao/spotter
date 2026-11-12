@@ -205,8 +205,8 @@ moment), with every known voice piece for all 19 voices committed.
 
 **Next:** announcer PERSONALITIES to choose from (each a
 `config/commentary/*.yml`; a picker in Settings). Chatty's lines are in the
-git export for Bella and Nicole only (2026-11-12; 1,935 pieces each with the
-numbers filled in, ~40 min per voice); other voices render them at session
+git export for Bella and Nicole only (2026-11-12; 1,005 pieces each with the
+numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
 Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
 shots); the model trained from reviewed calls; Pi setup.
@@ -554,10 +554,12 @@ Built and committed:
   in a row in the nine or better, three in a row on one side (+ advice), a flyer
   (> 2.5x mean radius from the group), a 7 or worse, an inner ten; every 10
   shots a SUMMARY (card / series total, best today or personal best or up/down
-  on the last, pace vs the journal goal - pistol whole rings only, not finals);
+  on the last);
   a match also "halfway" + total at 30 and "last series" at 50; when the RO's
-  phase is "done", the MATCH SUMMARY (final score, best series, goal reached or
-  {d} short at 60 shots). Lines: `config/commentary/default.yml` (a
+  phase is "done", the MATCH SUMMARY (final score, best series).
+  The JOURNAL GOAL (565) IS NEVER SPOKEN - no pace, no "short of" (the shooter,
+  2026-11-12: it is so far off that hearing the gap is demoralizing; the
+  journal page still shows it). Lines: `config/commentary/default.yml` (a
   PERSONALITY = another file like it; `say` never repeats the last phrasing,
   via Rails.cache). Delivered as an Announcement of kind "chat" (no tone).
   `Commentary.pieces(user)` = every line with numbers filled in, pre-rendered at

@@ -422,16 +422,18 @@ def _next_shot_number():
 
 
 def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
-                prior=()):
+                prior=(), geo=None):
     """
     Score what changed between a baseline and an after frame. Returns a result
     dict, or None if the target could not be found in the after frame.
+    tf, geo: the after frame's geometry if the caller already solved it
+    (establish's two results), so it isn't solved twice.
     """
     from geometry import register, frame_shift_mm, new_light
 
     if verbose:
         print(f"\n{spec.name}")
-    geo = {}
+    geo = geo or {}
     if tf is None:
         tf, geo = establish(after, spec, verbose=verbose)
     if tf is None:
@@ -1167,7 +1169,10 @@ def _shot_auto(a, spec):
         # A real shot changes a hole-sized patch. If large parts of the card
         # changed, something moved (the 2026-11 phantom: a magnet's clang
         # while the shooter, in the baseline frame, was mounting the card).
-        tf_a = locate(after)
+        # Solved ONCE here and handed to _score_pair, which used to solve the
+        # same frame again (~0.5-1 s per shot on a slow laptop).
+        with contextlib.redirect_stdout(io.StringIO()):
+            tf_a, geo_a = establish(after, spec, verbose=False)
         if tf_a is not None and _scene_moving(st["before"], st["tf_b"], after,
                                               tf_a, spec):
             stamp = time.strftime("%H%M%S")  # never silent, never lose frames
@@ -1187,7 +1192,8 @@ def _shot_auto(a, spec):
             return False
         with silent():
             res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
-                              verbose=a.verbose, prior=st["prior"])
+                              tf=tf_a, geo=geo_a, verbose=a.verbose,
+                              prior=st["prior"])
         if res is None:
             time.sleep(0.5)                  # something in the way - retry
             after = cam.grab(a.frames)
@@ -1210,9 +1216,6 @@ def _shot_auto(a, spec):
                 say("fail", "shot not scored")
                 st["last_fail_say"] = time.time()
             return False
-        for tag, img in (("before", st["before"]), ("after", after)):
-            cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
-                        np.clip(img, 0, 255).astype(np.uint8))
         r = res["row"]
         print(f"  >>> card shot {len(st['prior']) + 1}:  "
               f"{r['decimal']}   ring {r['integer']}   "
@@ -1296,6 +1299,11 @@ def _shot_auto(a, spec):
                 "ambiguous": bool(r["ambiguous"]), "overlap": bool(r["overlap"]),
                 "estimates": est, "region": res["region"],
                 "geometry": res["geometry"], "course": cls}, files, at)
+        # The shot's frames, kept for replay: written AFTER the announcement
+        # and the report, so the shooter isn't waiting on two full-size PNGs.
+        for tag, img in (("before", st["before"]), ("after", after)):
+            cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
+                        np.clip(img, 0, 255).astype(np.uint8))
         st["scored"] += 1
         st["before"], st["tf_b"] = after, res["tf"]
         return True

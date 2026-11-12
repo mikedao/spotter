@@ -21,6 +21,61 @@ RSpec.describe "Announcer voice" do
     expect(response.body).to include("Your announcer is now Emma")
   end
 
+  describe "chatty mode's remarks" do
+    let(:pieces) { Commentary.pieces(user) }
+
+    before do
+      allow(Voice).to receive(:available?).and_return(true)
+      allow(Voice).to receive(:preparing?).and_return(false)
+      allow(Voice).to receive(:chatty_built_in?).and_return(false)
+      allow(Voice).to receive(:chatty_built_in?).with("af_bella", anything).and_return(true)
+    end
+
+    it "says which voices have them built in, and offers to prepare the user's own" do
+      allow(Voice).to receive(:chatty_readiness).and_return(Voice::ChattyReadiness.new(ready: 8, total: 1935))
+      get settings_path
+      expect(response.body).to include("💬 built in", "built into Bella only", "made on the fly",
+                                       "Prepare chatty remarks now", "8 of 1,935 ready")
+    end
+
+    it "says nothing needs preparing in a built-in voice" do
+      user.update!(voice: "af_bella")
+      get settings_path
+      expect(response.body).to include("built into Bella: they play straight away")
+      expect(response.body).not_to include("Prepare chatty remarks now")
+    end
+
+    it "shows progress while they are being prepared" do
+      allow(Voice).to receive(:preparing?).and_return(true)
+      allow(Voice).to receive(:chatty_readiness).and_return(Voice::ChattyReadiness.new(ready: 900, total: 1935))
+      get settings_path
+      expect(response.body).to include("Preparing in the background: 900 of 1,935 ready", "11 minutes")
+      expect(response.body).not_to include("Prepare chatty remarks now")
+    end
+
+    it "says when all are prepared" do
+      allow(Voice).to receive(:chatty_readiness).and_return(Voice::ChattyReadiness.new(ready: 1935, total: 1935))
+      get settings_path
+      expect(response.body).to include("All 1,935 remarks are prepared in Heart")
+    end
+
+    it "prepares them in the user's voice, in the background" do
+      allow(Voice).to receive(:prewarm!)
+      user.update!(voice: "bf_emma")
+      post prepare_voice_path
+      expect(Voice).to have_received(:prewarm!).with("bf_emma", extra: pieces)
+      follow_redirect!
+      expect(response.body).to include("Preparing Emma&#39;s chatty remarks")
+    end
+
+    it "refuses when the voices aren't set up" do
+      allow(Voice).to receive(:available?).and_return(false)
+      allow(Voice).to receive(:prewarm!)
+      post prepare_voice_path
+      expect(Voice).not_to have_received(:prewarm!)
+    end
+  end
+
   it "refuses a voice that isn't one of them" do
     patch voice_path, params: { voice: "--help" }
     expect(user.reload.voice).to be_nil

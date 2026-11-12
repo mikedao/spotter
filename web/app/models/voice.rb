@@ -27,6 +27,12 @@ class Voice
     "bm_george" => [ "George", "British", "male" ]
   }.to_h { |id, (name, accent, gender)| [ id, Entry.new(id:, name:, accent:, gender:) ] }.freeze
   DEFAULT = "af_heart"
+  # Chatty mode's lines in one voice: how many play at once (Voice.chatty_readiness).
+  ChattyReadiness = Data.define(:ready, :total) do
+    def complete? = ready >= total
+    def missing = total - ready
+    def minutes_left = (missing * 0.6 / 60).ceil   # ~0.6 s a piece, measured 2026-11-12
+  end
   SAMPLE_TIMEOUT = 90
 
   class Failed < StandardError; end
@@ -112,6 +118,7 @@ class Voice
     # extra: more pieces to have ready (the commentary's lines and numbers).
     def prewarm!(id, extra: [])
       return unless valid?(id) && available?
+      return if preparing?(id)   # one render per voice at a time
 
       list = nil
       if extra.any?
@@ -120,7 +127,31 @@ class Voice
       end
       pid = Process.spawn(render_env, "nice", "-n", "10", python.to_s, "speak.py", "prewarm", "--voice", id.to_s,
                           *([ "--extra", list.to_s ] if list), chdir: dir.to_s, out: File::NULL, err: File::NULL, pgroup: true)
+      pid_file(id).dirname.mkpath
+      pid_file(id).write(pid.to_s)
       Process.detach(pid)
     end
+
+    # A prewarm for this voice still running (Settings shows it as "preparing").
+    def preparing?(id)
+      pid = pid_file(id).read.to_i if pid_file(id).exist?
+      return false unless pid&.positive?
+
+      Process.kill(0, pid)
+      true
+    rescue Errno::ESRCH, Errno::EPERM
+      pid_file(id).delete if pid_file(id).exist?
+      false
+    end
+    def pid_file(id) = cache.join(id.to_s, "prewarm.pid")
+
+    # Chatty mode's lines in this voice: how many can play at once (exported in
+    # git, or already rendered) of all it can say. The rest are rendered the
+    # first time they are said, which delays that remark by a second or more.
+    def chatty_readiness(id, pieces)
+      ChattyReadiness.new(ready: pieces.count { exported_path(id, it).exist? || piece_path(id, it).exist? }, total: pieces.size)
+    end
+    # Voices whose chatty lines are all in git (speak.py export --chatty): instant for everyone.
+    def chatty_built_in?(id, pieces) = pieces.all? { exported_path(id, it).exist? }
   end
 end

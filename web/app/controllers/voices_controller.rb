@@ -10,6 +10,16 @@ class VoicesController < ApplicationController
     redirect_to settings_path(anchor: "voice"), notice: "Your announcer is now #{Voice.find(id).name}. It's used from your next session."
   end
 
+  # Settings' "Prepare chatty remarks now": render chatty mode's lines in the
+  # user's voice in the background, so no remark waits for one to be made.
+  def prepare
+    voice = Voice.for(Current.user)
+    return redirect_to(settings_path(anchor: "voice"), alert: "The voices aren't set up on this computer.") unless Voice.available?
+
+    Voice.prewarm!(voice.id, extra: Commentary.pieces(Current.user))
+    redirect_to settings_path(anchor: "voice"), notice: "Preparing #{voice.name}'s chatty remarks in the background."
+  end
+
   # One piece of an announcement ("shot 4", "9.6") in a voice, for the range
   # screen to play: cached, or rendered on first use. The same text always
   # sounds the same, so the browser may keep it.

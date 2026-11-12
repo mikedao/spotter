@@ -176,6 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_050000) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.string "username", null: false
     t.string "email_address", null: false
     t.string "pin_digest", null: false
     t.datetime "created_at", null: false
@@ -184,7 +185,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_050000) do
     t.string "last_camera"
     t.string "last_mic"
     t.string "voice"
-    t.string "username", null: false
     t.json "goals", default: {}, null: false
     t.boolean "diagnostic_announcements", default: false, null: false
     t.boolean "chatty", default: false, null: false
