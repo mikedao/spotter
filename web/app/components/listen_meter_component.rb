@@ -6,7 +6,7 @@ class ListenMeterComponent < ApplicationComponent
 
   def data = @state&.data || {}
   def level = data["level"]
-  def trigger = data["trigger_db"].to_f.nonzero? || 45.0
+  def trigger = data["trigger_db"].to_f.nonzero? || 62.0
   def scale_max = trigger * 1.4
 
   def phase

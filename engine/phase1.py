@@ -32,8 +32,17 @@ HERE = Path(__file__).resolve().parent
 # 204-370 ms long; other sounds (card change, magnet clang) up to +57 dB but at
 # most 160 ms. Shared by `shot --auto` and `listen` (so the web app's sound check
 # says exactly what would trigger).
-TRIGGER_DB = 45.0
+# A shot's sound must be this far over the room. Set for the LAPTOP's mic at
+# the firing line hearing the GUN (2026-11-12, 20 shots: +67 to +74 dB; cocking,
+# loading and coughs +46 to +57, other sounds up to +59.7, one card change
+# +63.6 - harmless, it finds no hole and says nothing). The Kiyo's mic at the
+# target heard IMPACTS as quiet as +48.5: use --trigger-db 45 for that.
+TRIGGER_DB = 62.0
 TRIGGER_MS = 180.0
+# After a sound trigger with no new hole yet, look this many more times, this
+# far apart, for a frame that arrived late (the Pi stream lags 0.2-1.6 s).
+LATE_LOOKS = 3
+LATE_LOOK_S = 0.6
 # Where shots, logs and pictures are saved. SPOTTER_OUT overrides it, so a demo
 # replay (web: bin/rails spotter:demo) never writes into the real shot log.
 OUT = Path(os.environ["SPOTTER_OUT"]) if os.environ.get("SPOTTER_OUT") else HERE / "out"
@@ -1308,9 +1317,8 @@ def _shot_auto(a, spec):
             emit("unscored", {"reason": "view changed too much (person / card "
                               "moving)", "trigger": trigger},
                  frames(st["before"], after), at)
-            if time.time() - st["last_fail_say"] > 10.0:
-                say("fail", [("not scored", False), ("view moving", True)])
-                st["last_fail_say"] = time.time()
+            # Not announced (the shooter, 2026-11-12: false triggers made a
+            # spoken "not scored" annoying); logged and reported above.
             return False
         with silent():
             res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
@@ -1322,6 +1330,29 @@ def _shot_auto(a, spec):
             with silent():
                 res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
                                   verbose=a.verbose, prior=st["prior"])
+        # Over the Pi's Wi-Fi a frame arrives 0.2-1.6 s after it was TAKEN
+        # (measured 2026-11-12), so the first capture after a sound can still
+        # show the card before the pellet landed: "not scored", then the camera
+        # check found it seconds later. Look again before giving up - no wait
+        # at all when the first capture already has the hole.
+        if trigger == "sound":
+            for _ in range(LATE_LOOKS):
+                if res is not None and res.get("found"):
+                    break
+                time.sleep(LATE_LOOK_S)
+                after = cam.grab(a.frames)
+                tf_l, info_l = locate_info(after)
+                if tf_l is None or _scene_moving(st["before"], st["tf_b"], after, tf_l, spec):
+                    break                    # someone in view: not a late frame
+                geo_l = info_l
+                if not _fit_ok(info_l) or not _same_view(tf_l, st["tf_b"]):
+                    tf_l, geo_l = st["tf_b"], None
+                with silent():
+                    res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
+                                      tf=tf_l, geo=geo_l, verbose=a.verbose,
+                                      prior=st["prior"])
+                if res is not None and res.get("found"):
+                    print("  (found on a later frame - the stream was behind)", flush=True)
         sdir = OUT / "shots"
         if res is None or not res.get("found"):
             stamp = time.strftime("%H%M%S")  # never lose frames
@@ -1334,9 +1365,7 @@ def _shot_auto(a, spec):
                   f"{sdir}/unscored_{stamp}_*.png\n", flush=True)
             emit("unscored", {"reason": why, "trigger": trigger},
                  frames(st["before"], after), at)
-            if time.time() - st["last_fail_say"] > 10.0:   # loop backstop
-                say("fail", "shot not scored")
-                st["last_fail_say"] = time.time()
+            # Not announced - see the movement case above.
             return False
         r = res["row"]
         print(f"  >>> card shot {len(st['prior']) + 1}:  "

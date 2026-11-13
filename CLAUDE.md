@@ -852,6 +852,18 @@ because ISSF awards the higher value when the hole touches the line.
   whether the earlier holes (bright through the diffuser) are still at their
   positions - new card clears the earlier-hole list used by the overlap check.
   Validated on saved frames: same card / same card pre-holes / different card.
+- **The laptop mic at the firing line (the Pi setup, 2026-11-12)** hears the GUN:
+  20 shots +67 to +74 dB; cocking, loading and coughs +46 to +57 (all ">= 180 ms"
+  enough to pass), other sounds to +59.7, a card change +63.6. `TRIGGER_DB` is
+  now **62** (was 45, for the Kiyo hearing impacts as quiet as +48.5 - use
+  `--trigger-db 45` with that mic). "Not scored" is NEVER SPOKEN any more (the
+  shooter: false triggers made it annoying); still logged and reported.
+- **The Pi stream lags 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
+  first capture after a sound could show the card BEFORE the pellet: in one
+  session 13 of 20 shots read "no new hole" and the camera check found them
+  seconds later. After a SOUND with no hole yet, `score_now` looks again
+  (`LATE_LOOKS` 3 x `LATE_LOOK_S` 0.6 s; movement still guarded). Verified with
+  a fake mic + a hole shown 1.4 s late: old code "not scored", new code scored.
 - Never discard queued audio after scoring: a shot fired during scoring would
   be lost. The echo window handles the trap's ringing.
 - The camera stays open in a reader thread (`_LiveCamera`); release it only
