@@ -1591,7 +1591,10 @@ def _shot_auto(a, spec):
                 """A fresh baseline from the card as it sits now (the shooter
                 bumped the camera): the rings follow it. A shot fired since the
                 last baseline and not yet scored would be absorbed - the button
-                is for between shots."""
+                is for between shots.
+                Says "please wait" at once (finding a good fit takes a second or
+                two), then "ready" - or "card off" if the card isn't in view."""
+                say("info", "please wait")
                 frame, tf_new = baseline()
                 if tf_new is None:
                     print("  re-find: the target isn't in view - not changed\n", flush=True)

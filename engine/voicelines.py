@@ -49,7 +49,8 @@ FLAGS = ["line call", "ring uncertain", "overlaps a hole", "rough hole",
          "found without a sound"]
 FIXED = ["ready", "inner ten", "new card please", "card off", "new card",
          "same card", "not scored", "view moving", "shot not scored",
-         "camera connection lost", "geometry warning", "consider a fresh card"]
+         "camera connection lost", "geometry warning", "consider a fresh card",
+         "please wait"]
 MAX_SHOTS = 60
 # A match or final (course.py): a sighter is "sighter"; a shot out of time is
 # flagged "<why>, scores zero".
