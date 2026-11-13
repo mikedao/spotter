@@ -150,7 +150,9 @@ bin/dev                                          # http://localhost:3000, sign u
 
 - **Not in git, copy by hand if wanted:** `engine/out/` (shot log `calls.csv`,
   every shot's before/after frames - the real-shot evidence behind "Known
-  limits", and `engine/out/shots/044-053`, which `bin/rails spotter:demo` replays),
+  limits"; EXCEPT `engine/out/shots/demo/` (044_before + 044-053 after), which
+  `bin/rails spotter:demo` replays: force-added to git (`out/` is ignored, so a
+  new file there needs `git add -f`)),
   `web/storage/*.sqlite3` (users, sessions, the shooter's CALLS - the future
   training set; else start fresh), `web/storage/voices/` (rendered chatty-mode
   lines; regenerate by themselves).
@@ -425,7 +427,7 @@ from there). The user commits; don't commit unless asked.
   (`_stop_signals`). Found when the demo task, started in the background, could
   not stop its engine; without the fix the web app's Stop would silently do
   nothing under any service manager. Verified with an inherited ignore.
-- `bin/rails spotter:demo` replays the real 10-shot card 044-053 through the real
+- `bin/rails spotter:demo` replays the real 10-shot card 044-053 (`engine/out/shots/demo`, in git) through the real
   engine (`camstream.py --playlist`, no mic) into a "Demo" user (`demo` / PIN 1010, or LOGIN=...),
   writing the engine's files to a temp `SPOTTER_OUT` so the real shot log is never
   touched. Default 10 s per image (>= 7 s enforced; 7 s lost shots while Spotlight

@@ -51,8 +51,8 @@ Sign up (a username and a 4-8 digit PIN) and press **New session**.
 
 **No camera or gun handy?** With `bin/dev` running,
 `bin/rails spotter:demo` replays a real ten-shot card through the real engine.
-Sign in as `demo` / PIN `1010` and watch the range screen fill up. (The demo
-needs that card's frames in `engine/out/shots/044-053`, which are not in git.)
+Sign in as `demo` / PIN `1010` and watch the range screen fill up. The card's
+frames are in the repo (`engine/out/shots/demo`).
 
 Start `bin/dev` from a terminal (or VS Code) that has macOS **camera and
 microphone** permission (System Settings > Privacy & Security); the engine

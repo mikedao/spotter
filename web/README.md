@@ -93,13 +93,13 @@ stored but not used to sign in. Forgotten PIN (the app sends no email):
 which some shells set themselves).
 
 To see it work without a camera or a gun: with `bin/dev` running,
-`bin/rails spotter:demo` replays a real ten-shot card (engine/out/shots/044-053)
+`bin/rails spotter:demo` replays a real ten-shot card (engine/out/shots/demo, in git)
 through the real engine - open the link it prints (sign in as
 `demo`, PIN `1010`, or pass `LOGIN=<your username>` to use your own account) and watch the range screen fill up live. Its shots go to a temporary
 folder, never the real shot log.
 
 To test without a camera: `cd ../engine && ./.venv/bin/python camstream.py
---image out/shots/053_after.png --port 8090`, then `SPOTTER_CAMERA=http://127.0.0.1:8090/stream
+--image out/shots/demo/053_after.png --port 8090`, then `SPOTTER_CAMERA=http://127.0.0.1:8090/stream
 SPOTTER_MIC=MacBook bin/dev`.
 
 From your phone on the same Wi-Fi: start the web app with

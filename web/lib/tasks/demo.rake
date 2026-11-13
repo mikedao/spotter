@@ -15,9 +15,10 @@ namespace :spotter do
     $stdout.sync = true
     engine = EngineRunner.engine_dir
     shots = (44..53).map { format("%03d", it) }
-    frames = [ engine.join("out/shots/044_before.png") ] + shots.map { engine.join("out/shots/#{it}_after.png") }
+    demo = engine.join("out/shots/demo")
+    frames = [ demo.join("044_before.png") ] + shots.map { demo.join("#{it}_after.png") }
     missing = frames.reject(&:exist?)
-    abort "The demo replays engine/out/shots/044-053, which aren't here: #{missing.first}" if missing.any?
+    abort "The demo replays engine/out/shots/demo (shots 044-053), which aren't here: #{missing.first}" if missing.any?
 
     user = if ENV["LOGIN"].present?
       User.find_by!(username: ENV["LOGIN"].strip.downcase)
