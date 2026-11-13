@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update diary stop start_match refind resume destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -60,6 +60,17 @@ class PracticeSessionsController < ApplicationController
   # load - that would stop the sound; the status line and "ready" answer it.
   def refind
     EngineRunner.refind!(@session) ? head(:no_content) : head(:conflict)   # 409: an engine too old for it
+  end
+
+  # "Pause scoring" / "Resume scoring": change cards without false shots. The
+  # engine ignores sounds and camera checks while paused; on resume it takes a
+  # fresh baseline and works out same card or new. No page load (the sound).
+  def pause_scoring
+    EngineRunner.pause!(@session) ? head(:no_content) : head(:conflict)   # 409: not running, or too old
+  end
+
+  def resume_scoring
+    EngineRunner.resume_scoring!(@session) ? head(:no_content) : head(:conflict)
   end
 
   # Continue a finished practice session from today: the engine starts again on

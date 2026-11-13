@@ -12,7 +12,9 @@ class PracticeSession < ApplicationRecord
 
   # What the range screen's status line says; set from the engine's events.
   # "stopping" = Stop was pressed; the engine makes its final check, then ends.
-  STATUSES = %w[ starting ready card_off new_card shooting stopping ended ].freeze
+  # "paused" = "Pause scoring" (changing cards: nothing is scored); "resuming" =
+  # Resume pressed, the engine is finding the card again.
+  STATUSES = %w[ starting ready card_off new_card shooting paused resuming stopping ended ].freeze
 
   validates :engine_session_id, presence: true, uniqueness: true
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }

@@ -853,6 +853,19 @@ because ISSF awards the higher value when the hole touches the line.
   >= 1000 ring points; set on all 328 saved frames: genuine <= 0.32 mm from >=
   3071 points, misfits 0-132 points / no perspective), else the best. After a
   shot, an after frame that fits poorly also uses the baseline's geometry.
+- **"⏸ Pause" / "▶ Resume" scoring** (range screen, 2026-11-13; the shooter: change
+  cards without false shots): `EngineRunner.pause!` -> SIGTSTP, `resume_scoring!` ->
+  SIGCONT (status `paused` / `resuming`, set at once and broadcast; the engine
+  confirms with a `paused` event). Paused = sounds "ignored: paused", NO camera
+  checks. Resume = a fresh verified baseline + `_same_card`: same card (or no
+  holes yet) -> a hole against the OLD baseline is scored first (fired before
+  or during the pause - else the new baseline would swallow it), then "same card,
+  ready"; else "new card, ready"; no card in view -> "card off" and the card-back
+  flow. Button only for an engine whose log says "pause scoring: SIGTSTP" (an older
+  one would be SUSPENDED). Ctrl+Z in a terminal run pauses too. Header labels are
+  short ("⌖ Re-find", "■ Stop") so it fits the 1322x729 layout spec. Verified on the
+  demo card through camstream: hole shown while paused -> nothing scored; resume
+  -> scored 6.5 (= demo shot 044).
 - **"⌖ Re-find target"** (range screen, beside Stop; the shooter bumps the camera
   sometimes): `EngineRunner.refind!` -> SIGUSR2 -> the engine takes a new verified
   baseline from the card as it sits now and says "ready". Only sent to an engine

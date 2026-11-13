@@ -49,6 +49,7 @@ y UP**.
 | `session_started` | `target` ("pistol" / "rifle"), `rule` ("pellet" / "visible" / "gauge"), `course` (null = practice, or "match" / "final" / "ranking") |
 | `ready` | — |
 | `card_off` | — |
+| `paused` | — ("Pause scoring": the engine ignores sounds and camera checks until resumed, then sends `ready`, `new_card`, `card_off` or a `shot` - a hole fired before the pause, scored first) |
 | `new_card` | — |
 | `shot` | see below. Sent WITHOUT pictures, at once |
 | `shot_images` | `engine_shot_id`; the shot's pictures (`before_image`, `after_image`, `closeup_before`, `closeup_after`), sent after it. Attached to that shot; no broadcast |

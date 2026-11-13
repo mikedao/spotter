@@ -1213,6 +1213,13 @@ def _shot_auto(a, spec):
     # The web app sends SIGUSR2 only to an engine that printed this (an older
     # one would be killed by it).
     print("  re-find target: SIGUSR2", flush=True)
+    # "Pause scoring" (the web app's button, to change cards without false
+    # shots): SIGTSTP pauses - sounds ignored, no camera checks - and SIGCONT
+    # resumes with a fresh baseline (same card or new). Ctrl+Z in a terminal
+    # pauses too, instead of suspending the process.
+    _signal.signal(_signal.SIGTSTP, lambda *_: st.__setitem__("pause", True))
+    _signal.signal(_signal.SIGCONT, lambda *_: st.__setitem__("resume", True))
+    print("  pause scoring: SIGTSTP / SIGCONT", flush=True)
     # The live picture for the web app's range screen (the engine holds the
     # camera, so it serves it): rings from the current baseline drawn on.
     view_srv = None
@@ -1729,6 +1736,62 @@ def _shot_auto(a, spec):
                 emit("ready")
                 say("ready", "ready")
 
+            def pause():
+                """Stop scoring (the shooter is changing the card): sounds are
+                ignored and the camera checks stop until resume()."""
+                st["paused"] = True
+                print("  -- scoring PAUSED (change the card; nothing is scored) --\n",
+                      flush=True)
+                emit("paused")
+                say("info", "scoring paused")
+
+            def resume():
+                """Scoring again: a fresh verified baseline from the card as it
+                sits now, and the card-change decision the camera check makes
+                when a card goes back up (_same_card). On the SAME card, a hole
+                against the old baseline is a shot fired before or during the
+                pause that nothing scored: score it first, rather than letting
+                the new baseline swallow it."""
+                nonlocal last_trig
+                st["paused"] = False
+                say("info", "please wait")
+                # card "off" until the new baseline is in: if the camera drops
+                # out meanwhile, the card-back flow takes over, not the old baseline
+                w.update(card_on=False, misses=0, still=0, cand=None, last=None,
+                         next=time.time() + a.watch)
+                st["dirty"] = False
+                frame, tf_new = baseline()
+                if tf_new is None:
+                    # no card in view yet: the camera check takes it from here
+                    # ("card back" once it is up and still)
+                    print("  -- scoring resumed: the target isn't in view yet --\n",
+                          flush=True)
+                    emit("card_off")
+                    say("info", "card off")
+                    return
+                w["card_on"] = True
+                old_ok = st.get("tf_b") is not None
+                same = (not st["prior"] or not old_ok or
+                        _same_card(st["before"], st["tf_b"], frame, tf_new, st["prior"]))
+                if same and old_ok and new_hole(frame, tf_new) is not None:
+                    last_trig = time.time() - t_audio0
+                    if score_now("camera - no sound heard", trigger="camera", after=frame):
+                        print("  -- scoring resumed (a hole from before the pause "
+                              "was scored first) --\n", flush=True)
+                        return
+                st["before"], st["tf_b"] = frame, tf_new
+                if same:
+                    msg = "same card, ready" if st["prior"] else "ready"
+                    emit("ready")
+                else:
+                    st["prior"].clear()
+                    st["card_no"] += 1
+                    msg = "new card, ready"
+                    emit("new_card")
+                print(f"  -- scoring resumed: {msg} (card {st['card_no']}, "
+                      "new baseline) --\n", flush=True)
+                say("ready", msg)
+
             while True:
                 try:
                     blk = q.get(timeout=0.2)
@@ -1740,12 +1803,21 @@ def _shot_auto(a, spec):
                 if ro is not None and ro.done and time.time() - ro.finished > 3.0:
                     print("\n  course complete.", flush=True)
                     raise KeyboardInterrupt
-                if st.pop("refind", False):
+                if st.pop("pause", False) and not st.get("paused"):
+                    pause()
+                if st.pop("resume", False) and st.get("paused"):
+                    try:
+                        resume()
+                    except CameraLost:
+                        camera_lost()
+                if st.pop("refind", False) and not st.get("paused"):
                     try:
                         refind()
                     except CameraLost:
                         camera_lost()
-                if time.time() >= w["next"] and q.qsize() < 5:
+                if st.get("paused"):
+                    pass        # no camera checks: the card is being changed
+                elif time.time() >= w["next"] and q.qsize() < 5:
                     w["next"] = time.time() + a.watch
                     try:
                         watch()
@@ -1757,7 +1829,8 @@ def _shot_auto(a, spec):
                     # Muting our own announcements only matters if they come
                     # out of a speaker near the camera (--speaker). With
                     # earbuds it only risked muting real shots.
-                    why = ("own announcement"
+                    why = ("paused" if st.get("paused") else
+                           "own announcement"
                            if a.speaker and _muted(st["ann"], t_audio0 + e["t"])
                            else
                            "too quiet" if e["over_db"] < a.trigger_db else

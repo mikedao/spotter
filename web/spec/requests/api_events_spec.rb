@@ -193,6 +193,56 @@ RSpec.describe "Engine events API" do
       FileUtils.rm_f(log)
     end
 
+    it "pauses scoring to change cards, and resumes - without a page load" do
+      log = Rails.root.join("tmp", "engine-pause-spec.log")
+      log.write("  pause scoring: SIGTSTP / SIGCONT\n")
+      session.update!(engine_pid: Process.pid, engine_log: log.to_s, status: "ready")
+      allow(Process).to receive(:kill).and_call_original
+      allow(Process).to receive(:kill).with("TSTP", Process.pid)
+      allow(Process).to receive(:kill).with("CONT", Process.pid)
+      sign_in(session.user)
+
+      get practice_session_path(session)
+      expect(response.body).to include("⏸ Pause", "⌖ Re-find")
+      post pause_scoring_practice_session_path(session)
+      expect(response).to have_http_status(:no_content)
+      expect(Process).to have_received(:kill).with("TSTP", Process.pid)
+      expect(session.reload.status).to eq "paused"
+      post_event("paused")                    # the engine confirms: still paused
+      expect(session.reload.status).to eq "paused"
+      allow(EngineRunner).to receive(:reconcile!)
+      get practice_session_path(session)
+      expect(response.body).to include("Scoring paused", "▶ Resume")
+      expect(response.body).not_to include("⏸ Pause", "⌖ Re-find")
+
+      post resume_scoring_practice_session_path(session)
+      expect(response).to have_http_status(:no_content)
+      expect(Process).to have_received(:kill).with("CONT", Process.pid)
+      expect(session.reload.status).to eq "resuming"
+      post_event("new_card")                  # resumed on a fresh card
+      expect(session.reload).to have_attributes(status: "new_card")
+    ensure
+      FileUtils.rm_f(log)
+    end
+
+    it "never pauses an engine that doesn't understand it (SIGTSTP would suspend it)" do
+      log = Rails.root.join("tmp", "engine-pause-old-spec.log")
+      log.write("  re-find target: SIGUSR2\n")
+      session.update!(engine_pid: Process.pid, engine_log: log.to_s, status: "ready")
+      allow(Process).to receive(:kill).and_call_original
+      expect(EngineRunner.pause!(session)).to be(false)
+      expect(Process).not_to have_received(:kill).with("TSTP", anything)
+      expect(session.reload.status).to eq "ready"
+      expect(EngineRunner.resume_scoring!(session)).to be(false)   # not paused: nothing to resume
+      sign_in(session.user)
+      allow(EngineRunner).to receive(:reconcile!)
+      get practice_session_path(session)
+      expect(response.body).to include("⌖ Re-find")
+      expect(response.body).not_to include("⏸ Pause")             # no button for it either
+    ensure
+      FileUtils.rm_f(log)
+    end
+
     it "ends sighting time early when asked" do
       sign_in(session.user)
       allow(EngineRunner).to receive(:start_match!)

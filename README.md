@@ -79,7 +79,7 @@ The **range screen** then shows the whole card (zoomed as far as your shots
 allow), the latest shot with its direction, this card's shots, the live camera
 picture with rings drawn on, statistics and the shot list. It updates live as
 you shoot. **Stop** makes a last check for an unscored hole and ends the
-session. **Re-find target** recovers after a bumped camera.
+session. **Re-find target** recovers after a bumped camera; **Pause** stops scoring while you change cards (Resume works out same card or new).
 
 In a **match** (60 shots in 75 min after 15 min sighting) or a **final**
 (classic 24-shot or the newer ranking format), a virtual range officer calls

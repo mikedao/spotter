@@ -11,7 +11,7 @@
 class EngineEvent
   class Invalid < StandardError; end
 
-  TYPES = %w[ session_started ready card_off new_card shot shot_images unscored session_ended course announce ].freeze
+  TYPES = %w[ session_started ready card_off new_card paused shot shot_images unscored session_ended course announce ].freeze
   IMAGES = %w[ before_image after_image closeup_before closeup_after ].freeze
 
   attr_reader :type, :session_id, :at, :data, :files
@@ -50,6 +50,7 @@ class EngineEvent
 
     def apply_ready(session) = session.tap { it.show_status!("ready") }
     def apply_card_off(session) = session.tap { it.show_status!("card_off") }
+    def apply_paused(session) = session.tap { it.show_status!("paused") }
 
     def apply_new_card(session)
       session.show_status!("new_card")

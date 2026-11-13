@@ -198,10 +198,38 @@ class EngineRunner
       true
     end
 
-    def understands_refind?(session)
-      log = session.engine_log.presence && Pathname(session.engine_log)
-      log&.file? && log.read.include?("re-find target: SIGUSR2")
+    # "Pause scoring" (SIGTSTP) / "Resume scoring" (SIGCONT), to change cards
+    # without false shots. The header changes at once (LiveBroadcast); the engine
+    # confirms with "paused", then "ready" / "new_card" / "card_off" on resume.
+    # Only to an engine that prints "pause scoring: SIGTSTP" at start: an older
+    # one would be SUSPENDED by SIGTSTP, camera and all.
+    def pause!(session)
+      return false unless alive?(session) && understands_pause?(session) &&
+                          !%w[ paused resuming stopping ].include?(session.status)
+
+      session.update!(status: "paused")
+      LiveBroadcast.new(session).call
+      Process.kill("TSTP", session.engine_pid)
+      true
     end
+
+    def resume_scoring!(session)
+      return false unless alive?(session) && session.status == "paused"
+
+      session.update!(status: "resuming")
+      LiveBroadcast.new(session).call
+      Process.kill("CONT", session.engine_pid)
+      true
+    end
+
+    def understands_pause?(session) = understands?(session, "pause scoring: SIGTSTP")
+
+    def understands?(session, line)
+      log = session.engine_log.presence && Pathname(session.engine_log)
+      log&.file? && log.read.include?(line)
+    end
+
+    def understands_refind?(session) = understands?(session, "re-find target: SIGUSR2")
 
     def alive?(session)
       return false unless session.engine_pid

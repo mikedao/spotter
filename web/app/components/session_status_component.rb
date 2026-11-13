@@ -7,6 +7,8 @@ class SessionStatusComponent < ApplicationComponent
     "shooting" => [ "Ready for the next shot", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" ],
     "card_off" => [ "Card off – put up the next card", "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" ],
     "new_card" => [ "New card – ready", "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" ],
+    "paused" => [ "Scoring paused – change the card, then Resume", "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" ],
+    "resuming" => [ "Resuming – finding the card…", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ],
     "stopping" => [ "Stopping – a last check for an unscored hole…", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ],
     "ended" => [ "Session ended", "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200" ]
   }.freeze
@@ -46,16 +48,36 @@ class SessionStatusComponent < ApplicationComponent
       end
     end
 
-    # Stop, and "Re-find target" for when the camera got bumped: the rings move
+    # Stop; "Pause scoring" to change cards without false shots (Resume while
+    # paused); and "Re-find target" for when the camera got bumped: the rings move
     # to where the card is now (the engine takes a new baseline, then "ready").
     def stop_button
+      paused = @session.status == "paused"
       tag.div(class: "ml-auto flex flex-wrap items-center gap-2") do
         safe_join([
-          render(ButtonComponent.new(href: refind_practice_session_path(@session), method: :post, variant: :secondary,
-                                     title: "Bumped the camera? Find the card again and move the rings to it",
-                                     form: { data: { turbo_submits_with: "Re-finding…" } })) { "⌖ Re-find target" },
-          render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger)) { "Stop session" }
-        ])
+          (pause_button(paused) if !@session.status.in?(%w[ starting resuming ]) && EngineRunner.understands_pause?(@session)),
+          (unless paused || @session.status == "resuming"
+             render(ButtonComponent.new(href: refind_practice_session_path(@session), method: :post, variant: :secondary,
+                                        title: "Bumped the camera? Find the card again and move the rings to it",
+                                        form: { data: { turbo_submits_with: "Re-finding…" } })) { "⌖ Re-find" }
+           end),
+          render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger,
+                                     title: "End the session (a last check for an unscored hole first)")) { "■ Stop" }
+        ].compact)
+      end
+    end
+
+    # Only for an engine that says it can pause (one started before Pause existed
+    # would be SUSPENDED by the signal, so it gets no button).
+    def pause_button(paused)
+      if paused
+        render(ButtonComponent.new(href: resume_scoring_practice_session_path(@session), method: :post,
+                                   title: "The card is up: find it (same card or new) and score again",
+                                   form: { data: { turbo_submits_with: "Resuming…" } })) { "▶ Resume" }
+      else
+        render(ButtonComponent.new(href: pause_scoring_practice_session_path(@session), method: :post, variant: :secondary,
+                                   title: "Changing cards? Nothing is scored until you resume",
+                                   form: { data: { turbo_submits_with: "Pausing…" } })) { "⏸ Pause" }
       end
     end
 

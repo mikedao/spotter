@@ -50,11 +50,11 @@ RSpec.describe "Pages" do
       live = create(:practice_session, user:, status: "ready")
       allow(EngineRunner).to receive(:reconcile!)   # no real engine behind it
       get practice_session_path(live)
-      expect(response.body).to include("Camera", camera_practice_session_path(live), "Stop session")
+      expect(response.body).to include("Camera", camera_practice_session_path(live), "■ Stop")
 
       live.update!(status: "ended", ended_at: Time.current)
       get practice_session_path(live)
-      expect(response.body).not_to include(camera_practice_session_path(live), "Stop session")
+      expect(response.body).not_to include(camera_practice_session_path(live), "■ Stop")
     end
 
     it "relays the engine's live picture, and says 204 when there is none" do

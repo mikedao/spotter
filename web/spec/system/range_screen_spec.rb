@@ -29,10 +29,12 @@ RSpec.describe "Range screen layout" do
                                                         "skippable" => true, "ends_at" => 14.minutes.from_now.iso8601 })
     shoot_a_card(session)
     allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    allow(EngineRunner).to receive(:understands_pause?).and_return(true)   # the widest header: Pause, Re-find, Stop
     sign_in_and_visit(session)
     page.driver.resize(1322, 729)
 
     expect(page).to have_button("Start match")
+    expect(page).to have_button("⏸ Pause")
     bottom = page.evaluate_script("document.querySelector(\"[aria-label='Camera']\").getBoundingClientRect().bottom")
     expect(bottom).to be <= 729
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_match_laptop.png")) if ENV["SCREENSHOTS"]
