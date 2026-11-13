@@ -14,7 +14,7 @@ class AnnouncerComponent < ApplicationComponent
            "dark:border-gray-700 dark:hover:bg-gray-800 dark:aria-pressed:bg-green-950 dark:aria-pressed:text-green-200".freeze
 
   def call
-    tag.div(class: "flex items-center gap-2",
+    tag.div(class: "flex flex-wrap items-center gap-2",
             data: { controller: "announcer", announcer_chatty_value: @session.user.chatty?,
                     announcer_chatty_url_value: helpers.chatty_setting_path }) do
       safe_join([

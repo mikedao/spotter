@@ -6,7 +6,7 @@
       <div>
         <p class="text-sm font-medium text-gray-600 dark:text-gray-300"><%= course.name %> · <%= heading %></p>
         <% if counting? %>
-          <p class="text-5xl font-bold tabular-nums" data-controller="countdown"
+          <p class="text-5xl font-bold tabular-nums short:text-4xl" data-controller="countdown"
              data-countdown-ends-at-value="<%= state["ends_at"] %>"
              data-countdown-warn-value="<%= warn_at.first %>" data-countdown-alarm-value="<%= warn_at.last %>">–:––</p>
         <% end %>

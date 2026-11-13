@@ -1,11 +1,15 @@
 <% content_for :title, @session.title %>
 <%= turbo_stream_from @session %>
 <div class="space-y-3">
+  <%# A phone held sideways (short:): one grid - the target down the left, the full
+      height, and the header and everything else in a column beside it. The inner
+      grids become "contents" so their parts are this grid's items. %>
+  <div class="space-y-3 short:grid short:grid-cols-[auto_minmax(0,1fr)] short:items-start short:gap-x-4 short:gap-y-3 short:space-y-0">
   <%# The header (broadcast, replaced on every event) and, beside it, the live
       announcer's Sound button - outside it, so it keeps playing through every shot,
       and on the header's line so the column below doesn't grow. %>
-  <div class="flex flex-wrap items-start gap-3">
-    <div class="min-w-0 flex-1"><%= render(SessionStatusComponent.new(session: @session)) %></div>
+  <div class="flex flex-wrap items-start gap-3 short:col-start-2 short:row-start-1 short:gap-2">
+    <div class="min-w-0 flex-1 short:basis-full"><%= render(SessionStatusComponent.new(session: @session)) %></div>
     <%= render(AnnouncerComponent.new(session: @session)) %>
   </div>
 
@@ -19,9 +23,9 @@
             class="m-auto w-[min(56rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/60 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
       <turbo-frame id="plot" data-plot-dialog-target="frame"></turbo-frame>
     </dialog>
-    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
+    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center short:contents">
       <%= render(LivePanelComponent.new(session: @session, section: :target)) %>
-      <div id="range_side" class="space-y-3">
+      <div id="range_side" class="space-y-3 short:col-start-2 short:row-start-2">
         <%= render(CoursePanelComponent.new(session: @session)) %>
         <%= render(LivePanelComponent.new(session: @session, section: :latest)) %>
         <%= render(LiveCameraComponent.new(session: @session)) %>
@@ -34,18 +38,19 @@
     <%# Finished: the whole session - every competition shot on one target, the
         result, and every card (each its own page). %>
     <% all = SessionSummary.new(@session).shots %>
-    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
+    <div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center short:contents">
       <div id="session_target" class="<%= LivePanelComponent::TARGET_SIZE %>">
         <%= render(CardComponent.new(padding: :none, class: "relative p-2")) do %>
           <span class="absolute left-4 top-3 text-sm font-semibold text-gray-700">All <%= pluralize(all.size, "shot") %></span>
           <%= render(TargetSvgComponent.new(spec: @session.target_spec, shots: all, in_order: true, label: "All shots in this session")) %>
         <% end %>
       </div>
-      <div id="range_side" class="space-y-3">
+      <div id="range_side" class="space-y-3 short:col-start-2 short:row-start-2">
         <%= render(SessionResultComponent.new(session: @session)) %>
       </div>
     </div>
   <% end %>
+  </div>
 
   <%= render(SessionDiaryComponent.new(session: @session)) %>
   <%= render(SessionGearComponent.new(session: @session)) %>

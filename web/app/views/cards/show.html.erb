@@ -11,7 +11,7 @@
   <% if @next %><%= link_to "Card #{@next} →", practice_session_card_path(@session, @next), class: link %><% end %>
 </nav>
 
-<div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center">
+<div class="grid items-start gap-4 lg:grid-cols-[auto_minmax(0,32rem)] lg:justify-center short:grid-cols-[auto_minmax(0,1fr)]">
   <div class="<%= LivePanelComponent::TARGET_SIZE %>">
     <%= render(CardComponent.new(padding: :none, class: "p-2")) do %>
       <%= render(TargetSvgComponent.new(spec: @session.target_spec, shots: @card.scored_shots, label: "Card #{@card.number}")) %>

@@ -34,9 +34,9 @@ class SessionStatusComponent < ApplicationComponent
   private
     def header
       text, colours = LOOK.fetch(@session.status, LOOK["starting"])
-      tag.div(class: "flex flex-wrap items-center gap-x-4 gap-y-2") do
+      tag.div(class: "flex flex-wrap items-center gap-x-4 gap-y-2 short:gap-x-2") do
         safe_join([
-          tag.h1(@session.title, class: "text-2xl font-semibold"),
+          tag.h1(@session.title, class: "text-2xl font-semibold short:text-lg"),
           tag.div(class: classes("flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium", colours)) do
             safe_join([
               (tag.span(class: "inline-block size-2 animate-pulse rounded-full bg-current") if @session.live?),

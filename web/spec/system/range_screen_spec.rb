@@ -80,4 +80,31 @@ RSpec.describe "Range screen layout" do
     expect(top.()).to be >= 0   # its top edge on screen, not scrolled away
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_live_scrolled.png")) if ENV["SCREENSHOTS"]
   end
+
+  # A phone held sideways (the short: variant): the target down the left, the
+  # whole window's height, staying put while the column beside it scrolls; and
+  # never wider than the screen (the header's buttons used to push it out).
+  [ [ 844, 390 ], [ 667, 375 ] ].each do |w, h|
+    it "puts the target beside everything else on a phone held sideways (#{w}x#{h})" do
+      session = create(:practice_session, user:, status: "shooting")
+      shoot_a_card(session)
+      allow(EngineRunner).to receive_messages(snapshot: nil, understands_pause?: true)
+      sign_in_and_visit(session)
+      page.driver.resize(w, h)
+      page.driver.browser.page.command("Emulation.setDeviceMetricsOverride", width: w, height: h, deviceScaleFactor: 1, mobile: true)
+      visit practice_session_path(session)
+
+      expect(page).to have_css("#live_list")
+      box = -> { page.evaluate_script("(() => { const t = document.getElementById('live_target').getBoundingClientRect(), s = document.getElementById('range_side').getBoundingClientRect(); return { top: t.top, bottom: t.bottom, right: t.right, side: s.left, scroll: document.documentElement.scrollWidth } })()") }
+      b = box.()
+      expect(b["scroll"]).to be <= w
+      expect(b["side"]).to be > b["right"]            # beside it, not below
+      expect(b["bottom"]).to be <= h                    # the whole target in view
+      expect(b["bottom"] - b["top"]).to be >= 0.75 * h  # and it fills the height
+      page.execute_script("document.getElementById('live_list').scrollIntoView(false)")
+      20.times { break if box.()["top"] >= 0; sleep 0.05 }
+      expect(box.()["top"]).to be >= 0                  # still in view, scrolled down
+      page.save_screenshot(Rails.root.join("tmp/screenshots/range_phone_#{w}x#{h}.png")) if ENV["SCREENSHOTS"]
+    end
+  end
 end

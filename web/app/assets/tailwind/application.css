@@ -7,6 +7,10 @@
 /* Dark mode follows the system setting. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
+/* A phone held sideways: wide but short, below the laptop layout (lg). The range
+   screen then puts the target beside everything else, filling the height. */
+@custom-variant short (@media (orientation: landscape) and (max-height: 540px) and (max-width: 1023.98px));
+
 .turbo-progress-bar {
   background: var(--color-blue-600);
   height: 3px;
