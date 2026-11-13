@@ -19,6 +19,6 @@
   </div>
   <div class="space-y-3">
     <%= render(CardStatsComponent.new(stats: @card.stats, title: "Card #{@card.number}")) %>
-    <%= render(ShotListComponent.new(shots: @card.shots.sort_by(&:number), deletable: true)) %>
+    <%= render(ShotListComponent.new(shots: @card.shots.sort_by { [ it.fired_at, it.id ] }, deletable: true)) %>
   </div>
 </div>

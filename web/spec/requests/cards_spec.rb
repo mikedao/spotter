@@ -20,6 +20,14 @@ RSpec.describe "A session's cards" do
     expect(Nokogiri::HTML(response.body).css("button[aria-label^='Delete shot']").size).to eq(3)
   end
 
+  it "shows a card holding an unscored capture (no shot number), in firing order" do
+    create(:shot, card: card1, number: nil, status: "unscored", ring: nil, decimal_score: nil)
+    get practice_session_card_path(session, 1)
+    expect(response).to have_http_status(:ok)
+    get practice_session_report_path(session)
+    expect(response).to have_http_status(:ok)
+  end
+
   it "deletes a shot from the card page and comes back to it" do
     shot = card1.shots.find_by(number: 2)
     delete shot_path(shot, back: "card")

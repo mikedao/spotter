@@ -56,7 +56,7 @@
 
 <%# Each card: its target and its shots. %>
 <% @session.cards.each do |card| %>
-  <% shots = card.shots.sort_by(&:number) %>
+  <% shots = card.shots.sort_by { [ it.fired_at, it.id ] } %>
   <% scored = shots.select(&:scored?) %>
   <% next if shots.empty? %>
   <% st = card.stats %>
