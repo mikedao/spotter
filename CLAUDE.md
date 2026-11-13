@@ -886,7 +886,7 @@ because ISSF awards the higher value when the hole touches the line.
 - A re-baseline after movement must not proceed when the hole it found could
   not be scored (that swallowed the 10th shot); it keeps the old baseline for
   up to 3 tries, then warns.
-- **Card changes are detected** in `--auto`: every `--watch` s (2) between
+- **Card changes are detected** in `--auto`: every `--watch` s (1; was 2 until 2026-11-12, one new frame per check) between
   shots it checks the target is in view. Gone for 2 checks = "card off"; back
   for 2 checks = new baseline, and `_same_card` decides new vs same card by
   whether the earlier holes (bright through the diffuser) are still at their

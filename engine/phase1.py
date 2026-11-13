@@ -1566,7 +1566,9 @@ def _shot_auto(a, spec):
             def watch():
                 """Card present? View still? New hole without a sound?"""
                 nonlocal last_trig
-                frame = cam.grab(2)
+                # ONE new frame: averaging buys nothing, and over the Pi's stream
+                # (~4 fps arrive) waiting for 2 made a check ~1.3 s, not ~0.7 s
+                frame = cam.grab(1)
                 tf_now = locate(frame)
                 if tf_now is None:
                     w["still"], w["cand"], w["last"] = 0, None, None
@@ -2251,8 +2253,13 @@ def main():
                            help="auto: print every sound and full reports")
             s.add_argument("--no-speak", dest="speak", action="store_false",
                            help="auto: no sounds / spoken scores")
-            s.add_argument("--watch", type=float, default=2.0,
-                           help="auto: seconds between card-change checks")
+            # 1 s (was 2, 2026-11-12): with no mic at the target the camera check
+            # finds EVERY shot (two sightings), so this sets how quickly; a check
+            # takes ~0.7 s, so faster would only run them back to back and make
+            # a sound wait for the check in progress.
+            s.add_argument("--watch", type=float, default=1.0,
+                           help="auto: seconds between camera checks (card off/on, "
+                                "movement, a new hole without a sound)")
             s.add_argument("--session-id", default=None,
                            help="auto: the web app's id for this session (it "
                                 "passes this, and SPOTTER_TOKEN, when it starts "
