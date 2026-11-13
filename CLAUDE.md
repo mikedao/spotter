@@ -963,6 +963,10 @@ because ISSF awards the higher value when the hole touches the line.
   light-on run right after pressing its button showed 4x the geometry noise.
 - Frame averaging buys nothing (1-frame and 16-frame are identical), so the
   system is not sensor-noise limited. Single frames are fine and faster.
+  `--frames` now DEFAULTS TO 1 (was 8, 2026-11-12): over the Pi's Wi-Fi only
+  ~4 fps reach the laptop, so waiting for 8 new frames cost 2-3 s on every
+  shot (1 frame: 0.24 s). Each viewer of `spotter.local:8080` shares that
+  bandwidth - close ustreamer's page in the browser during a session.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.

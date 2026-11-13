@@ -2122,7 +2122,11 @@ def main():
         s.add_argument("--device", type=target0.parse_device, default=0,
                        help="camera index, or a stream URL from the Pi at the "
                             "target (http://<pi>:8080/stream)")
-        s.add_argument("--frames", type=int, default=8)
+        # Frames averaged per capture. 1: averaging buys nothing (1 and 16
+        # frames measured identical; jitter ~1 um on the Pi rig), and over the
+        # Pi's Wi-Fi stream (~4 fps reach the laptop) waiting for 8 new frames
+        # took 2-3 s per shot, 1 frame 0.24 s (2026-11-12).
+        s.add_argument("--frames", type=int, default=1)
         s.add_argument("--expect", type=int, default=None)
         s.add_argument("--image", default=None,
                        help="score a saved image instead of the camera")
