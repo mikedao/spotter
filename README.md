@@ -10,14 +10,16 @@ ISSF decimal precision.
 
 ```
   10m Air Pistol
-    aiming mark : ring 7 = 59.5 mm
-    centre      : (960.53, 451.92) px
-    axis ratio  : 0.9911
-    scale       : 0.18035 mm/px
-    edge fit    : 334 points, RMS 0.19 px
+  aiming mark : ring 7 = 59.5 mm
+  axis ratio  : 0.8762  -> view ~29 deg off-axis
+  model       : perspective + lens, from 10 rings
+  ring fit    : 3483 points, RMS 0.076 mm (105 rejected)
+  lens        : k1 -0.082  k2 -0.007
+  perspective : scale varies 15.0% across the aiming mark
+                true center is 6.3 px from the ellipse center
+  scale       : 0.19900 mm/px at the center (5.0 px/mm)
 
-     #     x mm     y mm     r mm  score  ring
-     0    -0.19   +12.55    12.55    9.4     9
+  camera moved 0.04 mm between captures (scale change -0.02%)
 ```
 
 ## Why a camera
@@ -33,31 +35,52 @@ domain to the geometry, which is where all the interesting work is.
 ## How it works
 
 1. **Find the target from the target.** The black aiming mark is a filled disc
-   of precisely known diameter, so fitting an ellipse to it gives centre and
-   scale — in every frame.
-2. **Find the hole.** A white top-hat transform isolates small bright features
-   against the local background; a roundness filter rejects paper grain and
-   glare.
-3. **Score it.** Convert to target millimetres, then apply ISSF ring geometry.
+   of precisely known diameter; an ellipse fitted to its edge gives a first
+   centre and scale. That alone is not enough when the camera sits off to the
+   side: a circle seen in perspective is still an ellipse, but its centre is
+   not the ellipse's centre (at 37 deg that put the 10-ring ~1.8 mm off). So
+   every printed ring line is then fitted too, solving a full perspective
+   transform plus two lens-distortion terms - in every frame.
+2. **Find the hole.** Each shot is compared with a frame taken before it,
+   registered through the target's own geometry, so only new light counts.
+   A sound trigger says *when* to look; the camera also checks on its own
+   every second, so a shot that made no sound is still found.
+3. **Score it.** Convert to target millimetres through that model, then apply
+   ISSF ring geometry (decimal scoring, the edge nearest the centre counts).
 
 The first step is the important one. Because the geometry is re-derived from
-the card each frame, camera drift simply cancels — the hole is measured
+the card each frame, camera drift simply cancels - the hole is measured
 relative to the target, never to the sensor. Measured drift of 0.53 mm over 37
 minutes has no effect on the score.
 
 ## Measured performance
 
-| | result |
-|---|---|
-| noise floor (centroid repeatability) | **0.0073 mm** |
-| air pistol decimal budget | 0.2 mm |
-| margin | ~27x |
-| bull edge fit | 0.19 px RMS over 334 points |
+| | result | budget |
+|---|---|---|
+| geometry, synthetic cards 0-45 deg off-axis, exact truth | worst **0.018 mm** | 0.2 mm |
+| the same test, aiming-mark ellipse only (the old model) | 1.6-6.3 mm | 0.2 mm |
+| geometry noise, real camera ~37 deg off-axis (`bench`) | **0.003 mm** | 0.2 mm |
+| hole detector, synthetic holes at known positions | 0.0008 mm | |
+| ring fit residual, real cards | 0.08-0.20 mm RMS | |
+| ring matches the shooter's call, real shots (unseen card) | 9 of 10 | |
 
-The known limit is **overlapping shots**: a 4.5 mm pellet needs about 4 mm of
-separation before accuracy degrades, and the error is systematic rather than
-random. A fix is planned (fitting a known-diameter circle to the visible
-crescent rather than taking its centroid).
+The 0.2 mm budget is what air pistol decimal scoring needs (one decimal is
+0.8 mm of radius). Geometry noise is far inside it.
+
+What limits accuracy on real cards is the **paper**, not the camera:
+
+- **Torn holes.** Pellets tear paper targets into holes 7-13 mm long, and the
+  pellet's own mark is then a judgement call. On a 10-shot card not used for
+  tuning, 9 rings matched the shooter's call and the miss was flagged. Shots
+  within ~0.5 mm of a line are flagged as line calls for the shooter to decide.
+- **Card flatness.** Off-axis, a bump of height h shifts by about h x tan(view
+  angle). Real cards show up to ~0.4 mm of this; mount the card flat.
+- **Overlapping shots.** A known-diameter circle is fitted to the round part
+  of the hole's edge (2 mm separation: 0.61 -> 0.04 mm error in synthetic
+  tests). Not yet proven on real overlapping holes.
+- **Decimal accuracy on real shots is not yet verified** against a physical
+  measurement (e.g. calipers). Whole rings are checked against the shooter's
+  calls; decimals are repeatable but unconfirmed.
 
 ## Setup
 
