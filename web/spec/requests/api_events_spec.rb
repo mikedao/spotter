@@ -58,6 +58,24 @@ RSpec.describe "Engine events API" do
     expect(session.reload).to have_attributes(status: "ended", live?: false)
   end
 
+  it "takes a shot at once and its pictures when they follow (the engine's picture lane)" do
+    post_event("shot", shot_data("050", 4.0, -3.0, detect_s: 1.37))
+    shot = session.shots.find_by!(engine_shot_id: "050")
+    expect(shot.detect_seconds).to eq 1.37                       # sound to score
+    expect(shot.after_image).not_to be_attached
+
+    expect(LiveBroadcast).not_to receive(:new)                   # the range screen doesn't show them
+    expect(Commentary).not_to receive(:after_event)              # and no second chatty remark
+    post_event("shot_images", { engine_shot_id: "050" }, files: { after_image: png })
+    expect(response).to have_http_status(:created)
+    expect(shot.reload.after_image).to be_attached
+  end
+
+  it "refuses pictures for a shot it doesn't have" do
+    post_event("shot_images", { engine_shot_id: "999" }, files: { after_image: png })
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
+
   it "does not duplicate a shot the engine posts twice" do
     2.times { post_event("shot", shot_data("044", -20.5, 2.8)) }
     expect(Shot.count).to eq 1

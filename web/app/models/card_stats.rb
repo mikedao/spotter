@@ -63,4 +63,19 @@ class CardStats
   # Seconds between consecutive shots on the card.
   def intervals_s = shots.sort_by(&:fired_at).each_cons(2).map { |a, b| (b.fired_at - a.fired_at).round }
   def average_interval_s = intervals_s.any? ? (intervals_s.sum / intervals_s.size.to_f).round : nil
+
+  # How the engine found the shots - "7 heard · 2 seen · 1 seen/heard" - so the
+  # shooter can see how well the sound trigger works against the camera alone.
+  def found_by = shots.group_by(&:found_by).transform_values(&:size)
+  def found_by_text = %w[ heard seen seen/heard ].filter_map { |k| "#{found_by[k]} #{k}" if found_by[k] }.join(" · ").presence
+
+  # Seconds from the sound to the score, the middle of the shots that have one
+  # (heard and seen/heard): a slowdown over a session shows here.
+  def median_detect_s
+    times = shots.filter_map(&:detect_seconds).sort
+    return nil if times.empty?
+
+    mid = times.size / 2
+    (times.size.odd? ? times[mid] : (times[mid - 1] + times[mid]) / 2.0).round(1)
+  end
 end

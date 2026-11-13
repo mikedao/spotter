@@ -61,6 +61,16 @@ Rails.application.configure do
   # Uncomment if you wish to allow Action Cable access from any origin.
   # config.action_cable.disable_request_forgery_protection = true
 
+  # Served to other machines on the home network (2026-11-12: the engine and web
+  # app on the wired Mac Studio, the range screen in the laptop's browser).
+  # SPOTTER_BIND=0.0.0.0 in web/.env makes bin/dev listen beyond this machine;
+  # these let the laptop in by the Mac's network name (Sussudio.local) or its IP,
+  # for pages and for the live updates (Turbo over Action Cable) alike.
+  config.hosts << ".local"
+  config.action_cable.allowed_request_origins = [
+    %r{\Ahttps?://(localhost|127\.0\.0\.1|\[::1\]|[\w-]+\.local|\d{1,3}(\.\d{1,3}){3})(:\d+)?\z}
+  ]
+
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
 

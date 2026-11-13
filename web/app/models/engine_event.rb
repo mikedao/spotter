@@ -11,7 +11,7 @@
 class EngineEvent
   class Invalid < StandardError; end
 
-  TYPES = %w[ session_started ready card_off new_card shot unscored session_ended course announce ].freeze
+  TYPES = %w[ session_started ready card_off new_card shot shot_images unscored session_ended course announce ].freeze
   IMAGES = %w[ before_image after_image closeup_before closeup_after ].freeze
 
   attr_reader :type, :session_id, :at, :data, :files
@@ -31,6 +31,9 @@ class EngineEvent
     session = @session || PracticeSession.find_by!(engine_session_id: session_id)
     # An announcement changes nothing stored: it is only played on the range screen.
     return session.tap { Announcement.new(it, data).deliver! } if type == "announce"
+    # A shot's pictures, sent after it (the engine's picture lane): attached, no
+    # broadcast - the range screen doesn't show them, and the shot is already up.
+    return attach_shot_images(session) if type == "shot_images"
 
     record = ActiveRecord::Base.transaction { send("apply_#{type}", session) }
     LiveBroadcast.new(session.reload).call
@@ -79,7 +82,7 @@ class EngineEvent
       shot.assign_attributes(
         engine_shot_id: id, pinpointed_at: (twin ? nil : shot.pinpointed_at),
         status: "scored", fired_at: twin ? shot.fired_at : at, number: shot.number || card.next_shot_number,
-        trigger: data["trigger"], sound_db: data["sound_db"],
+        trigger: data["trigger"], sound_db: data["sound_db"], detect_seconds: data["detect_s"],
         x_mm: data["x_mm"], y_mm: data["y_mm"], r_mm: data["r_mm"],
         decimal_score: data["decimal"], ring: data["ring"], inner_ten: data["inner_ten"] || false,
         rule: data["rule"], line_mm: data["line_mm"], line_call: data["line_call"] || false,
@@ -114,6 +117,14 @@ class EngineEvent
       card = session.card_for_new_shot(at:)
       shot = card.shots.create!(status: "unscored", fired_at: at, trigger: data["trigger"],
                                 unscored_reason: data["reason"], engine_shot_id: data["engine_shot_id"].presence)
+      attach_images(shot)
+      shot
+    end
+
+    def attach_shot_images(session)
+      shot = session.shots.find_by(engine_shot_id: data["engine_shot_id"].to_s.presence)
+      raise Invalid, "no shot #{data["engine_shot_id"].inspect} for these pictures" unless shot
+
       attach_images(shot)
       shot
     end

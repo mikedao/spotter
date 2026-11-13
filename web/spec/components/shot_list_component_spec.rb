@@ -22,4 +22,16 @@ RSpec.describe ShotListComponent, type: :component do
     expect(build(:shot, card:, trigger: "sound_camera")).to be_valid
     expect(build(:shot, card:, trigger: "final_check").found_by).to eq "seen"
   end
+
+  it "shows the time from the sound to the score, and tallies how the card's shots were found" do
+    heard = create(:shot, card:, trigger: "sound", detect_seconds: 1.4)
+    late = create(:shot, card:, trigger: "sound_camera", detect_seconds: 9.2)
+    seen = create(:shot, card:, trigger: "camera")
+    render_inline(described_class.new(shots: [ heard, late, seen ]))
+    expect(page.text.squish).to include("heard 1.4 s", "seen/heard 9.2 s")
+
+    stats = CardStats.new([ heard, late, seen, create(:shot, card:, trigger: "sound", detect_seconds: 2.0) ], TargetSpec.fetch("pistol"))
+    expect(stats.found_by_text).to eq "2 heard · 1 seen · 1 seen/heard"
+    expect(stats.median_detect_s).to eq 2.0                        # of 1.4, 2.0, 9.2
+  end
 end

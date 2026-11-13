@@ -27,6 +27,12 @@ The engine posts from a background thread and never lets the web app slow or sto
 scoring: if the web app is down, events are logged and dropped, and the shot log
 (`engine/out/shots/calls.csv`) and frames on disk remain the record.
 
+**Two lanes** (2026-11-12): the engine sends events WITH pictures (`shot_images`,
+`unscored`) in one queue, in order, and everything else in another, at once - so
+an announcement or a score never waits behind seconds of picture encoding and
+upload. Across the lanes, order is not guaranteed: pictures can arrive after
+later events.
+
 ## Event JSON
 
 ```json
@@ -44,7 +50,8 @@ y UP**.
 | `ready` | — |
 | `card_off` | — |
 | `new_card` | — |
-| `shot` | see below |
+| `shot` | see below. Sent WITHOUT pictures, at once |
+| `shot_images` | `engine_shot_id`; the shot's pictures (`before_image`, `after_image`, `closeup_before`, `closeup_after`), sent after it. Attached to that shot; no broadcast |
 | `unscored` | `reason`, `trigger`, `engine_shot_id` (optional) |
 | `session_ended` | — |
 | `announce` | only with `--announce web` (sessions the web app starts): what the engine would say, for the web app to play in the browser. `kind` (tone: "ok" / "check" / "fail" / "ready" / "info" / "ro"), `plain_kind` (the tone when diagnostic sentences are left out; null = say nothing then), `sentences` [{`pieces` [normalized voice pieces, voicelines.split], `diagnostic` (true: line call, overlaps, found without a sound... - said only in diagnostic mode)}], `gaps` {`sentence`, `comma`} seconds of silence |
@@ -57,6 +64,7 @@ y UP**.
 | `engine_shot_id` | the engine's log number ("044") |
 | `trigger` | `sound` / `camera` / `final_check` / `sound_camera` (a sound whose capture was too early, then the camera check found it within 20 s: heard AND seen; `at` = the sound) |
 | `sound_db` | loudness over the room floor, when triggered by sound (also `sound_camera`) |
+| `detect_s` | seconds from the sound to the score (`sound` / `sound_camera`; null for a camera find) |
 | `x_mm`, `y_mm`, `r_mm` | scored position (the rule's choice of estimate) |
 | `decimal`, `ring`, `inner_ten` | the rule's score (decimals truncated) |
 | `rule`, `line_mm`, `line_call`, `ambiguous`, `overlap` | how it was scored, and its flags |

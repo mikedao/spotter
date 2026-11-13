@@ -238,6 +238,17 @@ from there). The user commits; don't commit unless asked.
   shown live in `SessionStatusComponent`. Rig settings are env vars
   (`SPOTTER_CAMERA`, `SPOTTER_MIC`, ...; see web/README.md). Verified end to end:
   start -> ready -> stop -> ended, and a missing mic -> ended with the error.
+- **Two lanes engine -> web (2026-11-12):** `report.Reporter` sends events WITH
+  pictures (`shot_images`, `unscored`) in one queue and everything else at once
+  in another. In one queue the announcer fell further behind every shot (on the
+  laptop, with false triggers queuing two 1080p PNGs each). A `shot` goes without
+  pictures; `shot_images` follows and is attached by `engine_shot_id` (no
+  broadcast, no commentary). Verified with a web app taking 3 s per picture
+  upload: announcement and score at once, pictures 3 s later.
+- **How each shot was found, and how fast:** heard / seen / seen/heard per shot
+  (`Shot#found_by`), with `detect_seconds` (sound to score; none for a camera
+  find) in the shot list; card and session stats show the tally ("Found") and
+  the median ("Sound to score"), so a slowdown over a session shows in numbers.
 - `engine/camstream.py --image FILE` streams a still photo as a camera: tests
   and demos without the rig.
 - **Live rig checks MORPH** (`RigCheck::LiveProcess#push`: `attributes: { method:
@@ -681,6 +692,24 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   rejected by the no-new-hole check), (2) run `audio.py` on the Pi and send only
   triggers, (3) camera-only (2-4 s per shot). Start with (1); thresholds were
   tuned on the Kiyo hearing impacts and must be re-measured (`listen --mic`).
+- **The Mac Studio runs everything; the laptop is just a browser** (2026-11-12,
+  the shooter's call: the MacBook Neo felt slow). The Studio ("Sussudio",
+  M1 Max, 64 GB) is WIRED, so the Pi's frames cross Wi-Fi once, not twice.
+  `web/.env` (gitignored, this machine only) sets `SPOTTER_BIND=0.0.0.0`, which
+  `Procfile.dev` passes to `rails server -b`; development.rb allows `.local`
+  hosts and Action Cable origins from `.local` names and IPs (without that the
+  page loads but nothing updates live and the announcer is silent). Range screen:
+  `http://Sussudio.local:3000` on the laptop. Installing as an app needs HTTPS
+  off localhost, so not from the laptop. The Studio is too far from the firing
+  line for a mic: sessions run CAMERA ONLY until the laptop can send the trigger.
+  **NEXT (agreed, not started): the trigger from the Kiyo's mic ON THE PI.** It hears
+  IMPACTS at the target (the hole exists when it sounds; no coughs, cocking
+  clicks or announcer) - the original +45 dB / 180 ms tuning. Plan: a Pi service
+  (like spotter-camera) streaming raw PCM from `arecord` to whoever connects; the
+  engine takes `--mic tcp://spotter.local:8081` into the same EventDetector
+  (shot --auto, listen, the wizard's sound check); trigger level by source (45 at
+  the target, 62 at the firing line), re-measured through the Pi first. First
+  step on the Pi: `arecord -l` and a 5 s test recording with taps on the trap.
 - **The Pi stream is SET UP (2026-11-12, `pi/README.md`):** Pi 3 hostname
   `spotter`, `spotter-camera.service` runs ustreamer on boot; the app's camera
   step takes `http://spotter.local:8080/stream`. Measured 1080p MJPEG at 7-8 fps,

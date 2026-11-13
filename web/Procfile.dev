@@ -1,2 +1,2 @@
-web: bin/rails server
+web: bin/rails server -b ${SPOTTER_BIND:-127.0.0.1}
 css: bin/rails tailwindcss:watch

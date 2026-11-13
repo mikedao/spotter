@@ -1462,7 +1462,14 @@ def _shot_auto(a, spec):
                 "line_call": bool(r["line_call"]),
                 "ambiguous": bool(r["ambiguous"]), "overlap": bool(r["overlap"]),
                 "estimates": est, "region": res["region"],
-                "geometry": res["geometry"], "course": cls}, files, at)
+                "geometry": res["geometry"], "course": cls,
+                # seconds from the sound to the score (announced, reported);
+                # none for a camera find - nothing marks when that shot landed
+                "detect_s": (round(time.time() - at, 2)
+                             if trigger in ("sound", "sound_camera") else None)}, None, at)
+            # its pictures follow in the picture lane (report.Reporter): the
+            # score and the range screen never wait for them
+            emit("shot_images", {"engine_shot_id": f"{n:03d}"}, files, at)
         # The shot's frames, kept for replay: written AFTER the announcement
         # and the report, so the shooter isn't waiting on two full-size PNGs.
         for tag, img in (("before", st["before"]), ("after", after)):

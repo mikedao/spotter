@@ -44,6 +44,8 @@ class SessionResultComponent < ApplicationComponent
         [ "Group", stats.group_size_mm ? "#{stats.group_size_mm} mm" : "–" ],
         [ "Group center", stats.count >= 2 ? "#{stats.mean_point_offset_mm} mm #{stats.mean_point_direction}" : "–" ],
         [ "Mean radius", stats.mean_radius_mm ? "#{stats.mean_radius_mm} mm" : "–" ],
-        [ "Time per shot", stats.average_interval_s ? "#{stats.average_interval_s} s" : "–" ] ].compact
+        [ "Time per shot", stats.average_interval_s ? "#{stats.average_interval_s} s" : "–" ],
+        [ "Found", stats.found_by_text || "–" ],
+        [ "Sound to score", stats.median_detect_s ? "#{stats.median_detect_s} s" : "–" ] ].compact
     end
 end

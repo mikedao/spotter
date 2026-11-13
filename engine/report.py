@@ -87,28 +87,39 @@ class Reporter:
         self.session_id = session_id or (time.strftime("%Y%m%d-%H%M%S") + "-"
                                          + uuid.uuid4().hex[:4])
         self.target, self.rule, self.token, self.timeout = target, rule, token, timeout
-        self.q = queue.Queue(maxsize=200)
+        # TWO LANES (2026-11-12): events with pictures (a shot's frames, an
+        # unscored capture) take seconds to encode and upload; in one queue the
+        # announcements and scores waited behind them, and with false triggers
+        # piling pictures up the announcer fell further behind every shot. Now
+        # everything without pictures goes at once in its own lane.
+        self.q = queue.Queue(maxsize=200)        # pictures, in order
+        self.fast = queue.Queue(maxsize=500)     # everything else, at once
         self.failures = 0
-        self._th = threading.Thread(target=self._run, daemon=True)
+        self._th = threading.Thread(target=self._run, args=(self.q,), daemon=True)
+        self._fast_th = threading.Thread(target=self._run, args=(self.fast,), daemon=True)
         self._th.start()
+        self._fast_th.start()
 
     def send(self, type_, data=None, files=None, at=None):
         payload = {"type": type_, "session_id": self.session_id,
                    "at": _iso(at if at is not None else time.time()),
                    "data": data or {}}
         try:
-            self.q.put_nowait((payload, files or {}))
+            (self.q if files else self.fast).put_nowait((payload, files or {}))
         except queue.Full:
             print("  [report] queue full - event dropped", flush=True)
 
     def close(self, wait=8.0):
-        """Give queued events a moment to go out (e.g. session_ended)."""
+        """Give queued events a moment to go out (e.g. session_ended), and the
+        pictures still queued a little longer."""
+        self.fast.put((None, None))
         self.q.put((None, None))
-        self._th.join(timeout=wait)
+        self._fast_th.join(timeout=wait)
+        self._th.join(timeout=wait + 12.0)
 
-    def _run(self):
+    def _run(self, q):
         while True:
-            payload, files = self.q.get()
+            payload, files = q.get()
             if payload is None:
                 return
             try:
