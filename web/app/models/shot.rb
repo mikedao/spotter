@@ -20,9 +20,15 @@ class Shot < ApplicationRecord
   has_one_attached :closeup_after, dependent: :purge
 
   STATUSES = %w[ scored unscored ].freeze
-  TRIGGERS = %w[ sound camera final_check ].freeze
+  # How the engine came to score it: a sound ("heard"), the camera check with
+  # no sound before it ("seen"), or a sound whose picture came too early and the
+  # camera check found it right after ("seen/heard" - the Pi stream's lag).
+  TRIGGERS = %w[ sound camera final_check sound_camera ].freeze
+  FOUND_BY = { "sound" => "heard", "sound_camera" => "seen/heard" }.freeze
 
   validates :status, inclusion: { in: STATUSES }
+
+  def found_by = FOUND_BY.fetch(trigger, "seen")
   validates :trigger, inclusion: { in: TRIGGERS }, allow_nil: true
   validates :call_ring, inclusion: { in: 0..10 }, allow_nil: true
   validates :call_decimal, numericality: { in: 0..10.9 }, allow_nil: true

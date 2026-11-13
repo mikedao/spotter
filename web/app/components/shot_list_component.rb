@@ -50,7 +50,7 @@ class ShotListComponent < ApplicationComponent
         tag.span(format("%.1f", shot.final_decimal),
                  class: classes("w-12 text-lg font-semibold tabular-nums", ("text-gray-500 line-through" if shot.penalized?))),
         tag.span(shot.direction, class: "w-24"),
-        tag.span(shot.trigger == "sound" ? "heard" : "seen", class: "text-sm text-gray-600 dark:text-gray-300"),
+        tag.span(shot.found_by, class: "text-sm text-gray-600 dark:text-gray-300"),
         badges(shot)
       ])
     end

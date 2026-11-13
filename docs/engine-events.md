@@ -55,8 +55,8 @@ y UP**.
 | field | |
 |---|---|
 | `engine_shot_id` | the engine's log number ("044") |
-| `trigger` | `sound` / `camera` / `final_check` |
-| `sound_db` | loudness over the room floor, when triggered by sound |
+| `trigger` | `sound` / `camera` / `final_check` / `sound_camera` (a sound whose capture was too early, then the camera check found it within 20 s: heard AND seen; `at` = the sound) |
+| `sound_db` | loudness over the room floor, when triggered by sound (also `sound_camera`) |
 | `x_mm`, `y_mm`, `r_mm` | scored position (the rule's choice of estimate) |
 | `decimal`, `ring`, `inner_ten` | the rule's score (decimals truncated) |
 | `rule`, `line_mm`, `line_call`, `ambiguous`, `overlap` | how it was scored, and its flags |

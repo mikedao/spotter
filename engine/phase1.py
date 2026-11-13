@@ -43,6 +43,9 @@ TRIGGER_MS = 180.0
 # far apart, for a frame that arrived late (the Pi stream lags 0.2-1.6 s).
 LATE_LOOKS = 3
 LATE_LOOK_S = 0.6
+# A camera find this soon after a sound whose capture showed no hole is that
+# sound's shot - heard AND seen ("sound_camera"; the Pi stream's lag).
+HEARD_WINDOW_S = 20.0   # the camera check found them 10-15 s later in a real session
 # Where shots, logs and pictures are saved. SPOTTER_OUT overrides it, so a demo
 # replay (web: bin/rails spotter:demo) never writes into the real shot log.
 OUT = Path(os.environ["SPOTTER_OUT"]) if os.environ.get("SPOTTER_OUT") else HERE / "out"
@@ -1283,6 +1286,12 @@ def _shot_auto(a, spec):
         """Capture the after frame, score it against the baseline, report.
         Returns True if a shot was scored (and the baseline moved on)."""
         at = at if at is not None else time.time()
+        heard = st.get("heard")
+        if trigger == "camera" and heard and time.time() - heard["t"] < HEARD_WINDOW_S:
+            # the sound came first (its capture was too early): its time is the
+            # shot's, exact, and it was not "found without a sound"
+            trigger, at, sound_db = "sound_camera", heard["t"], heard["db"]
+            label = f"camera, after a sound +{heard['db']:.0f} dB"
         after = cam.grab(a.frames)
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
@@ -1319,6 +1328,8 @@ def _shot_auto(a, spec):
                  frames(st["before"], after), at)
             # Not announced (the shooter, 2026-11-12: false triggers made a
             # spoken "not scored" annoying); logged and reported above.
+            if trigger == "sound":
+                st["heard"] = {"t": at, "db": sound_db or 0.0}
             return False
         with silent():
             res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
@@ -1366,6 +1377,8 @@ def _shot_auto(a, spec):
             emit("unscored", {"reason": why, "trigger": trigger},
                  frames(st["before"], after), at)
             # Not announced - see the movement case above.
+            if trigger == "sound":
+                st["heard"] = {"t": at, "db": sound_db or 0.0}
             return False
         r = res["row"]
         print(f"  >>> card shot {len(st['prior']) + 1}:  "
@@ -1391,7 +1404,7 @@ def _shot_auto(a, spec):
             print(f"  ! geometry: ring fit {res['geo_rms']:.2f} mm (usually "
                   "~0.1-0.15) - the card is getting torn up\n", flush=True)
         words, flags = _spoken(r, res)
-        if label.startswith("camera") and not camera_only:
+        if trigger in ("camera", "final_check") and not camera_only:
             # a missed sound is worth a look; with no microphone it is normal
             flags = ["found without a sound"] + flags
         # flags: why the shot is worth a look - DIAGNOSTIC (the shooter can
@@ -1403,7 +1416,7 @@ def _shot_auto(a, spec):
         # In a match or final: sighter or competition shot, and in time or not
         # (the impact time; a camera-found shot was SEEN late, so its window
         # gets the camera check's slack).
-        cls = (ro.classify(at, grace=0.0 if trigger == "sound" else 2 * a.watch)
+        cls = (ro.classify(at, grace=0.0 if trigger in ("sound", "sound_camera") else 2 * a.watch)
                if ro is not None else None)
         penalty = cls.get("penalty") if cls else None
         # Lead with the shot's number, so a missed shot is noticed at once
@@ -1456,6 +1469,7 @@ def _shot_auto(a, spec):
             cv2.imwrite(str(sdir / f"{n:03d}_{tag}.png"),
                         np.clip(img, 0, 255).astype(np.uint8))
         st["scored"] += 1
+        st.pop("heard", None)
         st["before"], st["tf_b"] = after, res["tf"]
         return True
 
