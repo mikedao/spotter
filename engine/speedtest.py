@@ -123,10 +123,11 @@ def sustain(seconds):
 
 def estimates(r, grab1):
     """Seconds per shot, adding the steps up the way the engine does them now."""
-    check = grab1 + r["fit"] + r["register"] + r["difference"] + r["find_holes"] + r["moving_check"]
+    # a quiet check uses the baseline's fit: no re-fit, no registration
+    check = grab1 + r["moving_check"] + r["difference"] + r["find_holes"]
     score = grab1 + r["fit"] + r["moving_check"] + r["score_pair"]
     return {"camera_check": check,
-            "camera_found_shot": 0.5 + 2 * check + score,     # wait for a check, two sightings, score
+            "camera_found_shot": 0.5 + check + score,         # wait for a check, see it, score the next frame
             "heard_shot": phase1.TRIGGER_MS / 1000 + 1.0 + score}   # trigger, settle, score
 
 

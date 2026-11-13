@@ -886,6 +886,18 @@ because ISSF awards the higher value when the hole touches the line.
 - A re-baseline after movement must not proceed when the hole it found could
   not be scored (that swallowed the 10th shot); it keeps the old baseline for
   up to 3 tries, then warns.
+- **Camera-found shots in ~1.9 s (was ~3.2; 2026-11-12):** a QUIET check (card
+  on, nothing moving) reuses the baseline's fit - no re-fit, no registration
+  (~0.4 s, was ~0.8). A new hole seen there is scored from a frame taken at least
+  `SECOND_LOOK_S` (0.5 s) later with a FULL fit: that is the second sighting (a
+  0.3 s hole-like flash scored nothing - tested). Nothing found -> the spot is a
+  "ghost" until the baseline changes, so a false alarm can't repeat. Anything
+  unusual takes the full check on the same frame; its confirmed hole is scored
+  from the frame that confirmed it. Card off / new card verified unchanged.
+  **`engine/speedtest.py`** times every step on synthetic cards (no camera):
+  `--stream URL`, `--sustain 120` (does the machine slow as it heats?), `--save`,
+  `--compare A.json B.json`. Studio: fit 0.33 s, quiet check 0.39 s, camera-found
+  shot 1.84 s, heard shot 2.13 s (the 1 s settle now dominates heard shots).
 - **Card changes are detected** in `--auto`: every `--watch` s (1; was 2 until 2026-11-12, one new frame per check) between
   shots it checks the target is in view. Gone for 2 checks = "card off"; back
   for 2 checks = new baseline, and `_same_card` decides new vs same card by

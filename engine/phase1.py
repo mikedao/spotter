@@ -45,6 +45,9 @@ LATE_LOOKS = 3
 LATE_LOOK_S = 0.6
 # A camera find this soon after a sound whose capture showed no hole is that
 # sound's shot - heard AND seen ("sound_camera"; the Pi stream's lag).
+# A new hole seen by a quick camera check is scored from a frame taken at least
+# this long after it: the second sighting (2026-11-12, was a whole check later).
+SECOND_LOOK_S = 0.5
 HEARD_WINDOW_S = 20.0   # the camera check found them 10-15 s later in a real session
 # Where shots, logs and pictures are saved. SPOTTER_OUT overrides it, so a demo
 # replay (web: bin/rails spotter:demo) never writes into the real shot log.
@@ -1282,8 +1285,9 @@ def _shot_auto(a, spec):
                                speak=lambda text: say("ro", text), phase=phase)
         signal.signal(signal.SIGUSR1, lambda *_: ro.skip())   # "Start match"
 
-    def score_now(label, trigger="camera", sound_db=None, at=None):
-        """Capture the after frame, score it against the baseline, report.
+    def score_now(label, trigger="camera", sound_db=None, at=None, after=None):
+        """Capture the after frame (or use `after`, one a camera check just
+        took), score it against the baseline, report.
         Returns True if a shot was scored (and the baseline moved on)."""
         at = at if at is not None else time.time()
         heard = st.get("heard")
@@ -1292,7 +1296,8 @@ def _shot_auto(a, spec):
             # shot's, exact, and it was not "found without a sound"
             trigger, at, sound_db = "sound_camera", heard["t"], heard["db"]
             label = f"camera, after a sound +{heard['db']:.0f} dB"
-        after = cam.grab(a.frames)
+        if after is None:
+            after = cam.grab(a.frames)
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
         # A real shot changes a hole-sized patch. If large parts of the card
@@ -1550,8 +1555,9 @@ def _shot_auto(a, spec):
             def new_hole(frame, tf_now):
                 """Position (mm) of the strongest hole-sized new region against
                 the baseline, or None."""
-                d = new_light(frame, register(st["before"], st["tf_b"], tf_now,
-                                              frame.shape))
+                reg = (st["before"] if tf_now is st["tf_b"] else
+                       register(st["before"], st["tf_b"], tf_now, frame.shape))
+                d = new_light(frame, reg)
                 hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0,
                                                 min_circularity=0.30)
                 hd, _ = _keep_on_card(hd, tf_now, spec)
@@ -1569,6 +1575,37 @@ def _shot_auto(a, spec):
                 # ONE new frame: averaging buys nothing, and over the Pi's stream
                 # (~4 fps arrive) waiting for 2 made a check ~1.3 s, not ~0.7 s
                 frame = cam.grab(1)
+                t_frame = time.time()
+                # QUIET VIEW, FAST (2026-11-12): with the focus locked the card
+                # sits still to ~1-3 um, so the baseline's own fit holds - no
+                # ~0.35 s re-fit and no registration, ~0.4 s a check instead of
+                # ~0.8. Anything unusual (movement, card off) takes the full
+                # check below, on this same frame.
+                if w["card_on"] and not st["dirty"] and w["last"] is not None \
+                        and st.get("tf_b") is not None and not _scene_moving(
+                            w["last"][0], w["last"][1], frame, st["tf_b"], spec):
+                    w["last"] = (frame, st["tf_b"])
+                    pos = new_hole(frame, st["tf_b"])
+                    ghosts = st.get("ghosts", (None, []))
+                    ghosts = ghosts[1] if ghosts[0] is st["before"] else []
+                    if pos is None or any(np.hypot(pos[0] - g[0], pos[1] - g[1]) < 3
+                                          for g in ghosts):
+                        w["cand"] = None
+                        return
+                    # A new hole: score it from the NEXT frame with a full fit -
+                    # that is the second, independent sighting (a one-off glare
+                    # is gone by then and scores nothing). If it finds nothing,
+                    # this spot is a ghost until the baseline changes, so a
+                    # false alarm can't fire again and again.
+                    w["cand"] = None
+                    # the second sighting at least 0.5 s after the first (a
+                    # brief glint or fleck must not pass as a hole)
+                    time.sleep(max(0.0, SECOND_LOOK_S - (time.time() - t_frame)))
+                    last_trig = time.time() - t_audio0   # mute its late sound
+                    base = st["before"]
+                    if not score_now("camera - no sound heard", trigger="camera"):
+                        st["ghosts"] = (base, ghosts + [pos])
+                    return
                 tf_now = locate(frame)
                 if tf_now is None:
                     w["still"], w["cand"], w["last"] = 0, None, None
@@ -1668,7 +1705,8 @@ def _shot_auto(a, spec):
                                                       pos[1] - w["cand"][1]) < 3:
                     w["cand"] = None
                     last_trig = time.time() - t_audio0   # mute its late sound
-                    score_now("camera - no sound heard", trigger="camera")
+                    # the frame that confirmed it is fresh: score that one
+                    score_now("camera - no sound heard", trigger="camera", after=frame)
                 else:
                     w["cand"] = pos
 
