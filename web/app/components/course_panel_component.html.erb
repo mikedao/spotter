@@ -13,7 +13,7 @@
       </div>
       <% if skippable? %>
         <%= render(ButtonComponent.new(href: helpers.start_match_practice_session_path(@session), method: :post, size: :lg,
-                                       form: { data: { turbo_confirm: "End sighting time and start the match now?" } })) { "Start match" } %>
+                                       form: { data: { turbo_confirm: "End sighting time and start the match now?", confirm_button: "Start match" } })) { "Start match" } %>
       <% end %>
     </div>
 

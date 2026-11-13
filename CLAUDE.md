@@ -251,6 +251,13 @@ from there). The user commits; don't commit unless asked.
 - **Flash messages are TOASTS** (`FlashComponent` + `flash_controller.js`, 2026-11-12):
   fixed over the top of the page (no layout shift); a notice fades after 5 s
   (held while hovered), an alert stays until closed (role="alert").
+- **Confirmations are a MODAL, never the browser's confirm()** (2026-11-12, the
+  shooter's call): `ConfirmDialogComponent` (in the layout) +
+  `confirm_dialog_controller.js` registers itself as `Turbo.config.forms.confirm`,
+  so a plain `data: { turbo_confirm: "..." }` is all a button needs. A DELETE form
+  gets a red "Delete" with Cancel focused; otherwise "Continue", or name it with
+  `data: { confirm_button: "Start match" }` on the form. Esc / outside click =
+  cancel. spec/system/confirm_dialog_spec.rb.
 - **It's an APPLICATION, not a website** (2026-11-11, the shooter's words): no
   top nav bar. The menu is a drawer that slides out over the content from a ☰
   floated beside each screen's heading (`drawer_controller.js`; Esc / outside
