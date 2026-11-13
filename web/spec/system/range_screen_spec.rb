@@ -4,6 +4,9 @@ require "rails_helper"
 # and after the session (the shot list moves up beside the target).
 RSpec.describe "Range screen layout" do
   let(:user) { create(:user) }
+  # The phone/tablet examples emulate a device on the shared browser: undo it, or
+  # the next example runs on a phone.
+  after { page.driver.browser.page.command("Emulation.clearDeviceMetricsOverride") }
 
   def shoot_a_card(session)
     card = create(:card, practice_session: session)
@@ -34,7 +37,7 @@ RSpec.describe "Range screen layout" do
     page.driver.resize(1322, 729)
 
     expect(page).to have_button("Start match")
-    expect(page).to have_button("⏸ Pause")
+    expect(page).to have_button("⏸ Pause")   # its label, laptop-wide (a phone shows only ⏸)
     bottom = page.evaluate_script("document.querySelector(\"[aria-label='Camera']\").getBoundingClientRect().bottom")
     expect(bottom).to be <= 729
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_match_laptop.png")) if ENV["SCREENSHOTS"]
@@ -64,6 +67,8 @@ RSpec.describe "Range screen layout" do
     shoot_a_card(session)
     allow(EngineRunner).to receive(:snapshot).and_return(nil)
     sign_in_and_visit(session)
+    page.driver.resize(1280, 800)   # a laptop: landscape (the default window is square, which reads as upright)
+    visit practice_session_path(session)
 
     expect(right_column).to have_css("[aria-label='Camera']")
     within("ol[aria-label='Shots on this card']") do
@@ -105,6 +110,29 @@ RSpec.describe "Range screen layout" do
       20.times { break if box.()["top"] >= 0; sleep 0.05 }
       expect(box.()["top"]).to be >= 0                  # still in view, scrolled down
       page.save_screenshot(Rails.root.join("tmp/screenshots/range_phone_#{w}x#{h}.png")) if ENV["SCREENSHOTS"]
+    end
+  end
+
+  # Upright (portrait): never wider than the screen, and the latest shot on the
+  # first screen under the target. A 13" iPad upright is 1024 px wide but tall: by
+  # width alone it got the laptop layout, its side column squeezed to nothing.
+  [ [ 1024, 1366 ], [ 768, 1024 ], [ 390, 844 ] ].each do |w, h|
+    it "stacks the target and the panels on a screen held upright (#{w}x#{h})" do
+      session = create(:practice_session, user:, status: "shooting")
+      shoot_a_card(session)
+      allow(EngineRunner).to receive_messages(snapshot: nil, understands_pause?: true)
+      sign_in_and_visit(session)
+      page.driver.resize(w, h)
+      page.driver.browser.page.command("Emulation.setDeviceMetricsOverride", width: w, height: h, deviceScaleFactor: 1, mobile: true)
+      visit practice_session_path(session)
+
+      expect(page).to have_css("#live_list")
+      b = page.evaluate_script("(() => { const t = document.getElementById('live_target').getBoundingClientRect(), l = document.getElementById('live_latest').getBoundingClientRect(); return { target: t.bottom, top: l.top, bottom: l.bottom, width: l.width, scroll: document.documentElement.scrollWidth } })()")
+      expect(b["scroll"]).to be <= w
+      expect(b["top"]).to be > b["target"]               # under the target
+      expect(b["width"]).to be > 300                      # a real column, not squeezed
+      expect(b["bottom"]).to be <= h if w >= 768          # a tablet: on the first screen
+      page.save_screenshot(Rails.root.join("tmp/screenshots/range_upright_#{w}x#{h}.png")) if ENV["SCREENSHOTS"]
     end
   end
 end

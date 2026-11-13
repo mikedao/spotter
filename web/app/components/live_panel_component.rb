@@ -12,8 +12,10 @@ class LivePanelComponent < ApplicationComponent
   # (camera, numbers, shot list) it sticks, so scrolling the list keeps it in view.
   # A phone held sideways (short:): the left column, the window's whole height -
   # but on a narrow phone leaving the right column ~19rem (the header's buttons).
-  TARGET_SIZE = "mx-auto w-full max-w-[calc(100svh_-_7.5rem)] min-w-72 lg:w-[min(calc(100svh_-_7.5rem),60rem)] " \
-                "lg:sticky lg:top-4 " \
+  # An iPad upright (tall:): leave room below for a row of panels (latest shot,
+  # clock) on the first screen.
+  TARGET_SIZE = "mx-auto w-full max-w-[calc(100svh_-_7.5rem)] min-w-72 wide:w-[min(calc(100svh_-_7.5rem),60rem)] " \
+                "wide:sticky wide:top-4 tall:max-w-[min(calc(100svh_-_24rem),60rem)] " \
                 "short:col-start-1 short:row-span-2 short:row-start-1 short:sticky short:top-2 short:mx-0 " \
                 "short:w-[min(calc(100svh_-_1.25rem),calc(100vw_-_23rem))] short:max-w-none short:min-w-0".freeze
 

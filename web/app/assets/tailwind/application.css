@@ -7,9 +7,16 @@
 /* Dark mode follows the system setting. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
-/* A phone held sideways: wide but short, below the laptop layout (lg). The range
-   screen then puts the target beside everything else, filling the height. */
-@custom-variant short (@media (orientation: landscape) and (max-height: 540px) and (max-width: 1023.98px));
+/* The range screen's layouts, by the screen's SHAPE (a 13" iPad held upright is
+   1024 px wide but tall - by width alone it got the side-by-side layout with no
+   room for the side column):
+   wide   landscape, >= 1024 px (laptop, iPad sideways): target beside a 32rem column
+   short  landscape, narrower (a phone sideways): target down the left, full height
+   tall   portrait, >= 768 px (iPad upright): target on top, panels in two columns
+   (none) a phone upright: one column */
+@custom-variant wide (@media (orientation: landscape) and (min-width: 64rem));
+@custom-variant short (@media (orientation: landscape) and (max-width: 63.99rem));
+@custom-variant tall (@media (orientation: portrait) and (min-width: 48rem));
 
 .turbo-progress-bar {
   background: var(--color-blue-600);

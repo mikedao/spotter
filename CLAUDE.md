@@ -532,15 +532,19 @@ from there). The user commits; don't commit unless asked.
   linking to its card page. LIVE is unchanged. When a session ends,
   `LiveBroadcast` sends a Turbo REFRESH instead of section replaces, so an open
   range screen reloads into the summary.
-- **A phone held sideways** (2026-11-13): Tailwind variant `short:` (landscape,
-  <= 540 px tall, < lg; `application.css`). The session page's top becomes ONE grid:
-  target down the left (full height, sticky; capped at `100vw - 23rem` so the right
-  column keeps ~19rem on a 667 px phone), header + announcer + everything else in the
-  column beside it (the inner grids are `short:contents`). Smaller title / latest
-  score / clock there; the announcer's buttons wrap. `main` pads by
-  `env(safe-area-inset-*)` (viewport-fit=cover: the notch is at the side in
-  landscape). Card pages get the two columns too. Spec: range_screen_spec (844x390,
-  667x375: no sideways scroll, target beside, in view after scrolling).
+- **Range screen by SHAPE, not width** (2026-11-13): Tailwind variants in
+  `application.css` - `wide` (landscape >= 1024: laptop, iPad sideways; the
+  side-by-side layout, was `lg:`), `short` (landscape, narrower: a phone sideways -
+  ONE grid, target down the left full height + sticky, capped at `100vw - 23rem`;
+  header and panels beside it, the inner grids `short:contents`), `tall` (portrait
+  >= 768: iPad upright - target capped at `100svh - 24rem`, panels in TWO columns
+  under it, list full width), none (phone upright: one column; live, the title is
+  sr-only so the status sits by the menu; Pause / Re-find are icons). By width alone
+  a 13" iPad upright (1024 wide) got the laptop layout with a 0 px side column.
+  A SQUARE window is portrait: Cuprite's default 1400x1400 gets `tall`, so a spec
+  about the side-by-side layout must resize to landscape. Device emulation
+  (`Emulation.setDeviceMetricsOverride`) sticks to the shared browser - clear it
+  after (range_screen_spec does). `main` pads by `env(safe-area-inset-*)`.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

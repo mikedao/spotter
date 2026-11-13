@@ -203,7 +203,7 @@ RSpec.describe "Engine events API" do
       sign_in(session.user)
 
       get practice_session_path(session)
-      expect(response.body).to include("⏸ Pause", "⌖ Re-find")
+      expect(response.body).to include(pause_scoring_practice_session_path(session), refind_practice_session_path(session))
       post pause_scoring_practice_session_path(session)
       expect(response).to have_http_status(:no_content)
       expect(Process).to have_received(:kill).with("TSTP", Process.pid)
@@ -212,8 +212,8 @@ RSpec.describe "Engine events API" do
       expect(session.reload.status).to eq "paused"
       allow(EngineRunner).to receive(:reconcile!)
       get practice_session_path(session)
-      expect(response.body).to include("Scoring paused", "▶ Resume")
-      expect(response.body).not_to include("⏸ Pause", "⌖ Re-find")
+      expect(response.body).to include("Scoring paused", resume_scoring_practice_session_path(session))
+      expect(response.body).not_to include(pause_scoring_practice_session_path(session), refind_practice_session_path(session))
 
       post resume_scoring_practice_session_path(session)
       expect(response).to have_http_status(:no_content)
@@ -237,8 +237,8 @@ RSpec.describe "Engine events API" do
       sign_in(session.user)
       allow(EngineRunner).to receive(:reconcile!)
       get practice_session_path(session)
-      expect(response.body).to include("⌖ Re-find")
-      expect(response.body).not_to include("⏸ Pause")             # no button for it either
+      expect(response.body).to include(refind_practice_session_path(session))
+      expect(response.body).not_to include(pause_scoring_practice_session_path(session))   # no button for it either
     ensure
       FileUtils.rm_f(log)
     end

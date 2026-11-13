@@ -34,9 +34,13 @@ class SessionStatusComponent < ApplicationComponent
   private
     def header
       text, colours = LOOK.fetch(@session.status, LOOK["starting"])
-      tag.div(class: "flex flex-wrap items-center gap-x-4 gap-y-2 short:gap-x-2") do
+      tag.div(class: "flex flex-wrap items-center gap-x-4 gap-y-2 short:gap-x-2 max-sm:gap-x-2") do
         safe_join([
-          tag.h1(@session.title, class: "text-2xl font-semibold short:text-lg"),
+          # a phone upright, live: the title goes (it is in the tab; screen readers keep
+          # it) so the status sits beside the menu and the target comes up a row
+          tag.h1(@session.title, class: classes("text-2xl font-semibold short:text-lg",
+                                                @session.live? ? "max-sm:sr-only" : "max-sm:w-full max-sm:truncate max-sm:text-lg"),
+                 title: @session.title),
           tag.div(class: classes("flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium", colours)) do
             safe_join([
               (tag.span(class: "inline-block size-2 animate-pulse rounded-full bg-current") if @session.live?),
@@ -59,7 +63,7 @@ class SessionStatusComponent < ApplicationComponent
           (unless paused || @session.status == "resuming"
              render(ButtonComponent.new(href: refind_practice_session_path(@session), method: :post, variant: :secondary,
                                         title: "Bumped the camera? Find the card again and move the rings to it",
-                                        form: { data: { turbo_submits_with: "Re-finding…" } })) { "⌖ Re-find" }
+                                        form: { data: { turbo_submits_with: "Re-finding…" } })) { safe_join([ "⌖", tag.span(" Re-find", class: "max-sm:sr-only") ]) }
            end),
           render(ButtonComponent.new(href: stop_practice_session_path(@session), method: :post, variant: :danger,
                                      title: "End the session (a last check for an unscored hole first)")) { "■ Stop" }
@@ -73,11 +77,11 @@ class SessionStatusComponent < ApplicationComponent
       if paused
         render(ButtonComponent.new(href: resume_scoring_practice_session_path(@session), method: :post,
                                    title: "The card is up: find it (same card or new) and score again",
-                                   form: { data: { turbo_submits_with: "Resuming…" } })) { "▶ Resume" }
+                                   form: { data: { turbo_submits_with: "Resuming…" } })) { safe_join([ "▶", tag.span(" Resume", class: "max-sm:sr-only") ]) }
       else
         render(ButtonComponent.new(href: pause_scoring_practice_session_path(@session), method: :post, variant: :secondary,
                                    title: "Changing cards? Nothing is scored until you resume",
-                                   form: { data: { turbo_submits_with: "Pausing…" } })) { "⏸ Pause" }
+                                   form: { data: { turbo_submits_with: "Pausing…" } })) { safe_join([ "⏸", tag.span(" Pause", class: "max-sm:sr-only") ]) }
       end
     end
 
