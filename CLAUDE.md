@@ -139,9 +139,9 @@ cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m
 brew install python@3.13 && voice/setup.sh
 # after a wording change (voicelines.py / course.py): re-export, only new pieces render
 #  voice/.venv/bin/python voice/speak.py export --all     # (and `samples` for the picker)
-# chatty mode's lines are in git for SOME voices (Bella, Nicole); after a commentary edit:
+# chatty mode's lines are in git for SOME voices (Bella, Nicole, Heart, Michael); after a commentary edit:
 #  (cd ../web && bin/rails voices:chatty_list)   # rewrites web/public/voice-pieces/chatty.txt
-#  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella
+#  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
 cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 226 examples, 0 failures
@@ -205,7 +205,7 @@ moment), with every known voice piece for all 19 voices committed.
 
 **Next:** announcer PERSONALITIES to choose from (each a
 `config/commentary/*.yml`; a picker in Settings). Chatty's lines are in the
-git export for Bella and Nicole only (2026-11-12; 1,005 pieces each with the
+git export for Bella, Nicole, Heart and Michael only (2026-11-12; 1,005 pieces each with the
 numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
 Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
@@ -611,7 +611,7 @@ Built and committed:
   via Rails.cache). Delivered as an Announcement of kind "chat" (no tone).
   `Commentary.pieces(user)` = every line with numbers filled in, pre-rendered at
   session start (`Voice.prewarm!(extra:)` -> `speak.py prewarm --extra FILE`).
-  IN THE GIT EXPORT for af_bella and af_nicole (2026-11-12, the shooter's pick):
+  IN THE GIT EXPORT for af_bella, af_nicole, af_heart and am_michael (2026-11-12, the shooter's picks):
   `bin/rails voices:chatty_list` writes the list (default goal, 565) to
   `web/public/voice-pieces/chatty.txt`; `speak.py export --chatty --voice V`
   renders it; a plain `export` never removes a piece on that list. A user goal
