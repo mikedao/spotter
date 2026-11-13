@@ -673,10 +673,10 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
 - **The Pi stream is SET UP (2026-11-12, `pi/README.md`):** Pi 3 hostname
   `spotter`, `spotter-camera.service` runs ustreamer on boot; the app's camera
   step takes `http://spotter.local:8080/stream`. Measured 1080p MJPEG at 7-8 fps,
-  ~22.5 Mbit/s. Focus/exposure NOT locked yet; trigger = the laptop's mic (gun).
-- Still to do on the Pi: v4l2-ctl to LOCK focus and
-  exposure - impossible on macOS, which caused the frame-to-frame focus/scale
-  drift; and the latency from the Pi 3, not yet measured.
+  ~22.5 Mbit/s. Focus LOCKED at 187 (swept); exposure / WB / sharpness stay AUTO
+  (manual exposure is broken on the Kiyo - see pi/README.md); trigger = the laptop's
+  mic (gun). Jitter with this: ~1 um centre, ~2-3 um scale.
+- Still to do on the Pi: measure the latency from the Pi 3.
 
 ## Domain facts (verified against a physical card)
 

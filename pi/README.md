@@ -42,11 +42,23 @@ for v in $(seq 0 5 255); do v4l2-ctl -d /dev/video0 -c focus_absolute=$v; sleep 
 python3 -m http.server 8090     # the laptop scores them with `phase1.py locate --json`
 ```
 
+## Exposure, white balance, sharpening: LEAVE ON AUTO (tested 2026-11-12)
+
+A sweep of manual exposure 21-125 (gain 0, WB locked 3950) x sharpness 0/64/128/192,
+6 frames each, scored with the engine, against the auto settings:
+
+- Manual exposure is broken on the Kiyo: every value 21-125 gave the SAME frame,
+  far too bright - 78% of the paper clipped white (auto: 0%), the black lifted
+  to 74 (auto: 0), ring fit 0.092-0.101 mm (auto 0.074), scale jitter 3-15 um
+  (auto 2.2-2.5). Auto exposure is steady (no drift over the sweep, no flicker).
+- Sharpness has two effective levels (0=64, 128=192); below 128 the ring fit
+  worsens. Keep the default 128.
+- Set controls ONE PER v4l2-ctl CALL: several `-c` in one call left the Kiyo
+  sending black frames (the first sweep: all 168 manual frames black).
+- With focus locked at 187 and the rest on auto, frame-to-frame jitter of the
+  fitted target is ~1 um (centre) / ~2-3 um (scale) against a 200 um budget.
+
 ## Not done yet
 
-- **Lock exposure and white balance** like the focus: `auto_exposure=1` (manual)
-  + `exposure_time_absolute`, `exposure_dynamic_framerate=0`,
-  `white_balance_automatic=0` + `white_balance_temperature`, as more
-  `ExecStartPre=` lines (controls reset when the camera powers up).
 - The Kiyo's microphone is unused (ustreamer is video only): use the laptop's mic
   at the firing line, which hears the gun.
