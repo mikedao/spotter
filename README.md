@@ -264,4 +264,14 @@ the Pi, and the learned scorer trained from reviewed calls.
 
 ## Licence
 
-[PolyForm Noncommercial 1.0.0](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE): free to use, change and share for
+any **noncommercial** purpose - personal training, hobby projects and research,
+and use by charities, schools and the other noncommercial organisations the
+licence lists. **Commercial use is not permitted**, including selling it,
+building it into a product, or offering it as a paid service. For a commercial licence, get in touch through
+[GitHub](https://github.com/mikedao/spotter).
+
+The Shotmetrix QR encoder (`web/app/models/shotmetrix_code.rb`) is a port of
+[Shotmetrix's reference encoder](https://github.com/shotmetrix/Shotmetrix-QRCode),
+used under the Apache License 2.0; its test vectors and a copy of that licence are in
+[`web/spec/fixtures/files/shotmetrix/`](web/spec/fixtures/files/shotmetrix/).
