@@ -30,6 +30,14 @@ class PracticeSession < ApplicationRecord
 
   def target_spec = TargetSpec.fetch(target)
   def live? = ended_at.nil?
+
+  # Continue: a finished PRACTICE session from today can be picked up again -
+  # stop, improve something, carry on in one session (the shooter, 2026-11-12).
+  # Not a match or final: their clock, sighting and series can't resume.
+  def continuable? = !live? && course.blank? && started_at.in_time_zone.to_date == Time.zone.today
+
+  # Time actually shooting: start to end, less the breaks a Continue bridged.
+  def shooting_seconds = ((ended_at || Time.current) - started_at - break_seconds.to_i).clamp(0, nil)
   def current_card = cards.last
 
   # The card the next shot belongs to: the latest, or a first one.

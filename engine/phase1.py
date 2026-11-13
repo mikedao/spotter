@@ -1473,6 +1473,34 @@ def _shot_auto(a, spec):
         st["before"], st["tf_b"] = after, res["tf"]
         return True
 
+    def _resume(path):
+        """A CONTINUED session (`--resume FILE`, written by the web app): the
+        last card's number, its holes in target mm and the last shot's after
+        picture. Same card on the target (its holes are still there, as after a
+        card change: _same_card) -> carry on counting it and checking overlaps
+        against its holes; else the next card. Returns "same card", "new card"
+        or None (not a continued session)."""
+        if not path:
+            return None
+        import json
+        r = json.loads(Path(path).read_text())
+        st["card_no"] = int(r.get("card") or 1)
+        holes = [tuple(h) for h in r.get("holes") or []]
+        same = True                          # an empty card, or nothing to compare
+        old = cv2.imread(r["image"], cv2.IMREAD_GRAYSCALE) if r.get("image") else None
+        if holes and old is not None:
+            old = old.astype(np.float32)
+            old_tf = locate(old)
+            if old_tf is not None:
+                same = _same_card(old, old_tf, st["before"], st["tf_b"], holes)
+        if same:
+            st["prior"] = holes
+            print(f"  continuing card {st['card_no']} ({len(holes)} shot(s) on it)\n", flush=True)
+            return "same card"
+        st["card_no"] += 1
+        print(f"  continuing on a new card (card {st['card_no']})\n", flush=True)
+        return "new card"
+
     try:
         time.sleep(1.0)                          # let exposure settle
         st["before"], st["tf_b"] = baseline()
@@ -1480,11 +1508,16 @@ def _shot_auto(a, spec):
             print("  could not locate the target - check framing and lighting")
             return
         print("  baseline taken. Ready - fire when you like.\n")
+        resumed = _resume(getattr(a, "resume", None))
         emit("session_started", {"target": a.target,
                                  "rule": getattr(a, "rule", "pellet"),
                                  "course": getattr(a, "course", None)})
-        emit("ready")
-        say("ready", "ready")
+        if resumed == "new card":
+            emit("new_card")
+            say("ready", "new card, ready")
+        else:
+            emit("ready")
+            say("ready", "same card, ready" if resumed == "same card" else "ready")
         if ro is not None:
             ro.start()
 
@@ -2237,6 +2270,9 @@ def main():
                            help="auto: serve the live camera picture, rings "
                                 "drawn on, on 127.0.0.1:PORT (the web app's "
                                 "range screen shows it)")
+            s.add_argument("--resume", default=None,
+                           help="auto: continue a session - a JSON file with the "
+                                "last card's number, holes and last picture")
             s.add_argument("--per-card", type=int, default=None,
                            help="auto: announce 'new card please' after this "
                                 "many shots on a card")

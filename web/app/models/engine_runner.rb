@@ -20,6 +20,7 @@ require "socket"
 # load for a process that vanished while the web app was down.
 class EngineRunner
   class BadCamera < StandardError; end
+  class NotContinuable < StandardError; end
 
   class Busy < StandardError
     attr_reader :session
@@ -79,22 +80,35 @@ class EngineRunner
         stream_port: free_port, **gear   # gun, pellet, gun_adjustments (GearParams)
       )
       user.update!(last_camera: camera, last_mic: mic)
-      log = Rails.root.join("log", "engine", "#{session.engine_session_id}.log")
-      FileUtils.mkdir_p(log.dirname)
-
-      pid = Process.spawn(
-        { "SPOTTER_TOKEN" => session.run_token, "PYTHONUNBUFFERED" => "1" }.merge(env),
-        *command(session),
-        chdir: engine_dir.to_s, out: log.to_s, err: [ :child, :out ], pgroup: true
-      )
-      session.update!(engine_pid: pid, engine_log: log.to_s)
-      # Render what this voice will say (and the commentary, for chatty mode) now, so none waits mid-session.
-      Voice.prewarm!(Voice.for(user).id, extra: Commentary.pieces(user))
-      watch(session, pid)
-      session
+      launch!(session, env:)
     rescue Errno::ENOENT => e
       session&.update!(status: "ended", ended_at: Time.current,
                        engine_error: "Could not start the engine: #{e.message}. Is #{python} there?")
+      session
+    end
+
+    # Continue a finished practice session from today (PracticeSession#continuable?):
+    # the same session, rig and gear; the engine is told the last card - its
+    # number, holes and last picture - and decides from the card on the target
+    # whether that card carries on or the next one starts (--resume). The time it
+    # stood finished is left out of its duration.
+    def continue!(session, env: {})
+      if (busy = running)
+        raise Busy, busy
+      end
+      if (check = RigCheck.running_check)
+        raise RigCheck::Busy, "#{User.find_by(id: check.user_id)&.name || "someone"}'s #{check.label} is running"
+      end
+      raise NotContinuable, "only a finished practice session from today can be continued" unless session.continuable?
+
+      resume = resume_file(session)
+      session.regenerate_run_token   # the old engine's token is spent
+      session.update!(ended_at: nil, status: "starting", engine_error: nil, stream_port: free_port,
+                      break_seconds: session.break_seconds.to_i + (Time.current - session.ended_at).round)
+      launch!(session, env:, extra: [ "--resume", resume.to_s ])
+    rescue Errno::ENOENT => e
+      session.update!(status: "ended", ended_at: Time.current,
+                      engine_error: "Could not start the engine: #{e.message}. Is #{python} there?")
       session
     end
 
@@ -109,9 +123,42 @@ class EngineRunner
         "--announce", "web" ]   # the range screen plays the announcements (Announcement), not the engine
     end
 
+    # The last card for --resume: its number, where its holes are (target mm),
+    # and the last scored shot's after picture, so the engine can tell whether
+    # that card is still on the target.
+    def resume_file(session)
+      card = session.cards.order(:number).last
+      shots = card ? card.shots.where(status: "scored").order(:number).to_a : []
+      dir = Rails.root.join("tmp", "resume")
+      FileUtils.mkdir_p(dir)
+      image = shots.reverse.find { it.after_image.attached? }&.after_image
+      image_path = dir.join("#{session.engine_session_id}-last.png")
+      image&.open { |f| FileUtils.cp(f.path, image_path) }
+      path = dir.join("#{session.engine_session_id}.json")
+      path.write({ card: card&.number || 1, holes: shots.map { [ it.x_mm.to_f, it.y_mm.to_f ] },
+                   image: (image_path.to_s if image) }.to_json)
+      path
+    end
+
     # The engine serves the live camera picture on this port (127.0.0.1 only);
     # the range screen gets it through PracticeSessionsController#camera.
     def free_port = TCPServer.open("127.0.0.1", 0) { |s| s.addr[1] }
+
+    # Run the engine for a session (a new one, or a continued one: its log
+    # carries on). Renders what the voice will say first, so none waits.
+    def launch!(session, env: {}, extra: [])
+      log = Rails.root.join("log", "engine", "#{session.engine_session_id}.log")
+      FileUtils.mkdir_p(log.dirname)
+      pid = Process.spawn(
+        { "SPOTTER_TOKEN" => session.run_token, "PYTHONUNBUFFERED" => "1" }.merge(env),
+        *command(session), *extra,
+        chdir: engine_dir.to_s, out: [ log.to_s, "a" ], err: [ :child, :out ], pgroup: true
+      )
+      session.update!(engine_pid: pid, engine_log: log.to_s)
+      Voice.prewarm!(Voice.for(session.user).id, extra: Commentary.pieces(session.user))
+      watch(session, pid)
+      session
+    end
 
     # The latest live picture (JPEG bytes), or nil when the engine has none to give.
     def snapshot(session)

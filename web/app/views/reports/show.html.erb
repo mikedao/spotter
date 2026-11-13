@@ -16,7 +16,7 @@
     <%= [ @session.user.name,
           @session.gun&.label,
           @session.pellet&.label,
-          (@session.ended_at && "#{((@session.ended_at - @session.started_at) / 60).round} min") ].compact.join(" · ") %>
+          (@session.ended_at && "#{(@session.shooting_seconds / 60).round} min") ].compact.join(" · ") %>
   </p>
   <% if @session.exercises.any? %>
     <p class="mt-2 flex flex-wrap gap-1.5 text-sm">

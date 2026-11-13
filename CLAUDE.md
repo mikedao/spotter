@@ -365,6 +365,17 @@ from there). The user commits; don't commit unless asked.
   (`CardsController`; linked from "Earlier cards this session"; prev / next card):
   target, card numbers, and `ShotListComponent(deletable: true)` with a Delete on
   each row that comes back to the card (`back=card`). Not broadcast: a static page.
+- **Continuing a session** (2026-11-12, the shooter's choices: stop, improve
+  something, carry on in ONE session): "▶ Continue session" on a FINISHED
+  PRACTICE session from TODAY (`PracticeSession#continuable?`; not a match or
+  final - their clock and series can't resume). One click, same rig and gear:
+  `EngineRunner.continue!` reopens the session (new run token, the engine log
+  appended) and starts the engine with `--resume FILE` - the last card's number,
+  its holes (target mm) and the last shot's after picture. The engine runs
+  `_same_card` on its first baseline: same card -> keeps counting it toward 10
+  and checks overlaps against its holes ("same card, ready"); else `new_card`
+  ("new card, ready"). `break_seconds` (the time it stood finished) is left out
+  of the report's duration (`shooting_seconds`).
 - **Deleting a session** (list and range screen, with a confirm): cards, shots,
   calls, pictures (purged at once - `dependent: :purge`, no job worker needed) and
   the engine log go too. Refused while live (`before_destroy ..., prepend: true`,

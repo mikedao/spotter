@@ -59,10 +59,17 @@ class SessionStatusComponent < ApplicationComponent
       end
     end
 
+    # A finished session: Continue (practice, today - same rig, the engine works
+    # out the card) and Delete.
     def delete_button
-      tag.div(class: "ml-auto") do
-        render(ButtonComponent.new(href: practice_session_path(@session), method: :delete, variant: :secondary,
-                                   form: { data: { turbo_confirm: self.class.confirm_delete(@session) } })) { "Delete session" }
+      tag.div(class: "ml-auto flex flex-wrap items-center gap-2") do
+        safe_join([
+          (render(ButtonComponent.new(href: resume_practice_session_path(@session), method: :post,
+                                      title: "Carry on shooting in this session, with the same camera, mic and gear",
+                                      form: { data: { turbo_submits_with: "Starting…" } })) { "▶ Continue session" } if @session.continuable?),
+          render(ButtonComponent.new(href: practice_session_path(@session), method: :delete, variant: :secondary,
+                                     form: { data: { turbo_confirm: self.class.confirm_delete(@session) } })) { "Delete session" }
+        ].compact)
       end
     end
 

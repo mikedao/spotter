@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update diary stop start_match refind destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match refind resume destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -60,6 +60,19 @@ class PracticeSessionsController < ApplicationController
   # load - that would stop the sound; the status line and "ready" answer it.
   def refind
     EngineRunner.refind!(@session) ? head(:no_content) : head(:conflict)   # 409: an engine too old for it
+  end
+
+  # Continue a finished practice session from today: the engine starts again on
+  # the same session, rig and gear, and works out whether the card on the target
+  # carries on or a new one starts.
+  def resume
+    RigCheck.stop_for!(Current.user)
+    EngineRunner.continue!(@session)
+    redirect_to practice_session_path(@session)
+  rescue EngineRunner::NotContinuable, RigCheck::Busy => e
+    redirect_to practice_session_path(@session), alert: "#{e.message.upcase_first}."
+  rescue EngineRunner::Busy => e
+    redirect_to practice_session_path(@session), alert: "#{e.message} - one session at a time on this rig."
   end
 
   # "Start match": end the sighting time now; the range officer calls the match.

@@ -29,6 +29,7 @@ Rails.application.routes.draw do
     patch :diary, on: :member        # the session diary: exercises, problems, fixes, learned
     post :start_match, on: :member   # end a match's sighting time early
     post :refind, on: :member        # the camera got bumped: re-locate the target
+    post :resume, on: :member, path: "continue"   # carry on a finished practice session from today
     get :camera, on: :member   # the live camera picture, relayed from the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)

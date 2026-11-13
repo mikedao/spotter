@@ -95,4 +95,46 @@ RSpec.describe EngineRunner do
     expect(session.engine_error).to include("no input device matching 'Kiyo'")
     expect(described_class.running).to be_nil
   end
+
+  describe "continuing a session" do
+    let(:session) do
+      create(:practice_session, user:, camera: "http://spotter.local:8080/stream", mic: "MacBook Microphone", per_card: 10,
+                                status: "ended", started_at: 2.hours.ago, ended_at: 1.hour.ago)
+    end
+    let(:card) { create(:card, practice_session: session, number: 2) }
+
+    before do
+      create(:shot, card:, number: 1, x_mm: 3.0, y_mm: -4.0)
+      last = create(:shot, card:, number: 2, x_mm: -10.5, y_mm: 7.25)
+      last.after_image.attach(io: StringIO.new("PNGDATA"), filename: "after.png", content_type: "image/png")
+      allow(Process).to receive(:spawn).and_return(999_998)
+      allow(described_class).to receive(:watch)
+    end
+
+    it "starts the engine on the same session, telling it the last card, its holes and last picture" do
+      token = session.run_token
+      described_class.continue!(session)
+
+      expect(session.reload).to have_attributes(ended_at: nil, status: "starting", engine_pid: 999_998)
+      expect(session.run_token).not_to eq token                         # the old engine's token is spent
+      expect(session.break_seconds).to be_within(5).of(3600)           # left out of its duration
+      expect(Process).to have_received(:spawn) do |env, *cmd, **opts|
+        expect(env["SPOTTER_TOKEN"]).to eq session.run_token
+        expect(cmd.each_cons(2)).to include([ "--session-id", session.engine_session_id ], [ "--device", session.camera ])
+        resume = JSON.parse(File.read(cmd[cmd.index("--resume") + 1]))
+        expect(resume).to include("card" => 2, "holes" => [ [ 3.0, -4.0 ], [ -10.5, 7.25 ] ])
+        expect(File.binread(resume["image"])).to eq "PNGDATA"
+        expect(opts[:out]).to eq [ session.engine_log, "a" ]           # its log carries on
+      end
+    end
+
+    it "only continues a finished practice session from today" do
+      ended = { user:, status: "ended", started_at: 2.hours.ago, ended_at: 1.hour.ago }
+      [ create(:practice_session, **ended, course: "match"),
+        create(:practice_session, **ended, started_at: 2.days.ago, ended_at: 2.days.ago + 1.hour),
+        create(:practice_session, **ended, ended_at: nil, engine_pid: nil) ].each do |other|
+        expect { described_class.continue!(other) }.to raise_error(EngineRunner::NotContinuable)
+      end
+    end
+  end
 end
