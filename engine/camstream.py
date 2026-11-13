@@ -13,6 +13,7 @@ path the engine will see, without a Pi.
 Standard library + OpenCV; serves the latest frame to every client.
 """
 import argparse
+import signal
 import socketserver
 import threading
 import time
@@ -27,16 +28,21 @@ class Camera:
     """Reads continuously; keeps only the latest JPEG. With `image`, serves that
     still picture as if it were a live camera; with `playlist`, a series of
     pictures in turn, `every` seconds apart, holding the last - e.g. a card
-    photographed after each shot, replayed as if shot live (tests and demos)."""
+    photographed after each shot, replayed as if shot live (tests and demos).
+    With `hold`, the playlist stays on its first picture until go() (SIGUSR1),
+    so a demo can be set up - and its recording started - before the shots;
+    the second picture then shows `first` seconds later (default `every`)."""
 
-    def __init__(self, device, width, height, quality, image=None, playlist=None, every=8.0):
+    def __init__(self, device, width, height, quality, image=None, playlist=None, every=8.0,
+                 hold=False, first=None):
         self.playlist = []
         for path in playlist or []:
             img = cv2.imread(path)
             if img is None:
                 raise SystemExit(f"could not read {path}")
             self.playlist.append(img)
-        self.every, self.t0 = every, time.time()
+        self.every, self.t0 = every, None if hold else time.time()
+        self.first = every if first is None else min(first, every)
         if self.playlist:
             image = None
         self.still = cv2.imread(image) if image else (self.playlist[0] if self.playlist else None)
@@ -56,7 +62,8 @@ class Camera:
     def _run(self):
         while True:
             if self.playlist:
-                i = min(int((time.time() - self.t0) / self.every), len(self.playlist) - 1)
+                t0 = self.t0
+                i = 0 if t0 is None else min(int((time.time() - t0) / self.every), len(self.playlist) - 1)
                 ok, frame = True, self.playlist[i]
                 time.sleep(1 / 30)
             elif self.still is not None:
@@ -72,6 +79,11 @@ class Camera:
                 with self.cond:
                     self.jpeg, self.seq = buf.tobytes(), self.seq + 1
                     self.cond.notify_all()
+
+    def go(self):
+        """Start a held playlist: its second picture shows `first` seconds from now."""
+        if self.t0 is None:
+            self.t0 = time.time() - (self.every - self.first)
 
     def latest_jpeg(self):
         with self.cond:
@@ -151,8 +163,13 @@ def main():
     p.add_argument("--playlist", nargs="+", default=None,
                    help="serve these images in turn, --every seconds apart (replay a card)")
     p.add_argument("--every", type=float, default=8.0)
+    p.add_argument("--hold", action="store_true",
+                   help="with --playlist: stay on the first image until SIGUSR1")
+    p.add_argument("--first", type=float, default=None,
+                   help="with --hold: seconds from SIGUSR1 to the second image (default --every)")
     a = p.parse_args()
-    cam = Camera(a.device, a.width, a.height, a.quality, a.image, a.playlist, a.every)
+    cam = Camera(a.device, a.width, a.height, a.quality, a.image, a.playlist, a.every, a.hold, a.first)
+    signal.signal(signal.SIGUSR1, lambda *_: cam.go())
     srv = Server(("0.0.0.0", a.port), make_handler(cam, a.fps))
     what = (f"{len(a.playlist)} images, {a.every:g} s apart" if a.playlist
             else a.image or f"camera {a.device}")
