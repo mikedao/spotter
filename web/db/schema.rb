@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_232230) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -110,6 +110,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_090000) do
     t.text "fixes"
     t.text "learned"
     t.integer "break_seconds", default: 0, null: false
+    t.json "model_update"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["gun_id"], name: "index_practice_sessions_on_gun_id"
     t.index ["pellet_id"], name: "index_practice_sessions_on_pellet_id"

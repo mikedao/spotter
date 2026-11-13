@@ -230,9 +230,15 @@ def per_session(labels):
         s = [lb for lb in labels if lb["session_id"] == sid]
         r = ring_stats(s, "rules")
         p = position_stats(s, "rules")
+        m = ring_stats(s, "model")
+        mp = position_stats(s, "model")
+        versions = sorted({lb["estimates"]["model"].get("version") for lb in s if lb["estimates"].get("model")})
         out.append({"session_id": sid, "date": min(lb["fired_at"] for lb in s)[:10],
                     "target": s[0]["target"], "n": len(s), "agree": r["agree"],
-                    "tapped": p["n"], "median_mm": p.get("median_mm")})
+                    "tapped": p["n"], "median_mm": p.get("median_mm"),
+                    # the model as it ran LIVE in that session (shadow): trained before it
+                    "model_n": m["n"], "model_agree": m["agree"],
+                    "model_median_mm": mp.get("median_mm"), "model_versions": versions})
     return out
 
 
@@ -323,7 +329,7 @@ def main():
     if a.save:
         with history.open("a") as fh:
             fh.write(json.dumps(s) + "\n")
-        print(f"saved to {history}")
+        print(f"saved to {history}", file=sys.stderr)   # stdout may be --json
 
 
 if __name__ == "__main__":

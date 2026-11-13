@@ -53,6 +53,7 @@
   <% end %>
   </div>
 
+  <%= render(ModelUpdateComponent.new(session: @session)) %>
   <%= render(SessionDiaryComponent.new(session: @session)) %>
   <%= render(SessionGearComponent.new(session: @session)) %>
   <%= render(CardComponent.new(title: "Export", id: "export")) do %>

@@ -32,6 +32,7 @@ Rails.application.routes.draw do
     post :pause_scoring, on: :member   # changing cards: score nothing until resumed
     post :resume_scoring, on: :member
     post :resume, on: :member, path: "continue"   # carry on a finished practice session from today
+    post :update_model, on: :member   # after reviewing every shot: compare, then retrain the scoring model
     get :camera, on: :member   # the live camera picture, relayed from the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)

@@ -130,6 +130,8 @@ System Settings > Privacy & Security > Camera, then fully restarted.
 Code is in git; everything below is NOT, and has to be rebuilt or copied:
 
 ```bash
+# scoring model: NOT in git (engine/out/ml/model/hole.onnx, ~1 MB) - copy it, or
+# retrain: engine/ml/setup.sh, then the session page's "Update the scoring model"
 # engine: Python 3.15 (Homebrew), pinned requirements
 cd engine && /opt/homebrew/bin/python3.15 -m venv .venv && ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python selftest.py                  # must pass
@@ -147,7 +149,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 264 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 274 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -226,10 +228,19 @@ SHADOW mode (DONE: reported beside the rules, rules still score) -> promote only
 once it beats the rules on held-out SESSIONS, judged on the live shadow numbers.
 
 - **After every session** (the shooter reviews every shot, ~60 labels a batch;
-  a call with NO tap = "accepted", the engine's call was right):
-  `cd web && bin/rails ml:eval SAVE=1` (export + rules vs calls + history), then
-  `bin/rails ml:train` (~15 min; cross-validates, retrains, exports; the engine
-  loads the new model at its next start, the old one kept as `hole-prev.*`).
+  a call with NO tap = "accepted", the engine's call was right): the FINISHED
+  session page's "Scoring model" card shows "N shots still to review" until every
+  scored shot has a call, then **"Update the scoring model"** (`ModelUpdate`,
+  2026-11-13, the shooter's ask): export -> `mleval.py --save --json` -> `ml/train.py`
+  (niced, ~15 min), run from a THREAD in the web process so the card follows it
+  live (the dev Action Cable adapter is async: a separate process can't push);
+  state in `practice_sessions.model_update`; then "this session: engine X of N,
+  model Y of N" (the live shadow numbers) and the retrained model's held-out
+  numbers. One at a time, refused while a session is live, never for the demo;
+  a restart mid-run -> "failed" on the next page load, training killed at_exit.
+  By hand: `bin/rails ml:eval SAVE=1`, `bin/rails ml:train`. The engine loads a
+  new model at its next start (old one kept as `hole-prev.*`). Verified with the
+  real scripts on session 8 (a 50-step run; `SPOTTER_ML_STEPS` shortens it).
 - `TrainingExport` -> `engine/out/ml/dataset/` (`index.jsonl` +
   `shots/<id>/{before,after}.jpg,label.json`): a MIRROR of the DB, incremental,
   demo user left out. Call kinds: `tapped` (position = label), `accepted`,
