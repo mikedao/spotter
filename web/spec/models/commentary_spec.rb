@@ -90,6 +90,33 @@ RSpec.describe Commentary do
       .with(session, target: "announcements", html: a_string_including("&quot;kind&quot;:&quot;chat&quot;"))
   end
 
+  it "sums up a practice session when it ends, chatty mode or not" do
+    user.update!(chatty: false)
+    fire(9, 9, 9, 9, 9, 9, 9, 9, 9, 9)
+    fire(10, 10, 10, 10, 10, 10, 10, 10, 10, 8)
+    fire(8, 8)
+    summary = described_class.new(session.reload, random: Random.new(3)).after_session
+    expect(Commentary.lines["session_done"]).to include(said([ summary.first ]))
+    expect(summary[1].last).to eq("22")                                   # shots
+    expect(summary[2].last).to eq("9.3")                                  # average (204 / 22), whole rings for pistol
+    expect(summary[3].last).to eq("98")                                   # best card
+    expect(said(summary)).not_to include("565")
+
+    allow(Turbo::StreamsChannel).to receive(:broadcast_append_to)
+    Commentary.after_event(session, type: "session_ended")
+    expect(Turbo::StreamsChannel).to have_received(:broadcast_append_to).with(session, target: "announcements", html: a_string_including("98"))
+  end
+
+  it "says nothing at the end of a session without shots, or of a match (it has its own summary)" do
+    allow(Turbo::StreamsChannel).to receive(:broadcast_append_to)
+    Commentary.after_event(session, type: "session_ended")
+    fire(9)
+    session.update!(course: "match")
+    user.update!(chatty: false)
+    Commentary.after_event(session.reload, type: "session_ended")
+    expect(Turbo::StreamsChannel).not_to have_received(:broadcast_append_to)
+  end
+
   it "knows every piece it may say, numbers filled in, to render ahead" do
     pieces = Commentary.pieces(user)
     expect(pieces).to include("3 tens in a row", "10 tens in a row", "low left again", "96")

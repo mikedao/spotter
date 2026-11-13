@@ -36,8 +36,11 @@ class EngineEvent
     return attach_shot_images(session) if type == "shot_images"
 
     record = ActiveRecord::Base.transaction { send("apply_#{type}", session) }
+    # The end-of-session summary goes out BEFORE the broadcast's page reload, so the
+    # range screen holds the reload until it has been said (announcer_controller.js).
+    Commentary.after_event(session.reload, type:, record:, data:) if type == "session_ended"
     LiveBroadcast.new(session.reload).call
-    Commentary.after_event(session, type:, record:, data:)   # chatty mode: after the engine's own announcement
+    Commentary.after_event(session, type:, record:, data:) unless type == "session_ended"   # after the engine's own announcement
     record
   end
 

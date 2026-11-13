@@ -648,6 +648,12 @@ Built and committed:
   on the last);
   a match also "halfway" + total at 30 and "last series" at 50; when the RO's
   phase is "done", the MATCH SUMMARY (final score, best series).
+  A PRACTICE session's end (`session_ended`, no course) ALWAYS gets a spoken
+  SUMMARY, chatty or not (2026-11-13, the shooter asked): "that's the session.
+  shots today, 34. average, 9.2. best card, 94" (best card only with 2+ full
+  cards; whole rings for pistol). `EngineEvent#apply!` delivers it BEFORE the
+  broadcast's Turbo refresh, so the range screen holds the reload until it is
+  said (sent after, the page could reload first and lose it).
   The JOURNAL GOAL (565) IS NEVER SPOKEN - no pace, no "short of" (the shooter,
   2026-11-12: it is so far off that hearing the gap is demoralizing; the
   journal page still shows it). Lines: `config/commentary/default.yml` (a

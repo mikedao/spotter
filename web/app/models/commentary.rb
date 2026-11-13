@@ -9,6 +9,9 @@
 #                     today, a personal best, up or down on the last); in a
 #                     match also "halfway" and "last series"
 #   a match's end     the final score, the best series
+#   a practice's end  ALWAYS, chatty or not (the shooter asked for it): shots,
+#                     average, best card - said before the page reloads into
+#                     the summary (the range screen holds the reload till idle)
 #
 # NEVER the journal goal (565 for the trials): no pace against it, no "short of"
 # it. The shooter, 2026-11-12: it is so far off that hearing it is demoralizing.
@@ -18,6 +21,7 @@
 #
 #   Commentary.new(session).after_shot(shot)   # => [ [ "3 tens in a row" ] ]   sentences of pieces
 #   Commentary.new(session).after_match        # => [ [ "that's the match" ], [ "final score", "553" ], ... ]
+#   Commentary.new(session).after_session      # => [ [ "that's the session" ], [ "shots today", "34" ], [ "average", "9.2" ] ]
 class Commentary
   SERIES = 10
   DIRECTIONS = %w[ right high\ right high high\ left left low\ left low low\ right ].freeze
@@ -30,6 +34,7 @@ class Commentary
   # Push the remarks for an engine event to the range screen, when the shooter
   # has chatty mode on.
   def self.after_event(session, type:, record: nil, data: {})
+    return new(session).then { it.deliver!(it.after_session) } if type == "session_ended" && session.course.nil?
     return unless session.user.chatty?
 
     commentary = new(session)
@@ -50,7 +55,7 @@ class Commentary
       combos.map { |c| c.reduce(line) { |text, (k, v)| text.gsub("{#{k}}", v.to_s) } }
     end
     texts = lines(personality).values.grep(Array).flatten.flat_map { fill.(it) }
-    (texts.flat_map { split(it).flatten } + (50..100).map(&:to_s)).uniq
+    (texts.flat_map { split(it).flatten } + (1..100).map(&:to_s)).uniq
   end
 
   # Text -> sentences -> pieces, as the engine's voicelines.split.
@@ -74,6 +79,17 @@ class Commentary
 
     out = [ say(:match_done), [ *say(:final_score).first, number(total(shots)) ] ]
     out << [ *say(:best_series_was).first, number(series.max) ] if series.size > 1
+    out
+  end
+
+  # The end of a practice session: how many, the average, the best card.
+  def after_session
+    return [] if shots.empty?
+
+    average = shots.sum { value(it) } / shots.size.to_f
+    out = say(:session_done) + [ [ *say(:shots_today).first, shots.size.to_s ],
+                                 [ *say(:average).first, format("%.1f", average) ] ]
+    out << [ *say(:best_card).first, number(series.max) ] if series.size > 1
     out
   end
 

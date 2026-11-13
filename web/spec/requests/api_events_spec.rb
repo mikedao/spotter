@@ -58,6 +58,15 @@ RSpec.describe "Engine events API" do
     expect(session.reload).to have_attributes(status: "ended", live?: false)
   end
 
+  it "says the practice summary before the range screen reloads into the finished session" do
+    post_event("shot", shot_data("044", 1.0, 1.0, ring: 9, decimal: 9.6))
+    order = []
+    allow(Turbo::StreamsChannel).to receive(:broadcast_append_to) { |*, target:, **| order << target }
+    allow(Turbo::StreamsChannel).to receive(:broadcast_refresh_to) { order << "refresh" }
+    post_event("session_ended")
+    expect(order).to eq [ "announcements", "refresh" ]
+  end
+
   it "takes a shot at once and its pictures when they follow (the engine's picture lane)" do
     post_event("shot", shot_data("050", 4.0, -3.0, detect_s: 1.37))
     shot = session.shots.find_by!(engine_shot_id: "050")
