@@ -273,6 +273,16 @@ def find_target_frame(gray, black_dia_mm=59.5, min_area_frac=0.005,
         frac = area / img_area
         if not (min_area_frac <= frac <= max_area_frac):
             continue
+        # The aiming mark never touches the picture's edge in a usable view
+        # (clipped, it could not be fitted anyway). A dark SURROUND always
+        # does - and one that rings the whole card (2026-11-12, the Pi rig)
+        # passed every test below: its outer contour encloses the card, so it
+        # looked solid and round, and as the largest it won whenever its hull
+        # had 5+ points.
+        x, y, w, h = stats[i, :4]
+        if x <= 0 or y <= 0 or x + w >= W or y + h >= H:
+            rejected.append((frac, "touches the edge"))
+            continue
         comp = (labels == i).astype(np.uint8)
         # RETR_EXTERNAL ignores interior holes, so a pellet hole punched
         # through the bull does not disturb the outline.

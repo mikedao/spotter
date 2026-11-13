@@ -63,6 +63,14 @@ RSpec.describe RigCheck do
       end
     end
 
+    it "says how a check that died ended, and its last error, instead of just 'it stopped'" do
+      with_engine("fake_locate_crash.sh") do
+        described_class.start!(user:, camera: "1", target: "pistol")
+        state = wait_until_finished(described_class)
+        expect(state.error).to eq "it crashed (SIGSEGV): cv2.error: stream read failed"
+      end
+    end
+
     it "waits while a session is using the camera" do
       create(:practice_session, engine_pid: Process.pid, ended_at: nil)
       expect { described_class.start!(user:, camera: "0", target: "pistol") }.to raise_error(RigCheck::Busy, /is shooting/)

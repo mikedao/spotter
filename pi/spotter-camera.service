@@ -8,6 +8,10 @@ Wants=network-online.target
 
 [Service]
 User=YOUR_USER
+# Focus LOCKED at the sharpest setting (2026-11-12 sweep on the rig: peak 187,
+# sharpness 629 vs 466 under auto focus). Re-sweep if the camera-to-card distance changes.
+ExecStartPre=/usr/bin/v4l2-ctl -d /dev/video0 -c focus_automatic_continuous=0
+ExecStartPre=/usr/bin/v4l2-ctl -d /dev/video0 -c focus_absolute=187
 ExecStart=/usr/bin/ustreamer --device=/dev/video0 --format=MJPEG --encoder=HW --resolution=1920x1080 --desired-fps=10 --host=0.0.0.0 --port=8080
 Restart=always
 RestartSec=3

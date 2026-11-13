@@ -251,6 +251,28 @@ def render_card(tilt_deg, D_mm=247.0, holes_mm=(), k1=-0.185, k2=0.293,
     return np.clip(img, 0, 255).astype(np.float32), w2i
 
 
+def test_dark_surround():
+    """
+    The card inside a dark surround that rings it completely (the 2026-11-12
+    Pi rig): the surround must never be taken for the aiming mark. Its outer
+    contour encloses the whole card, so counted solid it passed as a huge
+    round "mark" - whenever its hull had 5+ points (here: a bright corner).
+    """
+    import math
+    from geometry import find_target_frame
+    img, w2i = render_card(30.0, D_mm=340.0)    # back far enough for the whole card
+    H, W = img.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    img[(xx + yy) < 160] = 200.0                # a lit corner: the hull is a pentagon
+    tf, diag = find_target_frame(img)
+    assert tf is not None, f"dark surround: no mark found ({diag.get('reason')})"
+    tx, ty = w2i(0.0, 0.0)
+    err = math.hypot(tf.cx - tx, tf.cy - ty)
+    print(f"  dark surround ringing the card: mark found {err:.1f} px from the true centre")
+    assert err < 15, f"dark surround taken for the aiming mark ({err:.0f} px off)"
+    return err
+
+
 def test_perspective():
     """
     Camera off to the side: is the scored position right?
@@ -316,6 +338,8 @@ if __name__ == "__main__":
     torn = test_torn()
     print()
     persp = test_perspective()
+    print()
+    test_dark_surround()
     print("-" * 58)
     print(f"\n  off-axis geometry worst     : {persp:.4f} mm")
     print(f"\n  algorithm absolute accuracy : {acc:.4f} mm")

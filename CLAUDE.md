@@ -725,6 +725,13 @@ because ISSF awards the higher value when the hole touches the line.
 - `flatten_illumination` is mandatory before thresholding. A 68-level lighting
   gradient made Otsu merge a dim corner with the bull into one blob covering
   27.8% of frame at circularity 0.249.
+- **A dark surround that RINGS the whole card is not the aiming mark**
+  (2026-11-12, the Pi rig): its outer contour encloses the card, so it passed
+  the fill and roundness tests, and as the largest dark region it won whenever
+  its hull had 5+ points - a few pixels in a corner decided between a perfect
+  fit and none. `find_target_frame` now rejects any region touching the
+  picture's edge (a clipped mark could not be fitted anyway); selftest
+  `test_dark_surround` reproduces it (fails without the rule, 64 px off).
 - `refine_bull_ellipse` search window must be **0.85-1.15x** the bull radius.
   The printed white rings INSIDE the black (ring 8 sits at ~0.73 of the bull
   radius) will capture the rays if you search further in — that produced a

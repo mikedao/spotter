@@ -11,11 +11,16 @@ class RigCheck::LiveProcess
     def start!(user:, **opts)
       RigCheck.ensure_free!
       argv = command(user:, **opts)
-      io = IO.popen(argv, chdir: EngineRunner.engine_dir.to_s, err: File::NULL)
+      # The engine's error output is kept (log/rig_check/), so a check that dies
+      # can say why instead of just "it stopped" (2026-11-12: one did, mid-watch
+      # on the Pi stream, and there was nothing to go on).
+      log = Rails.root.join("log", "rig_check", "#{kind}-#{user.id}.log")
+      log.dirname.mkpath
+      io = IO.popen(argv, chdir: EngineRunner.engine_dir.to_s, err: [ log.to_s, "w" ])
       state = State.new(kind:, label:, user_id: user.id, pid: io.pid, started_at: Time.current,
                         finished: false, data: initial_data(**opts))
       RigCheck.store(state)
-      Thread.new { read(io, state, user) }
+      Thread.new { read(io, state, user, log) }
       broadcast(user, state, nil)
       state
     end
@@ -38,7 +43,7 @@ class RigCheck::LiveProcess
     def kind = name.demodulize.underscore.to_sym
 
     private
-      def read(io, state, user)
+      def read(io, state, user, log = nil)
         io.each_line do |line|
           event = JSON.parse(line) rescue next
           RigCheck::MUTEX.synchronize { apply(state, event, user) }
@@ -46,11 +51,23 @@ class RigCheck::LiveProcess
         end
       ensure
         io.close
+        status = $?
         RigCheck::MUTEX.synchronize do
           state.finished = true
-          state.error ||= "it stopped without reporting" unless finished_cleanly?(state)
+          state.error ||= stopped_message(status, log) unless finished_cleanly?(state)
         end
         broadcast(user, state, nil)
+      end
+
+      # Why a check ended without its final report: how the process ended, and
+      # the last thing it printed as an error (Python's own last line).
+      def stopped_message(status, log)
+        how = if status&.signaled? then "it crashed (#{Signal.signame(status.termsig).then { "SIG#{it}" }})"
+        elsif status && !status.success? then "it stopped with an error (exit #{status.exitstatus})"
+        else "it stopped without reporting"
+        end
+        last = log&.file? && log.readlines.map(&:strip).reject { it.empty? || it.match?(/warning/i) }.last
+        last ? "#{how}: #{last.truncate(200)}" : how
       end
 
       # Morphed, not swapped: only what changed is touched, so the camera
