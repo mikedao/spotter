@@ -670,9 +670,13 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   rejected by the no-new-hole check), (2) run `audio.py` on the Pi and send only
   triggers, (3) camera-only (2-4 s per shot). Start with (1); thresholds were
   tuned on the Kiyo hearing impacts and must be re-measured (`listen --mic`).
-- Not done yet: Pi setup (`pi/`: ustreamer service, v4l2-ctl to LOCK focus and
+- **The Pi stream is SET UP (2026-11-12, `pi/README.md`):** Pi 3 hostname
+  `spotter`, `spotter-camera.service` runs ustreamer on boot; the app's camera
+  step takes `http://spotter.local:8080/stream`. Measured 1080p MJPEG at 7-8 fps,
+  ~22.5 Mbit/s. Focus/exposure NOT locked yet; trigger = the laptop's mic (gun).
+- Still to do on the Pi: v4l2-ctl to LOCK focus and
   exposure - impossible on macOS, which caused the frame-to-frame focus/scale
-  drift), measuring real fps/bandwidth/latency from the Pi 3.
+  drift; and the latency from the Pi 3, not yet measured.
 
 ## Domain facts (verified against a physical card)
 
