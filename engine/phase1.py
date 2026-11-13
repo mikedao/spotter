@@ -1113,6 +1113,35 @@ def _scene_moving(f0, t0, f1, t1, spec, thresh=30.0, frac=0.01):
     return float((d[inside] > thresh).mean()) > frac
 
 
+def _load_hole_model(a):
+    """The learned hole locator (holemodel.py), in SHADOW mode: its estimate is
+    reported with each shot, the rules still score. --hole-model PATH, or
+    out/ml/model/hole.onnx when it exists; 'none' turns it off. Never fatal."""
+    choice = getattr(a, "hole_model", None) or os.environ.get("SPOTTER_HOLE_MODEL")
+    if choice == "none":
+        return None
+    try:
+        import holemodel
+        m = holemodel.HoleModel.load(choice)
+    except Exception as e:                      # noqa: BLE001 - scoring must go on
+        print(f"  hole model: could not load ({e}) - rules only", flush=True)
+        return None
+    if m is not None:
+        print(f"  hole model: {m.version} (trained on {m.meta.get('trained_on', '?')} "
+              "called shots), shadow mode", flush=True)
+    return m
+
+
+def _hole_model_estimate(model, before_jpeg, after_jpeg, centre, spec, a):
+    from scoring import PELLET_MM, PELLET_MARK_MM
+    try:
+        mark = PELLET_MM if getattr(a, "rule", "pellet") == "gauge" else PELLET_MARK_MM
+        return model.estimate(before_jpeg, after_jpeg, centre, spec, mark)
+    except Exception as e:                      # noqa: BLE001 - shadow only
+        print(f"  hole model failed: {e}", flush=True)
+        return None
+
+
 def _shot_auto(a, spec):
     """
     Hands-free scoring. Two ways a shot is noticed, one way it is scored:
@@ -1247,6 +1276,8 @@ def _shot_auto(a, spec):
         from report import png
         return {"before_image": lambda: ("before.png", png(before), "image/png"),
                 "after_image": lambda: ("after.png", png(after), "image/png")}
+
+    hole_model = _load_hole_model(a)
 
     voice = KokoroVoice(a.voice) if (a.speak and a.voice) else None
     web_speech = getattr(a, "announce", "local") == "web"
@@ -1460,10 +1491,25 @@ def _shot_auto(a, spec):
                        closeup={"centre": [round(centre[0], 3), round(centre[1], 3)],
                                 "px_per_mm": 20.0, "size_px": 480})
             files = frames(b_img, a_img)
-            files["closeup_before"] = lambda: ("closeup_before.jpg", jpeg(
-                closeup(b_img, b_tf, centre)), "image/jpeg")
-            files["closeup_after"] = lambda: ("closeup_after.jpg", jpeg(
-                closeup(a_img, a_tf, centre)), "image/jpeg")
+            if hole_model is not None:
+                # SHADOW MODE: the learned locator reads the same close-ups the
+                # web app stores (so they are made here, once); its estimate is
+                # reported beside the rules', which still score the shot.
+                cb, ca = jpeg(closeup(b_img, b_tf, centre)), jpeg(closeup(a_img, a_tf, centre))
+                files["closeup_before"] = lambda: ("closeup_before.jpg", cb, "image/jpeg")
+                files["closeup_after"] = lambda: ("closeup_after.jpg", ca, "image/jpeg")
+                m = _hole_model_estimate(hole_model, cb, ca, centre, spec, a)
+                if m:
+                    est["model"] = m
+                    print(f"  model (shadow): {m['decimal']:.1f} ring {m['ring']} "
+                          f"(P {m['p_ring']:.2f}, +-{m['sigma_mm']:.2f} mm, "
+                          f"{np.hypot(m['x_mm'] - centre[0], m['y_mm'] - centre[1]):.2f} mm from the rules')",
+                          flush=True)
+            else:
+                files["closeup_before"] = lambda: ("closeup_before.jpg", jpeg(
+                    closeup(b_img, b_tf, centre)), "image/jpeg")
+                files["closeup_after"] = lambda: ("closeup_after.jpg", jpeg(
+                    closeup(a_img, a_tf, centre)), "image/jpeg")
             emit("shot", {
                 "engine_shot_id": f"{n:03d}", "trigger": trigger,
                 "sound_db": sound_db, "card_shot": k,
@@ -2349,6 +2395,10 @@ def main():
                                 "visible hole incl. tears; or official gauge")
             s.add_argument("--auto", action="store_true",
                            help="hands-free: the camera mic triggers each shot")
+            s.add_argument("--hole-model", default=None,
+                           help="learned hole locator, SHADOW mode (reported, not "
+                                "scored): an .onnx path, or 'none'; default "
+                                "out/ml/model/hole.onnx if it exists")
             s.add_argument("--mic", default=None,
                            help="auto: microphone name to match (default: the "
                                 "computer's default input; 'none' = camera only)")

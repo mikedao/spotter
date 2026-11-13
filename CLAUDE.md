@@ -72,6 +72,9 @@ The engine files below live in `engine/`; run engine commands from there.
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
 | `probe.py` | Camera permission / resolution check |
+| `holemodel.py` | Learned hole locator, engine side (ONNX via cv2.dnn); shared crop/decode with `ml/train.py` |
+| `mleval.py` | Rules (and the model) vs the shooter's calls: the baseline to beat |
+| `ml/` | Hole-locator training: own Python 3.13 + PyTorch venv, `setup.sh`, `train.py` |
 | `voicelines.py` | What the engine says, as pieces; the 19 Kokoro voices (shared with `voice/`) |
 | `course.py` | Match / final courses of fire as data + the virtual range officer (`Runner`) |
 | `voice/` | The Kokoro announcer: own Python 3.13 venv, `setup.sh`, `speak.py` (see "Announcer voice") |
@@ -144,7 +147,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 226 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 264 examples, 0 failures
 bin/dev                                          # http://localhost:3000, sign up (username + PIN)
 ```
 
@@ -212,6 +215,58 @@ numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
 Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
 shots); the model trained from reviewed calls; Pi setup.
+
+## Learned scoring model (started 2026-11-13)
+
+Goal: a model trained on the shooter's review calls replaces the hand-written
+hole-POSITION rules. It predicts where the pellet's centre is (`scoring.py` still
+turns that into ring/decimal) and how sure it is (P(ring), meant to replace the
+fixed LINE CALL margin). Stages: dataset + baseline (DONE) -> model (DONE) ->
+SHADOW mode (DONE: reported beside the rules, rules still score) -> promote only
+once it beats the rules on held-out SESSIONS, judged on the live shadow numbers.
+
+- **After every session** (the shooter reviews every shot, ~60 labels a batch;
+  a call with NO tap = "accepted", the engine's call was right):
+  `cd web && bin/rails ml:eval SAVE=1` (export + rules vs calls + history), then
+  `bin/rails ml:train` (~15 min; cross-validates, retrains, exports; the engine
+  loads the new model at its next start, the old one kept as `hole-prev.*`).
+- `TrainingExport` -> `engine/out/ml/dataset/` (`index.jsonl` +
+  `shots/<id>/{before,after}.jpg,label.json`): a MIRROR of the DB, incremental,
+  demo user left out. Call kinds: `tapped` (position = label), `accepted`,
+  `ring_only`. Taps happen mostly where the rules look off, so position error over
+  tapped shots overstates it; ring agreement over every call is the headline.
+- `engine/mleval.py`: rules / centroid / circle fit / model vs the calls (ring
+  agreement with a 95% range, position error, radial bias, flags caught vs
+  needless, touch-allowance sweep, worst shots as /shots/ID links). "model" there
+  = the LIVE shadow estimates (`estimates.model`), made by a model trained BEFORE
+  that session: the honest out-of-sample number. Compare models by version.
+- `engine/holemodel.py` (engine side, numpy + cv2 only) holds EVERYTHING training
+  and the live engine share: the crop (20 mm at 8 px/mm from the 20 px/mm
+  close-ups' JPEGs - the live engine JPEG-encodes its close-ups first so it sees
+  the same pixels), the 40x40 heatmap (0.5 mm cells) -> mean position, spread,
+  P(ring) read from the heatmap itself (a tear's two ends keep both). Change it
+  and retrain. ONNX run by `cv2.dnn` (~8 ms); train.py refuses to export if
+  cv2.dnn and torch disagree. `phase1.py shot --auto` loads
+  `out/ml/model/hole.onnx` if present (`--hole-model PATH|none`,
+  `SPOTTER_HOLE_MODEL`), only when reporting to the web app, never fatal.
+- `engine/ml/` (`setup.sh`, Python 3.13 + PyTorch on MPS; the engine's 3.15 has
+  no torch): `train.py` = small FCN (`HoleNet`, ~0.24 M params) on before /
+  after / difference, any-angle rotation + flip + 1.5 mm shift augmentation (the
+  close-ups are top-down, so a hole is a hole at any angle), loss = target
+  heatmap CE + soft-argmax L1 (tapped weight 1, accepted 0.5) + a ring term
+  (probability inside the called ring). Held-out folds by SESSION, by CARD while
+  there are < 3 sessions. `sigma_scale` calibrates the spread on held-out taps.
+- One rig, indoors (the garage), fixed lighting: fitting the rig is the goal, but
+  split by session (paper, diffuser wear, camera bumps).
+- **Results 2026-11-13** (60 calls, ONE session, 6 held-out cards; small - the
+  95% ranges overlap): rings agreed - rules 54/60, centroid 56, circle fit 53,
+  MODEL 58/60. Median position error on taps 0.52 mm -> 0.25; > 3 mm "wrong
+  spot" 7 -> 1. Flags: rules 27 (caught 6/6 ring changes, 21 needless); model
+  8 at P < 0.9 (caught 1 of its 2 misses - /shots/124, an overlap, missed).
+  The rules' big misses (4-8 mm) are mostly OVERLAPS, where they use the circle
+  fit. No radial bias (median -0.03 mm). Touch allowance fit 0.55-0.85 (0.65 in
+  use). Demo card (044-053, never trained on) in shadow: same rings as the rules
+  on all 10; it flagged only 049 (P 0.56), the shot the shooter called 8 vs 9.0.
 
 ## Web app (`web/`, 2026-11)
 
@@ -1068,7 +1123,7 @@ because ISSF awards the higher value when the hole touches the line.
 - Lighting is currently front-lit with glare. Backlighting is better: the air
   rifle target's whole high-value area is black paper, where a hole is
   invisible under front light. Backlit, a hole is bright on a dark field.
-- Not yet built: CSV export, announcer personalities, piezo auto-trigger,
+- Not yet built: the learned model SCORING (shadow only so far), CSV export, announcer personalities, piezo auto-trigger,
   Raspberry Pi deployment (see "Where we left off"; the journal, reports,
   Shotmetrix export and the browser announcer are built).
 

@@ -1,0 +1,6 @@
+# The hole locator's TRAINING environment (Python 3.13: PyTorch has no 3.15
+# builds yet). The engine itself only needs the exported .onnx, run by cv2.dnn.
+torch==2.15.0
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+onnx==1.23.2

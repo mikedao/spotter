@@ -69,7 +69,7 @@ y UP**.
 | `x_mm`, `y_mm`, `r_mm` | scored position (the rule's choice of estimate) |
 | `decimal`, `ring`, `inner_ten` | the rule's score (decimals truncated) |
 | `rule`, `line_mm`, `line_call`, `ambiguous`, `overlap` | how it was scored, and its flags |
-| `estimates` | every position estimate: `centroid` [x,y], `circle_fit` {x,y,ok,arc_deg}, `visible_edge_r_mm`, and `closeup` {centre: [x,y], px_per_mm, size_px} |
+| `estimates` | every position estimate: `centroid` [x,y], `circle_fit` {x,y,ok,arc_deg}, `visible_edge_r_mm`, and `closeup` {centre: [x,y], px_per_mm, size_px}, and when a learned model is loaded `model` {x_mm, y_mm, sigma_mm, ring, decimal, p_ring, rings {ring: P}, split_mm, version} - SHADOW only: stored, never used to score |
 | `region` | detected region: `dia_mm`, `circularity`, `peak` |
 | `geometry` | `ring_rms_mm`, `perspective`, `k1`, `k2` |
 | `course` | null in practice; in a match or final: `stage` ("sighter" / "match"), `label`, and for a match shot `series`, `number` (in the event) and `penalty` (null, "out of time", "after the end", "extra shot": scores zero) |
