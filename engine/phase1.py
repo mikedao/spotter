@@ -1006,16 +1006,13 @@ def _direction(x_mm, y_mm, inner_ten=False):
 
 
 def _spoken_direction(r):
-    """The direction as said: "shot low", with how far out in ring steps (so
-    the same for pistol and rifle): "a touch" in the 10 and 9 rings, plain in
-    the 8 and 7, "well" in the 6 or worse. Each phrase is one voice piece
-    (voicelines.DIRECTION_PHRASES): "low" said on its own sounded wrong."""
+    """The direction as said, with how far out by the decimal score - "just
+    low" (a 10) through "a touch low" (9.5+), "slightly low", "shot low" (8),
+    "a good bit low" (7), "well low" (6) to "way low" - in one of several
+    phrasings (voicelines.spoken_direction, directions.json). Each phrase is one
+    voice piece: "low" said on its own sounded wrong."""
     d = _direction(r["x_mm"], r["y_mm"], r["inner_ten"])
-    if d == "center":
-        return d
-    ring = r["integer"]
-    degree = "a touch " if ring >= 9 else ("" if ring >= 7 else "well ")
-    return f"shot {degree}{d}"
+    return voicelines.spoken_direction(d, r["decimal"])
 
 
 def _spoken(r, res):

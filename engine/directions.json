@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "How far out a shot is, said with its direction: 'shot 4. 9.6, a touch low'.",
+    "Read by the engine (voicelines.py) AND the web app (Announcement), so the two always agree.",
+    "Bands by the DECIMAL score (ring units, so pistol and rifle read alike): a shot belongs",
+    "to the first band whose 'from' it reaches. An inner ten (or < 1 mm) is just 'center'.",
+    "{dir} = right, high right, high, high left, left, low left, low, low right.",
+    "Each phrase is ONE voice piece: no commas or full stops; letters, numbers, spaces, ' and -.",
+    "A word on its own ('low.') sounds wrong, so every phrase has at least two words.",
+    "After a change: voice/speak.py export --all (renders only the new pieces, every voice)."
+  ],
+  "bands": [
+    { "from": 10.0, "label": "10, not inner",
+      "phrases": [ "just {dir}", "only just {dir}", "a hair {dir}", "barely {dir}", "a whisker {dir}", "the tiniest bit {dir}" ] },
+    { "from": 9.5, "label": "9.5 - 9.9",
+      "phrases": [ "a touch {dir}", "shot a touch {dir}", "a little {dir}", "a fraction {dir}", "just a bit {dir}", "nudged {dir}" ] },
+    { "from": 9.0, "label": "9.0 - 9.4",
+      "phrases": [ "slightly {dir}", "shot slightly {dir}", "a bit {dir}", "a shade {dir}", "leaning {dir}", "edging {dir}" ] },
+    { "from": 8.0, "label": "8",
+      "phrases": [ "shot {dir}", "that's {dir}", "went {dir}", "drifted {dir}", "landed {dir}", "that one's {dir}" ] },
+    { "from": 7.0, "label": "7",
+      "phrases": [ "a good bit {dir}", "fairly {dir}", "quite {dir}", "noticeably {dir}", "a fair way {dir}", "clearly {dir}" ] },
+    { "from": 6.0, "label": "6",
+      "phrases": [ "well {dir}", "shot well {dir}", "well out {dir}", "a long way {dir}", "far {dir}", "pretty far {dir}" ] },
+    { "from": 0.0, "label": "5 or worse",
+      "phrases": [ "way {dir}", "way out {dir}", "very far {dir}", "really far {dir}", "far out {dir}", "miles {dir}" ] }
+  ]
+}
