@@ -30,7 +30,7 @@ class EngineEvent
   def apply!
     session = @session || PracticeSession.find_by!(engine_session_id: session_id)
     # An announcement changes nothing stored: it is only played on the range screen.
-    return session.tap { Announcement.new(it, data).deliver! } if type == "announce"
+    return session.tap { PersonalityAnnouncer.for(it)&.announce!(data) || Announcement.new(it, data).deliver! } if type == "announce"
     # A shot's pictures, sent after it (the engine's picture lane): attached, no
     # broadcast - the range screen doesn't show them, and the shot is already up.
     return attach_shot_images(session) if type == "shot_images"
@@ -40,6 +40,7 @@ class EngineEvent
     # range screen holds the reload until it has been said (announcer_controller.js).
     Commentary.after_event(session.reload, type:, record:, data:) if type == "session_ended"
     LiveBroadcast.new(session.reload).call
+    PersonalityAnnouncer.for(session)&.shot!(record) if type == "shot" && record.is_a?(Shot)
     Commentary.after_event(session, type:, record:, data:) unless type == "session_ended"   # after the engine's own announcement
     record
   end

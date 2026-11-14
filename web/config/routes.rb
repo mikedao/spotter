@@ -62,6 +62,7 @@ Rails.application.routes.draw do
   get "settings", to: "settings#show", as: :settings
   patch "settings", to: "settings#update"
   patch "settings/chatty", to: "settings#chatty", as: :chatty_setting   # the range screen's Chatty button
+  resource :personality, only: :update   # Settings, Personalities: none or one (Personality)
   resource :voice, only: :update do
     post :prepare   # render chatty mode's lines in the user's voice now, in the background
   end

@@ -32,7 +32,7 @@ class ShotsController < ApplicationController
     session = @shot.practice_session.reload
     if session.live?
       LiveBroadcast.new(session).call
-      Announcement.for_shot(@shot).deliver!
+      PersonalityAnnouncer.for(@shot.practice_session)&.shot!(@shot) || Announcement.for_shot(@shot).deliver!
       Commentary.after_event(session, type: "shot", record: @shot)
     end
     return render(:plotted) if turbo_frame_request?

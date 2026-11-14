@@ -41,7 +41,7 @@ class Voice
     def all = ALL.values
     def find(id) = ALL[id.to_s]
     def valid?(id) = ALL.key?(id.to_s)
-    def for(user) = find(user&.voice) || find(DEFAULT)
+    def for(user) = find(Personality.for(user)&.voice) || find(user&.voice) || find(DEFAULT)
 
     def dir = EngineRunner.engine_dir.join("voice")
     def python = dir.join(".venv", "bin", "python")

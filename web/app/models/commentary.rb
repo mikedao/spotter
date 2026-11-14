@@ -34,6 +34,12 @@ class Commentary
   # Push the remarks for an engine event to the range screen, when the shooter
   # has chatty mode on.
   def self.after_event(session, type:, record: nil, data: {})
+    if (personality = PersonalityAnnouncer.for(session))   # it says all of this its own way
+      return personality.session_end! || new(session).then { it.deliver!(it.after_session) } if type == "session_ended" && session.course.nil?
+      return personality.match_end! if type == "course" && data["phase"] == "done"
+
+      return
+    end
     return new(session).then { it.deliver!(it.after_session) } if type == "session_ended" && session.course.nil?
     return unless session.user.chatty?
 
@@ -100,10 +106,54 @@ class Commentary
                                  "sentences" => sentences.map { { "pieces" => it } } }).deliver!
   end
 
+  # The session's competition shots so far, in order (calls win).
+  def shots = @shots ||= SessionSummary.new(@session).shots
+
+  # The most notable thing about the n-th shot, if anything, as data:
+  # [ :streak_tens, { n: 4 } ], [ :nine_run, { n: 5 } ], [ :pattern, { dir: "low left" } ],
+  # [ :flyer, {} ], [ :bad_shot, {} ], [ :inner_ten, {} ] - or nil.
+  def moment(n)
+    shot = shots[n - 1]
+    rings = shots.first(n).map { it.penalized? ? 0 : it.final_ring.to_i }
+    tens = rings.reverse.take_while { it == 10 }.size
+    return [ :streak_tens, { n: tens } ] if tens >= 3
+
+    nines = rings.reverse.take_while { it >= 9 }.size
+    return [ :nine_run, { n: nines } ] if [ 5, 10 ].include?(nines)
+
+    last3 = shots.first(n).last(3)
+    if last3.size == 3 && last3.none? { it.final_inner_ten? || it.final_ring.to_i == 10 || it.penalized? } &&
+       (dirs = last3.map(&:direction).uniq).size == 1 && dirs.first.present? && dirs.first != "center"
+      return [ :pattern, { dir: dirs.first } ]
+    end
+    return [ :flyer, {} ] if flyer?(shot, shots.first(n - 1))
+    return [ :bad_shot, {} ] if !shot.penalized? && shot.final_ring.to_i <= 7
+    return [ :inner_ten, {} ] if shot.final_inner_ten?
+
+    nil
+  end
+
+  # The 10-shot summary ending at the n-th shot, as data: { total:, series: (a
+  # match's series, not a card), compared: [ :personal_best ] / [ :best_today ] /
+  # [ :better, d ] / [ :worse, d ] / [ :same ] / [ :first ], halfway: total at 30
+  # in a match, last_series: at 50 in a match }. Only shots up to the n-th count.
+  def summary_info(n)
+    upto = shots.first(n)
+    done = series(upto)
+    this, before = done.last, done[0...-1]
+    compared = if before.empty? then [ :first ]
+    elsif this > before.max then [ personal_best?(this) ? :personal_best : :best_today ]
+    elsif (d = (this - before.last).round(1)) != 0 then [ d.positive? ? :better : :worse, whole? ? d.abs.to_i : d.abs ]
+    else [ :same ]
+    end
+    { total: this, series: @session.course.present?, compared:,
+      halfway: (match? && n == 30 ? total(upto) : nil), last_series: match? && n == 50 }
+  end
+
+  def whole? = @session.whole_rings?
+  def value(shot) = shot.penalized? ? 0 : (whole? ? shot.final_ring.to_i : shot.final_decimal.to_f)
+
   private
-    def shots = @shots ||= SessionSummary.new(@session).shots
-    def whole? = @session.whole_rings?
-    def value(shot) = shot.penalized? ? 0 : (whole? ? shot.final_ring.to_i : shot.final_decimal.to_f)
     def total(list) = whole? ? list.sum { value(it) } : list.sum { value(it) }.round(1)
     def number(v) = whole? ? v.to_i.to_s : format("%.1f", v)
     def series(list = shots) = list.each_slice(SERIES).select { it.size == SERIES }.map { total(it) }
@@ -123,20 +173,16 @@ class Commentary
     def cache_key(key) = "commentary/#{@session.id}/#{key}"
 
     # Every 10 shots: the total, how it compares; match milestones.
-    # Only the shots up to the n-th count (the moment it is about).
     def summary(n)
-      upto = shots.first(n)
-      done = series(upto)
-      this, before = done.last, done[0...-1]
-      out = [ [ *say(@session.course ? :series_done : :card_done).first, number(this) ] ]
-      if before.any? && this > before.max
-        out << (personal_best?(this) ? say(:personal_best).first : say(:best_today).first)
-      elsif before.any? && (d = (this - before.last).round(1)) != 0
-        d = whole? ? d.to_i : d
-        out << (d.positive? ? say(:better_than_last, d:).first : say(:worse_than_last, d: d.abs).first)
+      info = summary_info(n)
+      out = [ [ *say(info[:series] ? :series_done : :card_done).first, number(info[:total]) ] ]
+      kind, d = info[:compared]
+      case kind
+      when :personal_best, :best_today then out << say(kind).first
+      when :better, :worse then out << say(:"#{kind}_than_last", d:).first
       end
-      out << [ *say(:halfway).first, number(total(upto)) ] if match? && n == 30
-      out += say(:last_series) if match? && n == 50
+      out << [ *say(:halfway).first, number(info[:halfway]) ] if info[:halfway]
+      out += say(:last_series) if info[:last_series]
       out
     end
 
@@ -149,24 +195,11 @@ class Commentary
 
     # After a single shot: the most notable thing, if anything.
     def remark(n)
-      shot = shots[n - 1]
-      rings = shots.first(n).map { it.penalized? ? 0 : it.final_ring.to_i }
-      tens = rings.reverse.take_while { it == 10 }.size
-      return say(:streak_tens, n: tens) if tens >= 3
+      key, values = moment(n)
+      return [] unless key
+      return say(:pattern, **values) + say(:pattern_advice) if key == :pattern
 
-      nines = rings.reverse.take_while { it >= 9 }.size
-      return say(:nine_run, n: nines) if [ 5, 10 ].include?(nines)
-
-      last3 = shots.first(n).last(3)
-      if last3.size == 3 && last3.none? { it.final_inner_ten? || it.final_ring.to_i == 10 || it.penalized? } &&
-         (dirs = last3.map(&:direction).uniq).size == 1 && dirs.first.present? && dirs.first != "center"
-        return say(:pattern, dir: dirs.first) + say(:pattern_advice)
-      end
-      return say(:flyer) if flyer?(shot, shots.first(n - 1))
-      return say(:bad_shot) if !shot.penalized? && shot.final_ring.to_i <= 7
-      return say(:inner_ten) if shot.final_inner_ten?
-
-      []
+      say(key, **values)
     end
 
     # Well outside the group so far: over 2.5x the mean radius from its middle.

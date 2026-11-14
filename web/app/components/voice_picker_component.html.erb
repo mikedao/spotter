@@ -1,8 +1,48 @@
 <%= render(CardComponent.new(title: "Announcer voice", id: "voice")) do %>
+  <section id="personalities" class="mb-5 border-b border-gray-200 pb-5 dark:border-gray-800">
+    <h3 class="mb-1 font-medium">Personalities</h3>
+    <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+      A character who announces in their own words and voice: the score and direction their way, your streaks and
+      flyers, the card totals. Written live on this computer for each shot; anything they can't say in time is said
+      the standard way. The range officer always stays standard.
+    </p>
+    <%= form_with url: personality_path, method: :patch do |f| %>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <label class="flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+          <%= f.radio_button :personality, "", checked: chosen_personality.nil?, class: "mt-1 accent-blue-600" %>
+          <span><span class="block font-medium">None</span>
+            <span class="block text-sm text-gray-600 dark:text-gray-300">The standard announcer, in the voice you pick below.</span></span>
+        </label>
+        <% personalities.each do |p| %>
+          <label class="flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+            <%= f.radio_button :personality, p.id, checked: chosen_personality == p, class: "mt-1 accent-blue-600" %>
+            <span>
+              <span class="block font-medium"><%= p.name %> <span class="text-sm font-normal text-gray-600 dark:text-gray-300">· <%= voice_name(p) %>'s voice</span></span>
+              <span class="block text-sm text-gray-600 dark:text-gray-300"><%= p.description %></span>
+              <% if !trained?(p) %>
+                <span class="mt-1 block text-sm text-amber-900 dark:text-amber-200">Not set up on this computer (its model isn't trained here): the standard announcer plays instead.</span>
+              <% elsif (h = health(p)) && h["prepared"].to_i < h["of"].to_i %>
+                <span class="mt-1 block text-sm text-gray-900 dark:text-gray-100">Getting ready: <%= number_with_delimiter(h["prepared"]) %> of <%= number_with_delimiter(h["of"]) %> lines rendered (a new line takes a moment longer until then).</span>
+              <% elsif h %>
+                <span class="mt-1 block text-sm text-emerald-800 dark:text-emerald-300">✓ Running and ready.</span>
+              <% end %>
+            </span>
+          </label>
+        <% end %>
+      </div>
+      <div class="mt-3"><%= render(ButtonComponent.new(type: :submit, variant: :secondary)) { "Use this personality" } %></div>
+    <% end %>
+  </section>
+
   <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
     The voice in your earbuds after each shot. Play a few, pick one, and save. Each sample is a normal shot,
     a flagged shot, the end of a card and "ready". Now: <strong class="text-gray-900 dark:text-gray-100"><%= chosen.name %></strong> (<%= chosen.accent %> <%= chosen.gender %>).
   </p>
+  <% if chosen_personality %>
+    <p class="mb-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-200">
+      <%= chosen_personality.name %> speaks in <%= voice_name(chosen_personality) %>'s voice. The voice you pick here is used when Personality is None.
+    </p>
+  <% end %>
   <% unless available? %>
     <p class="mb-3 rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
       The voices aren't set up on this computer, so announcements use the Mac voice. Run <code>engine/voice/setup.sh</code> once (needs <code>brew install python@3.13</code>).
