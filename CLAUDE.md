@@ -1118,6 +1118,31 @@ because ISSF awards the higher value when the hole touches the line.
   on purpose (every frame its own geometry). UNVERIFIED: whether a torn flap still
   settling at 0.5 s moves the hole's position - watch the eval's position error
   per session (`ml:update`) and the looks; `--settle 1.0` restores the old wait.
+- **Heard shots, faster (2026-11-14): CHEAP LOOKS + the BASELINE's fit.** The hole
+  reaches the engine's frames ~0.55-0.95 s after the gun is heard (session 11: the
+  first full look at ~0.67 s saw it on 13 of 40; a miss meant the next look at
+  ~1.4 s, score ~2.2 s). (1) Until QUICK_LOOK_UNTIL_S (2 s) EVERY new frame gets
+  the camera check's hole test under the baseline's fit (`_quick_new_hole`,
+  ~0.04 s; no movement check per frame - it cost 0.1 s and the full scoring checks
+  it), then the full path. (2) A QUIET view (`_scene_moving` under the baseline's
+  fit says no) is SCORED on the baseline's geometry: no re-fit, no registration
+  (scoring ~0.3 s, was ~0.8). Measured first on 120 real shots (sessions 10-11),
+  own fit vs baseline fit: position median 0.04 mm, 90% < 0.15, worst 1.04 (a
+  torn hole's circle fit, not geometry), **0 rings changed**, 7 decimals by 0.1;
+  your taps tie (0.69 vs 0.73 mm). The fit ALSO showed the card "moving" 0.03 mm
+  median (to 0.25 mm, +-0.3% scale) between before and after - the shot itself
+  shifts the geometry (paper/holder on impact, or the new hole on a ring line):
+  the per-frame rule does real work at that level. Hence the shooter's call:
+  **decimals below 10 are no longer spoken** - the ring is ("shot 4. 9, a touch
+  low"; `phase1._spoken_score`, `Announcement.spoken_score`, spec-pinned); 10 and
+  up keep the decimal. DRIFT GUARD: a shot scored on the baseline's fit gives the
+  next baseline ITS OWN fit after the score is out (else the geometry would never
+  be re-derived); a poor refit keeps the last one ("! the new baseline fitted
+  poorly") until the next shot. `estimates.geometry_from` = "baseline" / "frame".
+  Real engine, hole shown 0.4 / 0.75 / 1.1 s after a relayed browser sound
+  (camstream --hold --first): sound to score 1.37 / 2.01 / 2.13 s -> 0.93 / 1.23 /
+  1.57 s; two shots in a row scored 6.5 and 9.6 (demo 044, 045). Judge it live by
+  the looks and `detect_seconds` per session, and the eval's position error.
 - **The Pi stream lagged 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
   first capture after a sound could show the card BEFORE the pellet: in one
   session 13 of 20 shots read "no new hole" and the camera check found them

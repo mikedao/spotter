@@ -37,8 +37,8 @@ DEFAULT_VOICE = "af_heart"
 
 # What the rig check / voice picker plays: a normal shot, a flagged one, the end
 # of a card, and the ready call.
-SAMPLE = ["shot 3. 8.5, shot high left",
-          "shot 4. 9.6, shot a touch low. line call",
+SAMPLE = ["shot 3. 8, shot high left",
+          "shot 4. 9, shot a touch low. line call",
           "shot 10. 10.3, center, inner ten. that's 10. new card please",
           "ready"]
 
@@ -110,6 +110,7 @@ def pieces():
     out = ["ready"]
     out += [f"shot {n}" for n in range(1, 11)]
     out += [f"{r / 10:.1f}" for r in range(109, -1, -1)]      # 10.9 .. 0.0
+    out += [str(n) for n in range(9, -1, -1)]                 # a score below 10 is said as its ring
     out += DIRECTION_PHRASES + FLAGS + FIXED + COURSE_SHOT
     out += [p for text in course.phrases() for sentence in split(text) for p in sentence]
     out += [f"that's {n}" for n in range(1, MAX_SHOTS + 1)]    # end of card

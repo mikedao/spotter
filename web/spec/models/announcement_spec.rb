@@ -79,4 +79,17 @@ RSpec.describe Announcement do
       expect(described_class.direction_bands.flat_map { it["phrases"] }).to all(match(/\A[a-z' ]+\{dir\}\z/))
     end
   end
+
+  describe ".spoken_score" do
+    def said(decimal, ring) = described_class.spoken_score(Struct.new(:final_decimal, :final_ring).new(decimal, ring))
+
+    it "says the ring below 10 and the decimal from 10 up, as the engine does (phase1._spoken_score)" do
+      expect([ said(9.6, 9), said(8.0, 8), said(0.0, 0), said(10.0, 10), said(10.7, 10) ]).to eq [ "9", "8", "0", "10.0", "10.7" ]
+      out, status = Open3.capture2(EngineRunner.python, "-c",
+                                   "import phase1; print('|'.join(phase1._spoken_score({'decimal': d, 'integer': int(d)}) for d in (9.6, 8.0, 0.0, 10.0, 10.7)))",
+                                   chdir: EngineRunner.engine_dir.to_s)
+      skip "engine Python not available" unless status.success?
+      expect(out.strip.split("|")).to eq [ "9", "8", "0", "10.0", "10.7" ]
+    end
+  end
 end
