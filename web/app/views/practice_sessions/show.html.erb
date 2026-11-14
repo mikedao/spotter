@@ -10,6 +10,7 @@
       and on the header's line so the column below doesn't grow. %>
   <div class="flex flex-wrap items-start gap-3 short:col-start-2 short:row-start-1 short:gap-2">
     <div class="min-w-0 flex-1 short:basis-full"><%= render(SessionStatusComponent.new(session: @session)) %></div>
+    <%= render(BrowserTriggerComponent.new(session: @session)) %>
     <%= render(AnnouncerComponent.new(session: @session)) %>
   </div>
 

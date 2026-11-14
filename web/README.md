@@ -102,9 +102,12 @@ To test without a camera: `cd ../engine && ./.venv/bin/python camstream.py
 --image out/shots/demo/053_after.png --port 8090`, then `SPOTTER_CAMERA=http://127.0.0.1:8090/stream
 SPOTTER_MIC=MacBook bin/dev`.
 
-From your phone on the same Wi-Fi: start the web app with
-`bin/rails server -b 0.0.0.0` (plus `bin/rails tailwindcss:watch` if editing styles)
-and open `http://<laptop's address>:3000`. Anyone on that network can then see
+From another device on the same Wi-Fi: put `SPOTTER_BIND=0.0.0.0` in `web/.env`, run
+`bin/dev` and open `http://<this Mac>.local:3000`. For the range screen's MICROPHONE
+(the browser as the shot trigger) the page must be https: run `bin/rails spotter:tls`
+once, restart `bin/dev`, trust `storage/tls/spotter-ca.pem` on that device
+(macOS: open it, Keychain Access > "Spotter local CA" > Trust > Always Trust), and open
+`https://<this Mac>.local:3443`. Anyone on that network can then see
 and change calls - fine at home, think twice elsewhere. The events API only accepts an engine the web app started (each session's own
 run token).
 

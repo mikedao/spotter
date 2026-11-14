@@ -35,7 +35,7 @@ class DeviceChoice
   def mic
     names = microphones.map(&:name)
     last = @user.last_mic.to_s
-    return last if last == CameraProbe::NO_MIC || names.include?(last)
+    return last if [ CameraProbe::NO_MIC, CameraProbe::BROWSER_MIC ].include?(last) || names.include?(last)
 
     pairs[camera].presence || ([ EngineRunner.mic ] & names).first || CameraProbe::NO_MIC
   end

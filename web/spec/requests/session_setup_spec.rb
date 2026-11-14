@@ -107,13 +107,57 @@ RSpec.describe "New session setup" do
     expect(response.body).to include("Does the microphone hear your shots?")
   end
 
-  it "asks again for a different microphone, or one that isn't connected" do
-    user.update!(last_camera: "1", last_mic: "MacBook Neo Microphone",
-                 sound_check: { "mic" => "Razer Kiyo", "at" => 1.day.ago.iso8601 })
+  it "asks again when the remembered check passed at a different trigger level" do
+    # 2026-11-13: a check passed at +45 dB kept being trusted after the trigger rose
+    # to +62, and a whole session's shots went unheard
+    user.update!(last_camera: "1", last_mic: "Razer Kiyo",
+                 sound_check: { "mic" => "Razer Kiyo", "at" => 1.day.ago.iso8601, "trigger_db" => 45.0, "trigger_ms" => 180.0 })
     get setup_microphone_path
     expect(response).to have_http_status(:ok)
 
-    user.update!(last_mic: "Old USB Mic", sound_check: { "mic" => "Old USB Mic", "at" => 1.day.ago.iso8601 })
+    user.update!(sound_check: user.sound_check.merge("trigger_db" => SoundTrigger::DB))
+    get setup_microphone_path
+    expect(response).to redirect_to(setup_start_path)
+  end
+
+  describe "this browser's microphone" do
+    before { user.update!(last_camera: "1") }
+
+    it "is offered first, and runs the sound check in the page" do
+      get setup_microphone_path
+      expect(response.body).to include("This device&#39;s microphone")
+
+      post setup_microphone_path, params: { mic: CameraProbe::BROWSER_MIC }
+      expect(response).to redirect_to(setup_microphone_path(again: 1))
+      expect(user.reload.last_mic).to eq("browser")
+      follow_redirect!
+      expect(response.body).to include('data-controller="browser-listen"', setup_heard_path)
+      expect(response.body).not_to include('id="listen_meter"')   # not the engine's check
+    end
+
+    it "remembers a shot the page heard - at the engine's rule, not below it" do
+      post setup_heard_path, params: { over_db: 58.0, len_ms: 300 }, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(user.reload.sound_check).to be_nil
+
+      post setup_heard_path, params: { over_db: 69.4, len_ms: 310 }, as: :json
+      expect(response).to have_http_status(:no_content)
+      expect(user.reload.sound_check).to include("mic" => "browser", "loudest_db" => 69.4, "trigger_db" => SoundTrigger::DB)
+
+      get setup_microphone_path   # passed before, and a browser is always "connected"
+      expect(response).to redirect_to(setup_start_path)
+      follow_redirect!
+      expect(response.body).to include("This device&#39;s microphone", "✓ heard a shot")
+    end
+  end
+
+  it "asks again for a different microphone, or one that isn't connected" do
+    user.update!(last_camera: "1", last_mic: "MacBook Neo Microphone",
+                 sound_check: { "mic" => "Razer Kiyo", "at" => 1.day.ago.iso8601, "trigger_db" => SoundTrigger::DB, "trigger_ms" => SoundTrigger::MS })
+    get setup_microphone_path
+    expect(response).to have_http_status(:ok)
+
+    user.update!(last_mic: "Old USB Mic", sound_check: { "mic" => "Old USB Mic", "at" => 1.day.ago.iso8601, "trigger_db" => SoundTrigger::DB, "trigger_ms" => SoundTrigger::MS })
     get setup_microphone_path   # not in the last device search
     expect(response).to have_http_status(:ok)
   end

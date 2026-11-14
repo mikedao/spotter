@@ -14,6 +14,10 @@ fit still sits on it.
 
 GET /snapshot.jpg = the latest picture; GET /stream = MJPEG.
 Pictures are encoded only when asked for, so nobody watching costs nothing.
+
+POST /trigger {ago_ms, over_db, len_ms} (header X-Spotter-Token = the session's
+token): a sound the range screen's browser heard (--mic browser), relayed by the
+web app; handed to on_trigger with its time as this machine's clock had it.
 """
 import threading
 import time
@@ -28,8 +32,10 @@ LOST_BGR = (40, 40, 220)
 
 
 class LiveView:
-    def __init__(self, cam, spec, geometry=lambda: None, width=960, quality=70, fps=4.0):
+    def __init__(self, cam, spec, geometry=lambda: None, width=960, quality=70, fps=4.0,
+                 on_trigger=None, token=None):
         self.cam, self.spec, self.geometry = cam, spec, geometry
+        self.on_trigger, self.token = on_trigger, token
         self.width, self.quality, self.gap = width, quality, 1.0 / fps
         self.lock = threading.Lock()
         self.jpeg, self.made_at, self.seq = None, 0.0, 0
@@ -74,6 +80,20 @@ class LiveView:
             if ok:
                 self.jpeg, self.made_at, self.seq = buf.tobytes(), time.time(), self.seq + 1
             return self.jpeg
+
+    def trigger(self, data, token):
+        """A browser-heard sound -> on_trigger({at, over_db, len_ms}). The browser
+        sends how long AGO it began (its own clock), so the two machines' clocks
+        never need to agree. None = not accepted (malformed or not listening),
+        False = wrong token."""
+        if self.on_trigger is None:
+            return None
+        if self.token and token != self.token:
+            return False
+        ago = min(max(float(data["ago_ms"]), 0.0), 10_000.0) / 1000.0
+        self.on_trigger({"at": time.time() - ago, "over_db": float(data["over_db"]),
+                         "len_ms": float(data["len_ms"])})
+        return True
 
     def next_jpeg(self, after_seq):
         """For the MJPEG stream: the next picture after `after_seq`."""

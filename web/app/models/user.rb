@@ -17,7 +17,13 @@ class User < ApplicationRecord
 
   # The microphone the last passing sound check used (see the migration):
   # the session wizard won't ask again for it.
-  def sound_checked?(mic) = mic.present? && sound_check.is_a?(Hash) && sound_check["mic"] == mic
+  # A sound check counts only for the mic it was made with AND at today's trigger
+  # level: one passed at +45 dB said nothing once the trigger rose to +62
+  # (2026-11-13: every shot of a session went unheard behind a remembered pass).
+  def sound_checked?(mic)
+    mic.present? && sound_check.is_a?(Hash) && sound_check["mic"] == mic &&
+      sound_check["trigger_db"].to_f == SoundTrigger::DB && sound_check["trigger_ms"].to_f == SoundTrigger::MS
+  end
   def sound_checked_at = (Time.zone.parse(sound_check["at"].to_s) if sound_check.is_a?(Hash))
 
   validates :name, presence: true, length: { maximum: 60 }

@@ -15,10 +15,10 @@ RSpec.describe "New session setup checks" do
     }.to_json)
     state = RigCheck::LiveProcess::State.new(
       kind: :listen, label: "sound check", user_id: user.id, pid: 0, started_at: Time.current, finished: true,
-      data: { "mic" => "Razer Kiyo", "seconds" => 60, "trigger_db" => 45.0, "trigger_ms" => 180.0,
+      data: { "mic" => "Razer Kiyo", "seconds" => 60, "trigger_db" => SoundTrigger::DB, "trigger_ms" => SoundTrigger::MS,
               "summary" => { "silent" => false, "floor_dbfs" => -61.0 },
               "sounds" => [ { "n" => 1, "t" => 3.2, "over_db" => 38.0, "len_ms" => 22, "would_trigger" => false },
-                            { "n" => 2, "t" => 8.9, "over_db" => 61.3, "len_ms" => 330, "would_trigger" => true } ] }
+                            { "n" => 2, "t" => 8.9, "over_db" => 68.3, "len_ms" => 330, "would_trigger" => true } ] }
     )
     allow(RigCheck::Listen).to receive(:state_for).and_return(state)
   end

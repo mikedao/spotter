@@ -1179,9 +1179,19 @@ def _shot_auto(a, spec):
     # --watch seconds finds each shot (2-4 s instead of ~1 s). For a camera
     # with no usable microphone, e.g. a stream from the Pi.
     camera_only = a.mic is not None and a.mic.lower() == "none"   # not no --mic at all
+    # --mic browser: the range screen's browser listens (the laptop at the firing
+    # line hears the gun) and the web app relays each sound to the live view's
+    # POST /trigger (needs --stream-port). No microphone opened here.
+    browser_mic = a.mic is not None and a.mic.lower() == "browser"
+    ext = queue.Queue()                    # sounds heard elsewhere: {at, over_db, len_ms}
     if camera_only:
         idx, info = None, {"name": "no microphone (camera only)",
                            "default_samplerate": 16000, "max_input_channels": 1}
+    elif browser_mic:
+        idx, info = None, {"name": "the range screen's browser",
+                           "default_samplerate": 16000, "max_input_channels": 1}
+        if not a.stream_port:
+            raise SystemExit("--mic browser needs --stream-port (the trigger arrives there)")
     else:
         idx, info = audio.find_input(a.mic)
     rate = int(info["default_samplerate"])
@@ -1227,6 +1237,8 @@ def _shot_auto(a, spec):
 
     print(f"\n  AUTO: listening on '{info['name']}', camera {a.device}. "
           "Ctrl+C to finish.")
+    if browser_mic:
+        print("  sound trigger: from the range screen's browser (POST /trigger)")
     print(f"  sound trigger: > +{a.trigger_db:.0f} dB over the room, "
           f">= {a.trigger_ms:.0f} ms; capture {a.settle:.1f} s after impact.")
     print(f"  camera check every {a.watch:.0f} s: catches shots without a "
@@ -1253,8 +1265,11 @@ def _shot_auto(a, spec):
     # camera, so it serves it): rings from the current baseline drawn on.
     view_srv = None
     if a.stream_port:
+        import os                          # (local: this function imports os below too)
         from liveview import LiveView
-        view_srv = LiveView(cam, spec, geometry=lambda: st.get("tf_b")).serve(a.stream_port)
+        view_srv = LiveView(cam, spec, geometry=lambda: st.get("tf_b"),
+                            on_trigger=ext.put if browser_mic else None,
+                            token=os.environ.get("SPOTTER_TOKEN")).serve(a.stream_port)
         print(f"  live view: http://127.0.0.1:{a.stream_port}/snapshot.jpg (and /stream)")
 
     # The web app (web/), when asked: every event below is also posted there.
@@ -1587,7 +1602,7 @@ def _shot_auto(a, spec):
             ro.start()
 
         det = audio.EventDetector(rate, ratio_db=min(20.0, a.trigger_db))
-        with (contextlib.nullcontext() if camera_only else
+        with (contextlib.nullcontext() if camera_only or browser_mic else
               sd.InputStream(device=idx, channels=min(2, info["max_input_channels"]),
                              samplerate=rate, blocksize=int(rate * 0.02),
                              callback=cb)):
@@ -1869,15 +1884,23 @@ def _shot_auto(a, spec):
                         watch()
                     except CameraLost:
                         camera_lost()
-                if blk is None:
-                    continue
-                for e in det.feed(blk):
+                # sounds the browser heard, timed on this clock (liveview.py)
+                heard = []
+                while not ext.empty():
+                    x = ext.get_nowait()
+                    heard.append({"t": x["at"] - t_audio0, "over_db": x["over_db"],
+                                  "len_ms": x["len_ms"], "browser": True})
+                if blk is not None:
+                    heard += det.feed(blk)
+                for e in heard:
                     # Muting our own announcements only matters if they come
                     # out of a speaker near the camera (--speaker). With
-                    # earbuds it only risked muting real shots.
+                    # earbuds it only risked muting real shots. (The browser
+                    # plays them itself, so never for a browser-heard sound.)
                     why = ("paused" if st.get("paused") else
                            "own announcement"
-                           if a.speaker and _muted(st["ann"], t_audio0 + e["t"])
+                           if a.speaker and not e.get("browser")
+                           and _muted(st["ann"], t_audio0 + e["t"])
                            else
                            "too quiet" if e["over_db"] < a.trigger_db else
                            "too short" if e["len_ms"] < a.trigger_ms else
@@ -1888,6 +1911,7 @@ def _shot_auto(a, spec):
                         # exactly what we need to see if one is ever missed
                         print(f"    sound +{e['over_db']:.1f} dB "
                               f"{max(0.0, e['len_ms']):.0f} ms at {e['t']:.2f} s"
+                              + (" (browser)" if e.get("browser") else "")
                               + (f"  - ignored: {why}" if why else ""),
                               flush=True)
                     if why:
@@ -2401,7 +2425,9 @@ def main():
                                 "out/ml/model/hole.onnx if it exists")
             s.add_argument("--mic", default=None,
                            help="auto: microphone name to match (default: the "
-                                "computer's default input; 'none' = camera only)")
+                                "computer's default input; 'none' = camera only; "
+                                "'browser' = the range screen's browser listens, "
+                                "via --stream-port's POST /trigger)")
             # 2026-11: shots +48..+65 dB, 204-370 ms; other sounds (card
             # change, magnet clang) up to +57 dB but at most 160 ms
             s.add_argument("--trigger-db", type=float, default=TRIGGER_DB,

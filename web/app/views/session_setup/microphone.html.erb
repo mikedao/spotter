@@ -10,16 +10,20 @@
     each should say "would trigger".
   </p>
   <% mics = @choice.microphones.map(&:name) %>
+  <% browser = @choice.mic == CameraProbe::BROWSER_MIC %>
   <%= form_with url: setup_microphone_path, class: "mb-4 flex flex-wrap items-end gap-4" do |f| %>
     <div>
       <%= f.label :mic, "Microphone", class: "mb-1 block text-sm font-medium" %>
-      <% if mics.any? %>
-        <%= f.select :mic, mics, { selected: @choice.mic }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
-      <% else %>
-        <p class="min-h-11 py-2.5 text-sm text-gray-600 dark:text-gray-300">None found - go back to Camera and press Look again, or use camera only.</p>
-      <% end %>
+      <%# This browser's own mic first: on the rig, the laptop at the firing line
+          hears the gun, and the computers the engine sees are too far away. %>
+      <%= f.select :mic, [ [ "This device's microphone", CameraProbe::BROWSER_MIC ] ] + mics,
+            { selected: @choice.mic }, class: "#{TextFieldComponent::INPUT} max-w-xs" %>
     </div>
-    <%= render(ButtonComponent.new(type: :submit, variant: :secondary, disabled: mics.empty?, data: { turbo_submits_with: "Starting…" })) { @state ? "Listen again" : "Listen" } %>
+    <%= render(ButtonComponent.new(type: :submit, variant: :secondary, data: { turbo_submits_with: "Starting…" })) { @state || browser ? "Listen again" : "Listen" } %>
   <% end %>
-  <%= render(ListenPanelComponent.new(state: @state, user: Current.user)) %>
+  <% if browser %>
+    <%= render(BrowserListenComponent.new) %>
+  <% else %>
+    <%= render(ListenPanelComponent.new(state: @state, user: Current.user)) %>
+  <% end %>
 <% end %>

@@ -20,6 +20,9 @@ class CameraProbe
 
   # Camera-only: the engine scores from its camera check alone (`--mic none`).
   NO_MIC = "none"
+  # The browser showing the range screen listens (the laptop at the firing line),
+  # and the web app relays what it hears to the engine (`--mic browser`).
+  BROWSER_MIC = "browser"
 
   # The microphone that belongs to a camera: same device name once "camera" /
   # "microphone" are dropped ("Michael's iPhone Camera" ~ "Michael's iPhone

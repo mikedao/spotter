@@ -172,6 +172,22 @@ class EngineRunner
       nil
     end
 
+    # A sound the range screen's browser heard (session.mic "browser"): handed to
+    # the engine's live view (POST /trigger, with the session's token), which
+    # times it on the engine's clock from ago_ms. False when the engine isn't
+    # there to take it.
+    def trigger!(session, ago_ms:, over_db:, len_ms:)
+      return false unless session.live? && session.stream_port && session.mic == CameraProbe::BROWSER_MIC
+
+      body = { ago_ms: ago_ms.to_f, over_db: over_db.to_f, len_ms: len_ms.to_f }.to_json
+      res = Net::HTTP.start("127.0.0.1", session.stream_port, open_timeout: 0.5, read_timeout: 1) do |http|
+        http.post("/trigger", body, "Content-Type" => "application/json", "X-Spotter-Token" => session.run_token.to_s)
+      end
+      res.is_a?(Net::HTTPNoContent)
+    rescue SystemCallError, IOError, Net::OpenTimeout, Net::ReadTimeout
+      false
+    end
+
     # = Ctrl+C: the engine makes a final check, then ends the session. The header
     # says "Stopping…" meanwhile, live (LiveBroadcast), until session_ended.
     def stop!(session)

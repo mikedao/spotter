@@ -149,8 +149,9 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 264 examples, 0 failures
-bin/dev                                          # http://localhost:3000, sign up (username + PIN)
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 276 examples, 0 failures
+bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
+bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
 
 - **Not in git, copy by hand if wanted:** `engine/out/` (shot log `calls.csv`,
@@ -786,7 +787,42 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   `http://Sussudio.local:3000` on the laptop. Installing as an app needs HTTPS
   off localhost, so not from the laptop. The Studio is too far from the firing
   line for a mic: sessions run CAMERA ONLY until the laptop can send the trigger.
-  **NEXT (agreed, not started): the trigger from the Kiyo's mic ON THE PI.** It hears
+  **BUILT 2026-11-13: the BROWSER as the trigger** (the shooter's idea): session 8
+  ran with the Studio Display mic and ALL 60 shots were camera-found - it heard
+  them at +50.7..+56.6 dB (276-330 ms) against TRIGGER_DB 62, and a sound check
+  remembered from when the trigger was +45 hid it. Now the wizard offers "This
+  device's microphone" FIRST: the range screen's browser (the laptop at the
+  firing line) listens with `lib/shot_listener.js` - engine/audio.py's
+  EventDetector ported line for line into an AudioWorklet (echo cancellation /
+  noise suppression / AGC OFF; wake lock while listening) - and posts every sound
+  within NEAR_DB (12) of the trigger to `POST /practice/:id/trigger` ->
+  `EngineRunner.trigger!` -> the engine's live view `POST /trigger` (session token
+  in X-Spotter-Token) -> `--mic browser`'s queue, through the SAME rule as a local
+  mic (too quiet / too short / echo / paused; near misses logged "(browser)"). The
+  browser sends `ago_ms` (since the sound BEGAN), so the two clocks never need to
+  agree. The wizard's sound check runs in the page too (`BrowserListenComponent`,
+  `SessionSetupController#heard` remembers it). `SoundTrigger` (Ruby) = the
+  engine's TRIGGER_DB/MS, spec-pinned to phase1.py. A remembered sound check now
+  counts only at TODAY's trigger level (`User#sound_checked?`).
+  VERIFIED: the JS detector on the real shot recording and a synthetic one gives
+  the engine's events EXACTLY (times, dB to 0.1, ms) - `spec/system/
+  shot_listener_spec.rb` pins it (OfflineAudioContext; Chrome's
+  --use-file-for-fake-audio-capture gave silence, its fake beep device works and
+  drives `spec/system/browser_mic_spec.rb`); the engine scored a relayed trigger
+  on the demo card (9.6 = shot 045) with the camera check slowed to 30 s; wrong
+  token 403. NOT yet tried at the real firing line: the browser's levels for the
+  laptop mic may differ from sounddevice's (+67..+74 measured) - the sound check
+  shows them.
+  **HTTPS is needed for a page to use the mic** (off localhost): `bin/rails
+  spotter:tls` makes a local CA + server cert (Ruby OpenSSL, in
+  `web/storage/tls`, gitignored; re-run keeps the CA) and Puma serves https on
+  SPOTTER_HTTPS_PORT (3443) beside http 3000 IN THE SAME PROCESS (the dev cable
+  adapter is async: a second process would get no live updates). `bin/dev` now
+  runs PUMA DIRECTLY (Procfile.dev): `rails server -b` replaced every bind in
+  puma.rb, the https one with it; `SPOTTER_LOG_TO_STDOUT` keeps the log in the
+  terminal. Trust `spotter-ca.pem` once on the laptop; sign in again on https
+  (separate cookies). Also unblocks installing the range screen as an app.
+  **Later option: the trigger from the Kiyo's mic ON THE PI.** It hears
   IMPACTS at the target (the hole exists when it sounds; no coughs, cocking
   clicks or announcer) - the original +45 dB / 180 ms tuning. Plan: a Pi service
   (like spotter-camera) streaming raw PCM from `arecord` to whoever connects; the

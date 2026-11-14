@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume trigger destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -48,6 +48,15 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_session_path(@session, anchor: "diary"), notice: "Saved the diary.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     redirect_to practice_session_path(@session, anchor: "diary"), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
+  end
+
+  # A sound the range screen's browser heard (browser_trigger_controller.js),
+  # relayed to the engine at once; the engine decides whether it is a shot. No
+  # page load (the sound, and the microphone, would stop).
+  def trigger
+    sound = params.permit(:ago_ms, :over_db, :len_ms)
+    ok = EngineRunner.trigger!(@session, ago_ms: sound[:ago_ms], over_db: sound[:over_db], len_ms: sound[:len_ms])
+    head(ok ? :no_content : :conflict)   # 409: not listening through the browser, or no engine
   end
 
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.

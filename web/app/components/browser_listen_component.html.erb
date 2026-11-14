@@ -1,0 +1,42 @@
+<div id="listen_panel" class="space-y-3"
+     data-controller="browser-listen"
+     data-browser-listen-db-value="<%= SoundTrigger::DB %>" data-browser-listen-ms-value="<%= SoundTrigger::MS %>"
+     data-browser-listen-scale-value="<%= scale_max %>" data-browser-listen-heard-url-value="<%= helpers.setup_heard_path %>">
+  <% if (url = https_url) %>
+    <p class="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200" data-browser-listen-target="insecure" hidden>
+      A browser lets a page use the microphone only over https.
+      <%= link_to "Open this page over https", url, class: "font-medium underline", data: { turbo: false } %>
+      (once on this device: trust Spotter's certificate - see <code>bin/rails spotter:tls</code>).
+    </p>
+  <% end %>
+  <p class="flex items-center gap-2 font-medium">
+    <span class="inline-block size-2.5 rounded-full bg-gray-400" data-browser-listen-target="dot"></span>
+    <span data-browser-listen-target="phase">Starting the microphone…</span>
+  </p>
+  <div class="relative h-4 overflow-hidden rounded bg-gray-200 dark:bg-gray-800" role="meter" aria-label="Loudness over the room">
+    <div class="h-full bg-blue-600" style="width: 0%" data-browser-listen-target="bar"></div>
+    <div class="absolute inset-y-0 w-0.5 bg-gray-900 dark:bg-white" style="left: <%= trigger_pct %>%" title="trigger level"></div>
+  </div>
+  <p class="text-xs text-gray-600 dark:text-gray-300">
+    <span data-browser-listen-target="level">Now +0 dB over the room.</span>
+    The line marks the trigger level, +<%= SoundTrigger::DB.round %> dB, at least <%= SoundTrigger::MS.round %> ms.
+  </p>
+  <p class="text-sm text-gray-700 dark:text-gray-200" data-browser-listen-target="summary" hidden></p>
+
+  <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <%= render(ButtonComponent.new(href: helpers.setup_start_path, size: :lg, hidden: true, data: { browser_listen_target: "next" })) { "Next: start" } %>
+    <span class="flex items-center gap-3" data-browser-listen-target="locked">
+      <%= render(ButtonComponent.new(size: :lg, disabled: true)) { "Next: start" } %>
+      <span class="text-sm text-gray-600 dark:text-gray-300">Unlocks once a shot would trigger.</span>
+    </span>
+    <%= button_to "No microphone - camera only", helpers.setup_microphone_path, params: { mic: CameraProbe::NO_MIC },
+          class: "ml-auto cursor-pointer text-sm text-gray-600 underline dark:text-gray-300",
+          form: { data: { turbo_confirm: "Without a microphone the camera finds each shot instead: slower, 2-4 s per shot. Continue?", confirm_button: "Camera only" } } %>
+  </div>
+
+  <table class="w-full max-w-xl table-fixed text-left text-sm tabular-nums" data-browser-listen-target="table" hidden>
+    <colgroup><col class="w-10"><col><col><col><col class="w-32"></colgroup>
+    <thead class="text-gray-600 dark:text-gray-300"><tr><th class="py-1">#</th><th>At</th><th>Loudness</th><th>Length</th><th></th></tr></thead>
+    <tbody class="divide-y divide-gray-200 dark:divide-gray-800" data-browser-listen-target="sounds"></tbody>
+  </table>
+</div>

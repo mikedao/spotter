@@ -21,6 +21,7 @@ Rails.application.routes.draw do
     get "microphone", action: :microphone, as: :microphone
     post "microphone", action: :listen
     post "microphone/stop", action: :stop_listen, as: :stop_listen
+    post "microphone/heard", action: :heard, as: :heard   # the browser's sound check heard a shot
     get "start", action: :start, as: :start
   end
 
@@ -33,6 +34,7 @@ Rails.application.routes.draw do
     post :resume_scoring, on: :member
     post :resume, on: :member, path: "continue"   # carry on a finished practice session from today
     get :camera, on: :member   # the live camera picture, relayed from the engine
+    post :trigger, on: :member # a shot the range screen's browser heard (mic "browser"), relayed to the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)
     resources :cards, only: :show, param: :number   # any card of the session, its shots deletable

@@ -6,14 +6,17 @@
 #   2. check       the live camera check (RigCheck::Locate): Next unlocks at
 #                  "Ready to shoot"; "continue anyway" is the escape
 #   3. microphone  the sound check (RigCheck::Listen): Next unlocks once a sound
-#                  would trigger; "no microphone - camera only" is the escape
+#                  would trigger; "no microphone - camera only" is the escape.
+#                  Or THIS BROWSER's microphone (the laptop at the firing line):
+#                  the check runs in the page (BrowserListenComponent) and
+#                  reports a shot it heard to `heard`
 #   4. start       shots per card, then Start (PracticeSessionsController#create)
 #
 # The camera and microphone are remembered on the user (last_camera, last_mic),
 # the target in the cookie session. Each step stops the previous step's check,
 # so the camera and microphone are free for the next one.
 class SessionSetupController < ApplicationController
-  before_action :refuse_while_shooting, except: %i[ overlay stop_check stop_listen ]
+  before_action :refuse_while_shooting, except: %i[ overlay stop_check stop_listen heard ]
 
   # New session: look for cameras and microphones, then step 1.
   def create
@@ -81,12 +84,18 @@ class SessionSetupController < ApplicationController
     redirect_to setup_start_path if params[:again].blank? && @state.nil? && remembered_mic?(@choice)
   end
 
-  # Listen on the chosen microphone; or, for camera only, straight on to Start.
+  # Listen on the chosen microphone; or, for camera only, straight on to Start;
+  # or, for this browser's microphone, back to the step, where the page listens.
   def listen
     mic = params[:mic].to_s.strip
     if mic == CameraProbe::NO_MIC
       Current.user.update!(last_mic: mic)
       return redirect_to(setup_start_path)
+    end
+    if mic == CameraProbe::BROWSER_MIC
+      RigCheck.stop_for!(Current.user)
+      Current.user.update!(last_mic: mic)
+      return redirect_to(setup_microphone_path(again: 1))
     end
 
     RigCheck.stop_for!(Current.user)
@@ -100,6 +109,19 @@ class SessionSetupController < ApplicationController
   def stop_listen
     RigCheck::Listen.stop!(Current.user)
     redirect_to setup_microphone_path
+  end
+
+  # The browser's sound check heard a sound that would trigger: remembered like
+  # a server-side check, so Start says "heard a shot" and next time skips it.
+  def heard
+    over_db, len_ms = params[:over_db].to_f, params[:len_ms].to_f
+    return head(:unprocessable_content) unless SoundTrigger.would_trigger?(over_db, len_ms)
+
+    Current.user.update!(last_mic: CameraProbe::BROWSER_MIC,
+                         sound_check: { "mic" => CameraProbe::BROWSER_MIC, "at" => Time.current.iso8601,
+                                        "loudest_db" => over_db.round(1),
+                                        "trigger_db" => SoundTrigger::DB, "trigger_ms" => SoundTrigger::MS })
+    head :no_content
   end
 
   def start
@@ -136,7 +158,7 @@ class SessionSetupController < ApplicationController
     def remembered_mic?(choice)
       mic = Current.user.last_mic
       mic.present? && mic != CameraProbe::NO_MIC && Current.user.sound_checked?(mic) &&
-        choice.microphones.map(&:name).include?(mic)
+        (mic == CameraProbe::BROWSER_MIC || choice.microphones.map(&:name).include?(mic))
     end
 
     def refuse_while_shooting
