@@ -202,20 +202,14 @@ app, the range screen plays it (Sound on/off), DIAGNOSTIC mode (off = number,
 score, direction only) and CHATTY mode (written commentary, 10 phrasings per
 moment), with every known voice piece for all 19 voices committed.
 
-**Never yet tried for real - check these first:**
-1. **The browser announcer on the rig:** Sound on, a few shots; diagnostic mode
-   off and on; chatty mode (streaks, summaries every 10 shots, a match summary).
-   Listen for lines that grate (wording is `config/commentary/default.yml` and,
-   for the engine's own lines, `engine/voicelines.py` / `phase1.py`).
-2. **Shotmetrix:** scan a real session's code with the Shotmetrix app (byte-exact
-   against their test vectors and the QR decodes, but none redeemed yet).
-3. **Print to PDF from Chrome** (session and journal reports; only checked as
-   headless-Chrome PDFs).
-4. **Still open from 2026-11-11:** setup wizard live with the Kiyo and a shot; a
-   match / final end to end (clock, sighters, out-of-time zeros, session ends
-   itself); the range officer's commands by ear ("load" / "start" / "stop");
-   installing as an app; the camera fully visible during a live match on the
-   laptop (a spec checks 1322x729).
+**Tried for real by the shooter (reported 2026-11-14), all of the former
+"never yet tried" list:** the browser announcer on the rig (diagnostic mode off
+and on, chatty mode, summaries); a Shotmetrix code scanned in their app; Print
+to PDF from Chrome (session and journal reports); the setup wizard live with
+the Kiyo and a shot; a match / final end to end; the range officer's commands
+by ear; installing as an app; the camera fully visible in a live match on the
+laptop. The browser trigger has run at the firing line too (sessions 10-11; see
+"Session 11" under the deployment notes for its trigger level).
 
 **Announcer PERSONALITIES: built 2026-11-14** (Katey; see "Announcer personalities"). First
 check by ear on the rig: her lines, how long after the shot they land, and the fallbacks.
@@ -224,8 +218,11 @@ bigger base model (Qwen3 4B, compared on `talk.py test`). Chatty's lines are in 
 git export for Bella, Nicole, Heart and Michael only (2026-11-12; 1,005 pieces each with the
 numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
-Still open: CSV export; import of the pre-web `engine/out/shots` log (53 called
-shots); the model trained from reviewed calls; Pi setup.
+Still open: CSV export; Pi stream latency. DROPPED (the shooter, 2026-11-14):
+importing the pre-web `engine/out/shots` log, and the caliper check of decimals.
+Next session: the shooter lowers the browser mic's trigger (~+62, see "Session 11")
+and mounts a card UPSIDE DOWN for the bow test (holder vs card: 9 of 12 cards'
+worst patch sat upper-left in the picture; a richer lens model did NOT remove it).
 
 ## Learned scoring model (started 2026-11-13)
 
@@ -734,10 +731,18 @@ Built and committed:
 - **Wording the shooter chose (2026-11-11), by ear:** a single word rendered as
   its own piece sounds wrong ("check.", "low."), so: no spoken "check" on a
   flagged shot (the check TONE marks it; score first, then why: "shot 4. 9.0,
-  shot a touch low. line call"), and the direction is one piece "shot [degree]
-  <dir>", degree by ring so pistol and rifle match: "a touch" 10-9, plain 8-7,
-  "well" 6 or worse (`phase1._spoken_direction`, `voicelines.DIRECTION_PHRASES`).
-  Inner ten stays "center, inner ten". End of card: "that's 10. new card please"
+  shot a touch low. line call"), and the direction is ONE piece with how far out.
+  **2026-11-14, the shooter: many more steps and ways to say each:** 7 steps by
+  the DECIMAL score (ring units, so pistol and rifle match) - 10.x not inner
+  ("just", "a hair", "a whisker"...), 9.5-9.9 ("a touch", "nudged"...), 9.0-9.4
+  ("slightly", "a shade"...), 8 ("shot low", "drifted"...), 7 ("a good bit",
+  "quite"...), 6 ("well", "a long way"...), 5 or worse ("way", "miles"...) - six
+  phrasings each, never the same one twice running in a step. ONE file,
+  `engine/directions.json`, read by the engine (`voicelines.spoken_direction`)
+  AND the web app (`Announcement.spoken_direction`, shots plotted by hand); a
+  spec runs the engine to check both pick from the same step. 337 pieces; a new
+  phrase needs `speak.py export --all` (Nicole's are in git; the other 18
+  voices render them on first use until exported). Inner ten stays "center, inner ten". End of card: "that's 10. new card please"
   (not "10 shots, change the card"). When Rails takes over the announcement
   (below), it must build the same text.
 - `engine/voice/`: own **Python 3.13** venv (Kokoro's onnxruntime/scipy have no
@@ -838,7 +843,7 @@ Built and committed:
   match), Settings "Announcer voice" picker (`VoicePickerComponent`).
 - Verified 2026-11-12: real engine + dev server (`spotter:demo`): 33 announce
   events accepted; real Chrome (spec/system/announcer_spec.rb): Sound on ->
-  pieces fetched, decoded, played in order. NOT yet heard by the shooter.
+  pieces fetched, decoded, played in order. Heard by the shooter on the rig (reported 2026-11-14).
 - Open: the `--speaker` mic mute assumed the engine plays the sound; with the
   browser it can't know (off by default: earbuds).
 
@@ -932,6 +937,16 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   Turbo Stream toast, `ApplicationController#render_toast`; the live broadcast
   redraws), and opens a shot's / card's page in a NEW TAB. 23 sounds found no
   hole (14 in the first two minutes): harmless.
+  **Session 11 (2026-11-14): 40 heard, 20 camera-found** - the browser mic's
+  trigger was +70 (set in that day's sound check, test shot +75.7) and heard
+  shots read +70..+79, so +70 was the BOTTOM EDGE: 15 of the 20 were heard as
+  shot-shaped sounds (310-400 ms) at +62..+70, "too quiet"; 2 loudest +59/+61; 3
+  had no sound reach the engine at all (page hidden?). Replayed against that
+  log: +62 would have caught 15 of 17 with 3 false triggers in 55 min (harmless:
+  no new hole -> ignored, baseline kept; two were 886/984 ms, longer than any
+  shot). Levels move between days/placements (session 10: +58..+62 missed at
+  +62), so set the level LOW, near the quietest real shot - a false trigger
+  costs nothing.
   **Later option: the trigger from the Kiyo's mic ON THE PI.** It hears
   IMPACTS at the target (the hole exists when it sounds; no coughs, cocking
   clicks or announcer) - the original +45 dB / 180 ms tuning. Plan: a Pi service
@@ -1168,6 +1183,31 @@ because ISSF awards the higher value when the hole touches the line.
   on purpose (every frame its own geometry). UNVERIFIED: whether a torn flap still
   settling at 0.5 s moves the hole's position - watch the eval's position error
   per session (`ml:update`) and the looks; `--settle 1.0` restores the old wait.
+- **Heard shots, faster (2026-11-14): CHEAP LOOKS + the BASELINE's fit.** The hole
+  reaches the engine's frames ~0.55-0.95 s after the gun is heard (session 11: the
+  first full look at ~0.67 s saw it on 13 of 40; a miss meant the next look at
+  ~1.4 s, score ~2.2 s). (1) Until QUICK_LOOK_UNTIL_S (2 s) EVERY new frame gets
+  the camera check's hole test under the baseline's fit (`_quick_new_hole`,
+  ~0.04 s; no movement check per frame - it cost 0.1 s and the full scoring checks
+  it), then the full path. (2) A QUIET view (`_scene_moving` under the baseline's
+  fit says no) is SCORED on the baseline's geometry: no re-fit, no registration
+  (scoring ~0.3 s, was ~0.8). Measured first on 120 real shots (sessions 10-11),
+  own fit vs baseline fit: position median 0.04 mm, 90% < 0.15, worst 1.04 (a
+  torn hole's circle fit, not geometry), **0 rings changed**, 7 decimals by 0.1;
+  your taps tie (0.69 vs 0.73 mm). The fit ALSO showed the card "moving" 0.03 mm
+  median (to 0.25 mm, +-0.3% scale) between before and after - the shot itself
+  shifts the geometry (paper/holder on impact, or the new hole on a ring line):
+  the per-frame rule does real work at that level. Hence the shooter's call:
+  **decimals below 10 are no longer spoken** - the ring is ("shot 4. 9, a touch
+  low"; `phase1._spoken_score`, `Announcement.spoken_score`, spec-pinned); 10 and
+  up keep the decimal. DRIFT GUARD: a shot scored on the baseline's fit gives the
+  next baseline ITS OWN fit after the score is out (else the geometry would never
+  be re-derived); a poor refit keeps the last one ("! the new baseline fitted
+  poorly") until the next shot. `estimates.geometry_from` = "baseline" / "frame".
+  Real engine, hole shown 0.4 / 0.75 / 1.1 s after a relayed browser sound
+  (camstream --hold --first): sound to score 1.37 / 2.01 / 2.13 s -> 0.93 / 1.23 /
+  1.57 s; two shots in a row scored 6.5 and 9.6 (demo 044, 045). Judge it live by
+  the looks and `detect_seconds` per session, and the eval's position error.
 - **The Pi stream lagged 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
   first capture after a sound could show the card BEFORE the pellet: in one
   session 13 of 20 shots read "no new hole" and the camera check found them
@@ -1261,9 +1301,8 @@ because ISSF awards the higher value when the hole touches the line.
   Integer rings matched the shooter's call on 5/5 real shots (2026-11), but
   calls were integers only. Holes straddling the aiming-mark edge are the
   weakest case (part of the hole is on white paper, low contrast); one moved
-  7.2 -> 7.4 between differencing methods. To verify: caliper-measure centre
-  to hole centre on a few holes and compare with `r_mm` in
-  `out/shots/calls.csv`.
+  7.2 -> 7.4 between differencing methods. A caliper check was considered and
+  DROPPED (the shooter, 2026-11-14); the shooter's calls are the reference.
 - **Static `score` loses holes near the white rings inside the black.** The
   top-hat keeps the white ring lines, and a hole within ~1.5 mm of one merges
   into a ring-sized blob that fails the size/roundness filters. It also picks

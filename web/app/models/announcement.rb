@@ -8,13 +8,20 @@
 #   Announcement.new(session, data).deliver!
 class Announcement
   # A shot the shooter plotted by hand, read like the engine reads a shot:
-  # "shot 4. 9.3, slightly low" (phase1._spoken / _spoken_direction).
+  # "shot 4. 9, slightly low" (phase1._spoken / _spoken_direction).
   def self.for_shot(shot)
     lead = shot.sighter? ? "sighter" : "shot #{shot.match_number || shot.number}"
-    words = [ format("%.1f", shot.final_decimal), spoken_direction(shot) ]
+    words = [ spoken_score(shot), spoken_direction(shot) ]
     words << "inner ten" if shot.final_inner_ten?
     new(shot.practice_session, { "kind" => "ok", "plain_kind" => "ok",
                                  "sentences" => [ { "pieces" => [ lead ] }, { "pieces" => words } ] })
+  end
+
+  # The score as the engine says it (phase1._spoken_score): the RING below 10,
+  # the decimal from 10 up - decimals below 10 aren't announced (2026-11-14).
+  def self.spoken_score(shot)
+    decimal = shot.final_decimal.to_f
+    decimal >= 10.0 ? format("%.1f", decimal) : shot.final_ring.to_i.to_s
   end
 
   # The direction with how far out, as the engine says it (voicelines.spoken_direction):

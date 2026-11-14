@@ -48,6 +48,16 @@ TRIGGER_MS = 180.0
 # the sound. A card still moving inside that window is looked at again, not
 # rejected: it may be the card settling from the hit.
 LOOK_FOR_S = 3.0
+# ...but the looks start CHEAP (2026-11-14): the hole reaches the engine's frames
+# ~0.55-0.95 s after the gun is heard (session 11, 40 heard shots: the first full
+# look at ~0.67 s saw it on only 13; a full look costs ~0.8 s, so a miss meant
+# the next look at ~1.4 s and a score at ~2.2 s). Until QUICK_LOOK_UNTIL_S after
+# the sound every new frame is compared with the baseline under the baseline's
+# own fit (the camera check's hole test, ~0.04 s), and the one full fit + score
+# is done on the frame where the hole first shows. Replayed on session 11:
+# sound to score median 2.23 -> ~1.6 s. After it (or anything unusual) the full
+# looks carry on as before, so it is never slower.
+QUICK_LOOK_UNTIL_S = 2.0
 
 
 def _outcome(res):
@@ -514,7 +524,9 @@ def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,
     moved_mm, scale_pct = frame_shift_mm(tf_b, tf)
     # Dense remap after-px -> target mm -> before-px. Exact under perspective
     # and lens distortion, which a single 3x3 warp is not.
-    before_reg = register(before, tf_b, tf, after.shape)
+    # (the same geometry for both - a quiet view scored on the baseline's fit -
+    # needs no remap: the frames already line up)
+    before_reg = before if tf is tf_b else register(before, tf_b, tf, after.shape)
 
     print(f"\n  camera moved {moved_mm:.2f} mm between captures "
           f"(scale change {scale_pct:+.2f}%)")
@@ -1015,9 +1027,17 @@ def _spoken_direction(r):
     return voicelines.spoken_direction(d, r["decimal"])
 
 
+def _spoken_score(r):
+    """The score as said: the RING below 10 ("9"), the decimal from 10 up
+    ("10.4") - the shooter, 2026-11-14: decimals below 10 aren't announced (a
+    quiet view is scored on the baseline's fit, which moves ~1 shot in 17 by
+    0.1; the ring never changed in 120 real shots)."""
+    return f"{r['decimal']:.1f}" if r["decimal"] >= 10.0 else str(int(r["integer"]))
+
+
 def _spoken(r, res):
     """The result as a short phrase for `say`."""
-    words = (f"{r['decimal']:.1f}, " + _spoken_direction(r)
+    words = (_spoken_score(r) + ", " + _spoken_direction(r)
              + (", inner ten" if r["inner_ten"] else ""))
     why = []
     if r.get("line_call"):
@@ -1232,6 +1252,8 @@ def _shot_auto(a, spec):
         for i in range(tries):
             frame = first if (i == 0 and first is not None) else cam.grab(a.frames)
             tf, info = locate_info(frame)
+            if tf is not None:
+                tf.fit_info = info               # its health, for a shot scored on it
             if tf is not None and _fit_ok(info):
                 if i:
                     print(f"  (baseline: a good fit on try {i + 1})", flush=True)
@@ -1366,8 +1388,21 @@ def _shot_auto(a, spec):
             label = f"camera, after a sound +{heard['db']:.0f} dB"
         if after is None:
             after = cam.grab(a.frames)
-        t_first = time.time()
         looks = []                           # a heard shot's looks: [s after the sound, outcome]
+        if trigger == "sound" and st.get("tf_b") is not None and not st["dirty"]:
+            # CHEAP LOOKS first (QUICK_LOOK_UNTIL_S): every new frame against the
+            # baseline under its own fit; stop at the frame showing the hole (it
+            # gets the full fit below) or anything unusual (the full path judges).
+            # No movement check here (~0.1 s a frame): the full scoring below
+            # checks it on the frame that showed something, as before.
+            t_q = time.time()
+            while t_q - at < QUICK_LOOK_UNTIL_S:
+                if _quick_new_hole(st["before"], st["tf_b"], after, st["tf_b"], spec) is not None:
+                    break
+                looks.append([round(t_q - at, 2), "no hole (quick)"])
+                after = cam.grab(1)
+                t_q = time.time()
+        t_first = time.time()
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
         # A real shot changes a hole-sized patch. If large parts of the card
@@ -1375,13 +1410,27 @@ def _shot_auto(a, spec):
         # while the shooter, in the baseline frame, was mounting the card).
         # Solved ONCE here and handed to _score_pair, which used to solve the
         # same frame again (~0.5-1 s per shot on a slow laptop).
-        tf_a, info_a = locate_info(after)
-        geo_a = info_a                       # the fit's health, for the geometry warning
-        if tf_a is not None and not _fit_ok(info_a) and st["tf_b"] is not None:
+        # A QUIET view is scored on the BASELINE's geometry (2026-11-14, the
+        # shooter's call): no ~0.33 s re-fit and no registration. Measured on
+        # 120 real shots (sessions 10-11) against each frame's own fit: hole
+        # position median 0.04 mm apart (90% < 0.15), 0 rings changed, 7
+        # decimals by 0.1 (so decimals below 10 aren't announced: _spoken_score).
+        # Anything not quiet takes the full per-frame fit, as before; the new
+        # baseline gets its own fit after the score is out (below), so the
+        # geometry is still re-derived from the card every shot - never static.
+        quiet = (st.get("tf_b") is not None and not st["dirty"] and
+                 not _scene_moving(st["before"], st["tf_b"], after, st["tf_b"], spec))
+        if quiet:
+            tf_a = st["tf_b"]
+            info_a = geo_a = getattr(tf_a, "fit_info", None)
+        else:
+            tf_a, info_a = locate_info(after)
+            geo_a = info_a                   # the fit's health, for the geometry warning
+        if not quiet and tf_a is not None and not _fit_ok(info_a) and st["tf_b"] is not None:
             print("  ! the after frame fitted poorly - using the baseline's "
                   "geometry", flush=True)
             tf_a, geo_a = st["tf_b"], None
-        if tf_a is not None and not _same_view(tf_a, st["tf_b"]):
+        if not quiet and tf_a is not None and not _same_view(tf_a, st["tf_b"]):
             # A misfit (see _same_view): the camera didn't move in a second, so
             # the baseline's geometry holds. Real movement still shows - the
             # frames then differ under that geometry, and the guard below says so.
@@ -1408,7 +1457,8 @@ def _shot_auto(a, spec):
                 st["heard"] = {"t": at, "db": sound_db or 0.0}
             return False
 
-        moving = tf_a is not None and _scene_moving(st["before"], st["tf_b"], after, tf_a, spec)
+        moving = (not quiet and tf_a is not None and
+                  _scene_moving(st["before"], st["tf_b"], after, tf_a, spec))
         if moving and not (trigger == "sound" and time.time() - at < LOOK_FOR_S):
             return reject_moving(after)
         res = {"moving": True} if moving else None
@@ -1532,6 +1582,8 @@ def _shot_auto(a, spec):
                                 "px_per_mm": 20.0, "size_px": 480})
             if looks:
                 est["timing"] = {"settle_s": a.settle, "looks": looks}
+            # which geometry scored it: "baseline" (a quiet view) or "frame" (its own fit)
+            est["geometry_from"] = "baseline" if res["tf"] is st["tf_b"] else "frame"
             files = frames(b_img, a_img)
             if hole_model is not None:
                 # SHADOW MODE: the learned locator reads the same close-ups the
@@ -1577,7 +1629,21 @@ def _shot_auto(a, spec):
                         np.clip(img, 0, 255).astype(np.uint8))
         st["scored"] += 1
         st.pop("heard", None)
-        st["before"], st["tf_b"] = after, res["tf"]
+        tf_next = res["tf"]
+        if tf_next is st["tf_b"]:
+            # Scored on the baseline's fit: the after frame becomes the new
+            # baseline with ITS OWN fit (here, after the score is out), else the
+            # geometry would never be re-derived and drift would build up (the
+            # 0.53 mm over 37 min the whole design cancels). A poor or
+            # jumped fit keeps the old one for now; the next shot tries again.
+            tf_new, info_new = locate_info(after)
+            if tf_new is not None and _fit_ok(info_new) and _same_view(tf_new, st["tf_b"]):
+                tf_new.fit_info = info_new
+                tf_next = tf_new
+            else:
+                print("  ! the new baseline fitted poorly - keeping the last fit "
+                      "until the next shot", flush=True)
+        st["before"], st["tf_b"] = after, tf_next
         return True
 
     def _resume(path):
@@ -1650,19 +1716,7 @@ def _shot_auto(a, spec):
             def new_hole(frame, tf_now):
                 """Position (mm) of the strongest hole-sized new region against
                 the baseline, or None."""
-                reg = (st["before"] if tf_now is st["tf_b"] else
-                       register(st["before"], st["tf_b"], tf_now, frame.shape))
-                d = new_light(frame, reg)
-                hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0,
-                                                min_circularity=0.30)
-                hd, _ = _keep_on_card(hd, tf_now, spec)
-                nominal = np.pi * (PELLET_MM / 2.0 / tf_now.mm_per_px) ** 2
-                hd = [h for h in hd if h["peak"] >= 40 and
-                      h["area_px"] >= 0.5 * nominal]
-                if not hd:
-                    return None
-                h = max(hd, key=lambda h: h["peak"] * h["area_px"])
-                return tf_now.to_mm(h["xw"], h["yw"])
+                return _quick_new_hole(st["before"], st["tf_b"], frame, tf_now, spec)
 
             def watch():
                 """Card present? View still? New hole without a sound?"""
@@ -2170,6 +2224,25 @@ def cmd_bench(a):
     print(f"\n  budget {dec:.2f} mm. geom/worst = score noise from the geometry "
           "alone; phantom = false shots `shot` would report.")
     print(f"  frame -> {snap}\n")
+
+
+def _quick_new_hole(before, tf_b, frame, tf_now, spec):
+    """Position (mm) of the strongest hole-sized new region in `frame` against
+    the baseline `before`, or None. With tf_now IS tf_b (a quiet view: the card
+    hasn't moved) no registration is needed - the cheap check of the camera's
+    quiet path and of a heard shot's first looks."""
+    from geometry import register, new_light
+    from scoring import PELLET_MM
+    reg = before if tf_now is tf_b else register(before, tf_b, tf_now, frame.shape)
+    d = new_light(frame, reg)
+    hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0, min_circularity=0.30)
+    hd, _ = _keep_on_card(hd, tf_now, spec)
+    nominal = np.pi * (PELLET_MM / 2.0 / tf_now.mm_per_px) ** 2
+    hd = [h for h in hd if h["peak"] >= 40 and h["area_px"] >= 0.5 * nominal]
+    if not hd:
+        return None
+    h = max(hd, key=lambda h: h["peak"] * h["area_px"])
+    return tf_now.to_mm(h["xw"], h["yw"])
 
 
 def _keep_on_card(holes, tf, spec):
