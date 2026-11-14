@@ -669,10 +669,18 @@ Built and committed:
 - **Wording the shooter chose (2026-11-11), by ear:** a single word rendered as
   its own piece sounds wrong ("check.", "low."), so: no spoken "check" on a
   flagged shot (the check TONE marks it; score first, then why: "shot 4. 9.0,
-  shot a touch low. line call"), and the direction is one piece "shot [degree]
-  <dir>", degree by ring so pistol and rifle match: "a touch" 10-9, plain 8-7,
-  "well" 6 or worse (`phase1._spoken_direction`, `voicelines.DIRECTION_PHRASES`).
-  Inner ten stays "center, inner ten". End of card: "that's 10. new card please"
+  shot a touch low. line call"), and the direction is ONE piece with how far out.
+  **2026-11-14, the shooter: many more steps and ways to say each:** 7 steps by
+  the DECIMAL score (ring units, so pistol and rifle match) - 10.x not inner
+  ("just", "a hair", "a whisker"...), 9.5-9.9 ("a touch", "nudged"...), 9.0-9.4
+  ("slightly", "a shade"...), 8 ("shot low", "drifted"...), 7 ("a good bit",
+  "quite"...), 6 ("well", "a long way"...), 5 or worse ("way", "miles"...) - six
+  phrasings each, never the same one twice running in a step. ONE file,
+  `engine/directions.json`, read by the engine (`voicelines.spoken_direction`)
+  AND the web app (`Announcement.spoken_direction`, shots plotted by hand); a
+  spec runs the engine to check both pick from the same step. 337 pieces; a new
+  phrase needs `speak.py export --all` (Nicole's are in git; the other 18
+  voices render them on first use until exported). Inner ten stays "center, inner ten". End of card: "that's 10. new card please"
   (not "10 shots, change the card"). When Rails takes over the announcement
   (below), it must build the same text.
 - `engine/voice/`: own **Python 3.13** venv (Kokoro's onnxruntime/scipy have no
