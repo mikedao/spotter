@@ -110,21 +110,22 @@ class Server(ThreadingHTTPServer):
 def make_handler(cam, fps):
     """GET /stream (or /) = MJPEG; GET /snapshot.jpg = the latest picture.
     `cam` needs next_jpeg(after_seq) -> (jpeg, seq) and latest_jpeg().
-    POST /trigger, when `cam` has trigger(data) (the engine's LiveView): a shot
-    heard by the BROWSER's microphone, relayed by the web app (liveview.py)."""
+    POST, when `cam` has post(path, data, token) (the engine's LiveView):
+    /trigger (a shot the BROWSER heard), /forget (a shot deleted in the web
+    app) - both relayed by the web app (liveview.py)."""
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
         def do_POST(self):
-            if self.path != "/trigger" or not hasattr(cam, "trigger"):
+            if not hasattr(cam, "post"):
                 self.send_error(404)
                 return
             try:
-                n = min(int(self.headers.get("Content-Length") or 0), 4096)
+                n = min(int(self.headers.get("Content-Length") or 0), 65536)
                 data = json.loads(self.rfile.read(n) or b"{}")
-                ok = cam.trigger(data, self.headers.get("X-Spotter-Token"))
-            except (ValueError, TypeError):
+                ok = cam.post(self.path, data, self.headers.get("X-Spotter-Token"))
+            except (ValueError, TypeError, KeyError):
                 ok = None
             self.send_response(204 if ok else (403 if ok is False else 400))
             self.send_header("Content-Length", "0")

@@ -18,6 +18,10 @@ Pictures are encoded only when asked for, so nobody watching costs nothing.
 POST /trigger {ago_ms, over_db, len_ms} (header X-Spotter-Token = the session's
 token): a sound the range screen's browser heard (--mic browser), relayed by the
 web app; handed to on_trigger with its time as this machine's clock had it.
+
+POST /forget {shots: [{x_mm, y_mm, at, on_card, match}]} (same token): shots the
+shooter DELETED in the web app, so the engine stops counting them (on_forget):
+its spoken "shot N" and "that's 10" follow the web app's numbers again.
 """
 import threading
 import time
@@ -33,9 +37,9 @@ LOST_BGR = (40, 40, 220)
 
 class LiveView:
     def __init__(self, cam, spec, geometry=lambda: None, width=960, quality=70, fps=4.0,
-                 on_trigger=None, token=None):
+                 on_trigger=None, on_forget=None, token=None):
         self.cam, self.spec, self.geometry = cam, spec, geometry
-        self.on_trigger, self.token = on_trigger, token
+        self.on_trigger, self.on_forget, self.token = on_trigger, on_forget, token
         self.width, self.quality, self.gap = width, quality, 1.0 / fps
         self.lock = threading.Lock()
         self.jpeg, self.made_at, self.seq = None, 0.0, 0
@@ -80,6 +84,25 @@ class LiveView:
             if ok:
                 self.jpeg, self.made_at, self.seq = buf.tobytes(), time.time(), self.seq + 1
             return self.jpeg
+
+    def post(self, path, data, token):
+        """The web app's POSTs: None = not here / malformed, False = wrong token."""
+        if path == "/trigger":
+            return self.trigger(data, token)
+        if path == "/forget":
+            return self.forget(data, token)
+        return None
+
+    def forget(self, data, token):
+        if self.on_forget is None:
+            return None
+        if self.token and token != self.token:
+            return False
+        shots = [{"x_mm": float(s["x_mm"]), "y_mm": float(s["y_mm"]), "at": float(s["at"]),
+                  "on_card": bool(s.get("on_card")), "match": bool(s.get("match"))}
+                 for s in data["shots"]]
+        self.on_forget(shots)
+        return True
 
     def trigger(self, data, token):
         """A browser-heard sound -> on_trigger({at, over_db, len_ms}). The browser

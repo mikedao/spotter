@@ -93,4 +93,41 @@ RSpec.describe "Announcer on the range screen" do
     expect(page).to have_button("💬 Quiet")
     expect(user.reload.chatty).to be(false)
   end
+
+  # 2026-11-13: the session-end summary was sent before the page's reload, but the
+  # dev server delivered the reload FIRST: the page became the finished session (no
+  # announcer) and the summary was never heard. The reload now waits a moment.
+  it "still says the session summary when the reload arrives before it" do
+    session = create(:practice_session, user:, status: "shooting")
+    allow(EngineRunner).to receive(:reconcile!)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    allow(Voice).to receive(:available?).and_return(true)
+    allow(Voice).to receive(:piece!).and_return(wav)
+
+    visit new_session_path
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
+    click_button "Sign in"
+    visit practice_session_path(session)
+    click_button "🔈 Tap anywhere for sound" if page.has_button?("🔈 Tap anywhere for sound", wait: 1)
+    expect(page).to have_button("🔊 Sound on")
+
+    session.update!(status: "ended", ended_at: Time.current)   # what the reload will show: no announcer
+    html = Announcement.new(session, { "kind" => "chat", "gaps" => { "sentence" => 0.1, "comma" => 0.05 },
+                                       "sentences" => [ { "pieces" => [ "that's the session" ] } ] })
+                       .send(:payload).to_json
+    page.execute_script(<<~JS, html)
+      Turbo.renderStreamMessage('<turbo-stream action="refresh"></turbo-stream>')
+      setTimeout(() => {
+        const div = document.createElement("div")
+        div.dataset.controller = "announcement"
+        div.dataset.announcementPayloadValue = arguments[0]
+        document.getElementById("announcements").appendChild(div)
+      }, 300)
+    JS
+
+    expect(page).to have_css("[data-controller='announcer'][data-played='1']", wait: 5)   # said, before the reload
+    expect(page).to have_no_css("[data-controller='announcer']", wait: 10)                 # then the finished page
+    expect(page).to have_text("All ")
+  end
 end

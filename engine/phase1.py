@@ -1184,6 +1184,7 @@ def _shot_auto(a, spec):
     # POST /trigger (needs --stream-port). No microphone opened here.
     browser_mic = a.mic is not None and a.mic.lower() == "browser"
     ext = queue.Queue()                    # sounds heard elsewhere: {at, over_db, len_ms}
+    forgotten = queue.Queue()              # shots deleted in the web app (liveview /forget)
     if camera_only:
         idx, info = None, {"name": "no microphone (camera only)",
                            "default_samplerate": 16000, "max_input_channels": 1}
@@ -1269,8 +1270,11 @@ def _shot_auto(a, spec):
         from liveview import LiveView
         view_srv = LiveView(cam, spec, geometry=lambda: st.get("tf_b"),
                             on_trigger=ext.put if browser_mic else None,
+                            on_forget=forgotten.put,
                             token=os.environ.get("SPOTTER_TOKEN")).serve(a.stream_port)
         print(f"  live view: http://127.0.0.1:{a.stream_port}/snapshot.jpg (and /stream)")
+        # The web app sends /forget only to an engine that printed this.
+        print("  forget deleted shots: POST /forget", flush=True)
 
     # The web app (web/), when asked: every event below is also posted there.
     rep = None
@@ -1884,6 +1888,22 @@ def _shot_auto(a, spec):
                         watch()
                     except CameraLost:
                         camera_lost()
+                # shots deleted in the web app: stop counting them, so the
+                # spoken "shot N" / "that's 10" follow the web app's numbers
+                while not forgotten.empty():
+                    for g in forgotten.get_nowait():
+                        if g["on_card"] and st["prior"]:
+                            off = [float(np.hypot(px - g["x_mm"], py - g["y_mm"]))
+                                   for px, py in st["prior"]]
+                            i = int(np.argmin(off))
+                            if off[i] <= 1.0:            # the engine's own position, stored by the web app
+                                st["prior"].pop(i)
+                        if g["match"] and ro is not None:
+                            ro.forget(g["at"], grace=2 * a.watch)
+                        print(f"  forgot a deleted shot at ({g['x_mm']:+.1f}, {g['y_mm']:+.1f}) mm: "
+                              f"{len(st['prior'])} on this card"
+                              + (f", match shot count {ro.match_number}" if ro is not None else ""),
+                              flush=True)
                 # sounds the browser heard, timed on this clock (liveview.py)
                 heard = []
                 while not ext.empty():

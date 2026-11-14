@@ -53,6 +53,7 @@ class ShotsController < ApplicationController
     session = @shot.practice_session
     card_number = @shot.card.number
     label = "card #{card_number}, shot #{@shot.number}"
+    EngineRunner.forget!(session, [ @shot ]) if session.live?
     @shot.remove!
     LiveBroadcast.new(session.reload).call if session.live?
     back = params[:back] == "card" ? practice_session_card_path(session, card_number) : practice_session_path(session)

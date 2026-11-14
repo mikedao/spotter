@@ -179,13 +179,24 @@ class EngineRunner
     def trigger!(session, ago_ms:, over_db:, len_ms:)
       return false unless session.live? && session.stream_port && session.mic == CameraProbe::BROWSER_MIC
 
-      body = { ago_ms: ago_ms.to_f, over_db: over_db.to_f, len_ms: len_ms.to_f }.to_json
-      res = Net::HTTP.start("127.0.0.1", session.stream_port, open_timeout: 0.5, read_timeout: 1) do |http|
-        http.post("/trigger", body, "Content-Type" => "application/json", "X-Spotter-Token" => session.run_token.to_s)
+      post_to_engine(session, "/trigger", { ago_ms: ago_ms.to_f, over_db: over_db.to_f, len_ms: len_ms.to_f })
+    end
+
+    # Shots about to be DELETED in a live session (a shot, or an earlier card's):
+    # the engine counted them, so without this its spoken "shot N" ran one ahead
+    # of the screen (2026-11-13, the shooter), and "that's 10" came a shot early.
+    # Only shots the ENGINE scored (one placed by hand it never counted), found by
+    # the engine's own position; `on_card` = on the card it is scoring now,
+    # `match` = counted by the range officer. Called BEFORE the delete.
+    def forget!(session, shots)
+      return false unless session.live? && session.stream_port && understands?(session, "forget deleted shots: POST /forget")
+
+      current = session.current_card
+      list = shots.select { it.scored? && !it.pinpointed? && it.x_mm && it.y_mm }.map do |shot|
+        { x_mm: shot.x_mm, y_mm: shot.y_mm, at: shot.fired_at.to_f, on_card: shot.card_id == current&.id,
+          match: shot.match_number.present? }
       end
-      res.is_a?(Net::HTTPNoContent)
-    rescue SystemCallError, IOError, Net::OpenTimeout, Net::ReadTimeout
-      false
+      list.empty? || post_to_engine(session, "/forget", { shots: list })
     end
 
     # = Ctrl+C: the engine makes a final check, then ends the session. The header
@@ -239,6 +250,15 @@ class EngineRunner
     end
 
     def understands_pause?(session) = understands?(session, "pause scoring: SIGTSTP")
+
+    def post_to_engine(session, path, data)
+      res = Net::HTTP.start("127.0.0.1", session.stream_port, open_timeout: 0.5, read_timeout: 1) do |http|
+        http.post(path, data.to_json, "Content-Type" => "application/json", "X-Spotter-Token" => session.run_token.to_s)
+      end
+      res.is_a?(Net::HTTPNoContent)
+    rescue SystemCallError, IOError, Net::OpenTimeout, Net::ReadTimeout
+      false
+    end
 
     def understands?(session, line)
       log = session.engine_log.presence && Pathname(session.engine_log)

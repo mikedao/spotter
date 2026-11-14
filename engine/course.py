@@ -276,6 +276,18 @@ class Runner:
                     "series": self._series(ow), "number": self.match_number,
                     "penalty": "extra shot" if extra else None}
 
+    def forget(self, at, grace=0.0):
+        """A competition shot the shooter deleted (the web app renumbers the
+        rest): count one fewer, in the match and in the window it was counted
+        in, so the next "shot N" and the extra-shot check match the web app."""
+        with self.lock:
+            self.match_number = max(0, self.match_number - 1)
+            ow = next((o for o in reversed(self.windows)
+                       if o.opened - 0.5 <= at and (o.closed is None or at <= o.closed + grace)),
+                      None)
+            if ow is not None and ow.window.stage != "sighting" and ow.shots > 0:
+                ow.shots -= 1
+
     def _series(self, ow):
         """Series number: every 10 shots in a match, each window in a final."""
         every = self.course.get("series")

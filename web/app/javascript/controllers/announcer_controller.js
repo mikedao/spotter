@@ -11,6 +11,8 @@ import { Controller } from "@hotwired/stimulus"
 // sound only once the page has had a tap or key press; arriving from the app's
 // own Start button usually counts already. If not, the button says "Tap
 // anywhere for sound" and the first tap or key press anywhere turns it on.
+const REFRESH_GRACE_S = 1.5   // for an announcement still on its way when the page is told to reload
+
 export default class extends Controller {
   static targets = [ "button", "chatty" ]
   static values = { chatty: Boolean, chattyUrl: String }
@@ -24,11 +26,15 @@ export default class extends Controller {
     this.listener = (event) => this.enqueue(event.detail)
     window.addEventListener("announcer:say", this.listener)
     // When the session ends the page reloads into its summary (a Turbo refresh):
-    // hold that until the announcer has finished, or the match summary is cut off.
+    // hold that until the announcer has finished, or the summary is cut off. And
+    // hold it a moment FIRST even when nothing is playing: the server sends the
+    // summary before the refresh, but the dev server's broadcasts can arrive in
+    // either order (2026-11-13: the refresh came first, the page reloaded into
+    // the finished session - no announcer there - and the summary was never heard).
     this.holdRefresh = (event) => {
-      if (event.target.getAttribute?.("action") !== "refresh" || !this.busy()) return
+      if (event.target.getAttribute?.("action") !== "refresh" || !this.on || this.waiting) return
       const render = event.detail.render
-      event.detail.render = async (stream) => { await this.idle(); render(stream) }
+      event.detail.render = async (stream) => { await this.wait(REFRESH_GRACE_S); await this.idle(); render(stream) }
     }
     document.addEventListener("turbo:before-stream-render", this.holdRefresh)
     this.unlock = () => this.start()

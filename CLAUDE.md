@@ -149,7 +149,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 276 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 284 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -434,10 +434,21 @@ from there). The user commits; don't commit unless asked.
   a match's 10-shot series recounted (`Shot.series_for`; a final's series are
   timed windows and stay). New competition shots take `match_number` from the WEB
   APP's count, not the engine's, so a deletion leaves no gap (the engine matches
-  events by `engine_shot_id`, so this is safe). Left as is: the ENGINE still
-  counted the deleted shot, so in a live match its spoken "shot N" runs one
-  ahead, and its "extra shot" penalty (a final's window over its count) may fire
-  one shot early.
+  events by `engine_shot_id`, so this is safe). The ENGINE is told too
+  (2026-11-13, the shooter: "the audio is one shot ahead"): before a delete in a
+  LIVE session `EngineRunner.forget!` POSTs the engine-scored shots (not ones
+  placed by hand) to the live view's `/forget` {x_mm, y_mm, at, on_card, match};
+  the engine drops the nearest hole (<= 1 mm, its own position) from the current
+  card's list (`st["prior"]`: "shot k", "that's 10", overlap and same-card checks)
+  and `Runner.forget(at)` takes one off the match count and its window (no early
+  "extra shot"). Only to an engine whose log says "forget deleted shots: POST
+  /forget". Verified on the demo card: delete shot 1, the next is "card shot 2".
+  **Deleting a whole CARD** (card page, 2026-11-13; `Card#remove!`): shots,
+  calls, pictures go, later cards move up a number, competition shots counted
+  again from 1 (series with them). Mid-session any EARLIER card; the one ON THE
+  TARGET is refused (`Card#on_target?`): new shots go on the latest card, so they
+  would land on the card before it. Change cards first: the new, empty card then
+  takes the deleted card's number.
   Any card of a session has its own page, `/practice/:id/cards/:number`
   (`CardsController`; linked from "Earlier cards this session"; prev / next card):
   target, card numbers, and `ShotListComponent(deletable: true)` with a Delete on
@@ -731,7 +742,10 @@ Built and committed:
   renders it; a plain `export` never removes a piece on that list. A user goal
   other than 565 renders its few goal pieces on first use. The page's end-of-session Turbo refresh WAITS until
   the announcer is idle (`turbo:before-stream-render`), so the match summary
-  isn't cut off. Verified: spec/models/commentary_spec.rb, a real demo run.
+  isn't cut off - and ALWAYS waits 1.5 s first (`REFRESH_GRACE_S`): the dev
+  server's async cable adapter delivered the refresh BEFORE the summary sent
+  ahead of it (2026-11-13, session 10: no recap heard; spec/system/announcer_spec
+  reproduces it). Verified: spec/models/commentary_spec.rb, a real demo run.
   Not yet: personalities to choose from; qualifying-place remarks (needs other
   shooters' scores).
 - **The 19 picker samples ARE in git**: `web/public/voice-samples/<voice>.m4a`
@@ -745,8 +759,7 @@ Built and committed:
   events accepted; real Chrome (spec/system/announcer_spec.rb): Sound on ->
   pieces fetched, decoded, played in order. NOT yet heard by the shooter.
 - Open: the `--speaker` mic mute assumed the engine plays the sound; with the
-  browser it can't know (off by default: earbuds). After a shot is DELETED in a
-  live match, the engine's spoken "shot N" runs one ahead (it still counted it).
+  browser it can't know (off by default: earbuds).
 
 ## Deployment direction: Pi = camera, laptop = everything else (2026-11)
 

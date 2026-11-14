@@ -16,6 +16,7 @@ class CardsController < ApplicationController
     end
 
     shots = @card.shots.count { it.scored? }
+    EngineRunner.forget!(@session, @card.shots.to_a) if @session.live?
     @card.remove!
     LiveBroadcast.new(@session.reload).call if @session.live?
     redirect_to practice_session_path(@session), status: :see_other,
