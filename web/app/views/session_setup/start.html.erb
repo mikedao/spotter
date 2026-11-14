@@ -23,6 +23,7 @@
         <span class="font-medium">None - camera only</span> <span class="text-gray-600 dark:text-gray-300">(2-4 s per shot)</span>
       <% else %>
         <span class="font-medium"><%= @mic == CameraProbe::BROWSER_MIC ? "This device's microphone" : @mic %></span>
+        <span class="text-sm text-gray-600 dark:text-gray-300">(trigger +<%= SoundTrigger.level(Current.user, @mic).round %> dB)</span>
         <% if @mic_ok %>
           <span class="<%= passed %>">✓ heard a shot</span>
           <span class="text-sm text-gray-600 dark:text-gray-300">(sound check <%= l(@mic_checked_at, format: "%b %-d") if @mic_checked_at %>)

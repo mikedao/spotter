@@ -21,8 +21,12 @@
     </div>
     <%= render(ButtonComponent.new(type: :submit, variant: :secondary, data: { turbo_submits_with: "Starting…" })) { @state || browser ? "Listen again" : "Listen" } %>
   <% end %>
+  <% level_mic = browser ? CameraProbe::BROWSER_MIC : @state&.data&.dig("mic") %>
+  <% if level_mic %>
+    <%= render(TriggerLevelComponent.new(user: Current.user, mic: level_mic)) %>
+  <% end %>
   <% if browser %>
-    <%= render(BrowserListenComponent.new) %>
+    <%= render(BrowserListenComponent.new(level: SoundTrigger.level(Current.user, CameraProbe::BROWSER_MIC))) %>
   <% else %>
     <%= render(ListenPanelComponent.new(state: @state, user: Current.user)) %>
   <% end %>

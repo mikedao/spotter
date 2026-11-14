@@ -16,7 +16,7 @@
 # the target in the cookie session. Each step stops the previous step's check,
 # so the camera and microphone are free for the next one.
 class SessionSetupController < ApplicationController
-  before_action :refuse_while_shooting, except: %i[ overlay stop_check stop_listen heard ]
+  before_action :refuse_while_shooting, except: %i[ overlay stop_check stop_listen heard trigger_level ]
 
   # New session: look for cameras and microphones, then step 1.
   def create
@@ -99,7 +99,7 @@ class SessionSetupController < ApplicationController
     end
 
     RigCheck.stop_for!(Current.user)
-    RigCheck::Listen.start!(user: Current.user, mic:, seconds: 60)
+    RigCheck::Listen.start!(user: Current.user, mic:, seconds: 60, level: SoundTrigger.level(Current.user, mic))
     Current.user.update!(last_mic: mic)
     redirect_to setup_microphone_path
   rescue RigCheck::Busy, EngineRunner::BadCamera => e
@@ -115,13 +115,31 @@ class SessionSetupController < ApplicationController
   # a server-side check, so Start says "heard a shot" and next time skips it.
   def heard
     over_db, len_ms = params[:over_db].to_f, params[:len_ms].to_f
-    return head(:unprocessable_content) unless SoundTrigger.would_trigger?(over_db, len_ms)
+    level = SoundTrigger.level(Current.user, CameraProbe::BROWSER_MIC)
+    return head(:unprocessable_content) unless SoundTrigger.would_trigger?(over_db, len_ms, level:)
 
     Current.user.update!(last_mic: CameraProbe::BROWSER_MIC,
                          sound_check: { "mic" => CameraProbe::BROWSER_MIC, "at" => Time.current.iso8601,
                                         "loudest_db" => over_db.round(1),
-                                        "trigger_db" => SoundTrigger::DB, "trigger_ms" => SoundTrigger::MS })
+                                        "trigger_db" => level, "trigger_ms" => SoundTrigger::MS })
     head :no_content
+  end
+
+  # The trigger level for the microphone being checked (SoundTrigger.level): set
+  # from the sound check, used by every session with that mic. A check running
+  # on the server judges its sounds by it from now on.
+  def trigger_level
+    mic = Current.user.last_mic.to_s
+    return head(:unprocessable_content) if mic.blank? || mic == CameraProbe::NO_MIC
+
+    db = SoundTrigger.set_level!(Current.user, mic, params.require(:db))
+    if (state = RigCheck::Listen.set_level(Current.user, db))
+      RigCheck::Listen.broadcast(Current.user, state, nil)
+    end
+    respond_to do |format|
+      format.json { render json: { db: } }
+      format.html { redirect_to setup_microphone_path(again: 1) }
+    end
   end
 
   def start
@@ -145,12 +163,15 @@ class SessionSetupController < ApplicationController
     # A sound check that heard a shot that would trigger: kept for next time.
     def remember_sound_check(state)
       data = state&.data || {}
-      heard = (data["sounds"] || []).select { it["would_trigger"] }
-      return if data["mic"].blank? || heard.empty?
+      return if data["mic"].blank?
+
+      level = SoundTrigger.level(Current.user, data["mic"])
+      heard = (data["sounds"] || []).select { SoundTrigger.would_trigger?(it["over_db"], it["len_ms"], level:) }
+      return if heard.empty?
 
       Current.user.update!(sound_check: { "mic" => data["mic"], "at" => Time.current.iso8601,
                                           "loudest_db" => heard.map { it["over_db"].to_f }.max.round(1),
-                                          "trigger_db" => data["trigger_db"], "trigger_ms" => data["trigger_ms"] })
+                                          "trigger_db" => level, "trigger_ms" => SoundTrigger::MS })
     end
 
     # The microphone the user will shoot with passed a sound check before and is

@@ -14,7 +14,7 @@ class BrowserTriggerComponent < ApplicationComponent
     tag.button(type: "button", class: AnnouncerComponent::BUTTON,
                data: { controller: "browser-trigger", action: "browser-trigger#retry",
                        browser_trigger_url_value: helpers.trigger_practice_session_path(@session),
-                       browser_trigger_db_value: SoundTrigger::DB, browser_trigger_ms_value: SoundTrigger::MS,
+                       browser_trigger_db_value: @session.trigger_db || SoundTrigger::DB, browser_trigger_ms_value: SoundTrigger::MS,
                        browser_trigger_near_db_value: SoundTrigger::NEAR_DB,
                        browser_trigger_https_value: https_url })
   end

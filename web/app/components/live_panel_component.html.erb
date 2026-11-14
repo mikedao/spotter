@@ -76,20 +76,28 @@
   </div>
 <% when :list %>
   <div id="<%= dom_id %>" class="space-y-4 tall:col-span-2">
-    <%= render(ShotListComponent.new(shots:, plot: @session.live?)) %>
+    <%= render(ShotListComponent.new(shots:, live: @session.live?)) %>
 
     <% if earlier_cards.any? %>
       <%= render(CardComponent.new(title: "Earlier cards this session")) do %>
         <ul class="divide-y divide-gray-200 dark:divide-gray-800">
           <% earlier_cards.reverse_each do |card| %>
             <% s = card.stats %>
-            <li>
-              <%= link_to helpers.practice_session_card_path(@session, card.number),
-                    class: "-mx-4 flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 sm:-mx-5 sm:px-5 dark:hover:bg-gray-800" do %>
+            <li class="-mx-4 flex items-center sm:-mx-5">
+              <%# Live: the card's page in a new tab, and Delete in place - leaving
+                  the range screen would stop its microphone and announcer. %>
+              <%= link_to helpers.practice_session_card_path(@session, card.number), target: (@session.live? ? "_blank" : nil),
+                    class: "flex min-h-11 flex-1 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 sm:px-5 dark:hover:bg-gray-800" do %>
                 <span class="font-medium text-blue-700 dark:text-blue-300">Card <%= card.number %> →</span>
                 <span class="tabular-nums text-gray-600 dark:text-gray-300">
                   <%= s.score %> over <%= pluralize(s.count, "shot") %><%= " · group #{s.group_size_mm} mm" if s.group_size_mm %>
                 </span>
+              <% end %>
+              <% if @session.live? %>
+                <%= button_to "Delete", helpers.practice_session_card_path(@session, card.number, back: "live"), method: :delete,
+                      "aria-label": "Delete card #{card.number}",
+                      form: { class: "shrink-0 px-2", data: { turbo_confirm: "Delete card #{card.number}#{" and its #{pluralize(s.count, 'shot')}" if s.count.positive?}? Later cards and shots are renumbered. This can't be undone." } },
+                      class: "min-h-11 cursor-pointer rounded-md px-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-300" %>
               <% end %>
             </li>
           <% end %>

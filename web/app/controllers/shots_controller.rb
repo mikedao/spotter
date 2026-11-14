@@ -56,6 +56,8 @@ class ShotsController < ApplicationController
     EngineRunner.forget!(session, [ @shot ]) if session.live?
     @shot.remove!
     LiveBroadcast.new(session.reload).call if session.live?
+    return render_toast(:notice, "Deleted #{label}.") if params[:back] == "live"
+
     back = params[:back] == "card" ? practice_session_card_path(session, card_number) : practice_session_path(session)
     redirect_to back, notice: "Deleted #{label}.", status: :see_other
   end

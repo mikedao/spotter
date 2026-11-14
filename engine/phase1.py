@@ -1936,7 +1936,6 @@ def _shot_auto(a, spec):
                               flush=True)
                     if why:
                         continue
-                    last_trig = e["t"]
                     wait = a.settle - (time.time() - (t_audio0 + e["t"]))
                     if wait > 0:
                         time.sleep(wait)
@@ -1946,6 +1945,12 @@ def _shot_auto(a, spec):
                                      sound_db=round(e["over_db"], 1),
                                      at=t_audio0 + e["t"]):
                             w["cand"] = None
+                            # The echo window follows a SCORED shot only (its
+                            # trap ringing, its late sound). Opened by a sound
+                            # that found no hole (cocking, a clap, the card),
+                            # it swallowed the real shot right after: 8 shots of
+                            # session 10 (2026-11-13) were "echo of last shot".
+                            last_trig = e["t"]
                     except CameraLost:
                         # the baseline is kept, so when the camera is back the
                         # camera check still finds this shot's hole

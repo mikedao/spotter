@@ -89,7 +89,8 @@ RSpec.describe RigCheck do
         state = wait_until_finished(described_class)
 
         expect(state).to have_attributes(finished: true, error: nil)
-        expect(state.data["level"]).to include("over_db" => 9.0, "floor_dbfs" => -61.0)
+        expect(state.data["meter"]).to include("over_db" => 9.0, "floor_dbfs" => -61.0)
+        expect(state.data["level"]).to eq(SoundTrigger::DB)   # the trigger level it judges by
         expect(state.data["sounds"].map { it["would_trigger"] }).to eq [ false, true ]
         expect(state.data["summary"]["floor_dbfs"]).to eq(-61.0)
         expect(RigCheck.running_check).to be_nil

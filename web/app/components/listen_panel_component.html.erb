@@ -32,7 +32,7 @@
       <% else %>
         <p class="text-sm text-gray-700 dark:text-gray-200">
           <strong><%= pluralize(shots, "sound") %> would trigger</strong> out of <%= sounds.size %> heard.
-          A capture needs at least +<%= data["trigger_db"].to_f.round %> dB over the room and <%= data["trigger_ms"].to_f.round %> ms.
+          A capture needs at least +<%= level.round %> dB over the room and <%= SoundTrigger::MS.round %> ms.
           Room noise floor <%= sum["floor_dbfs"] %> dBFS.
           <% if sounds.any? && shots.zero? %>
             None of these would trigger: if they were shots, the microphone is too far, too muffled, or filtering

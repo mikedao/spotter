@@ -135,6 +135,29 @@ RSpec.describe "New session setup" do
       expect(response.body).not_to include('id="listen_meter"')   # not the engine's check
     end
 
+    it "sets this mic's trigger level from the check, and judges by it" do
+      post setup_microphone_path, params: { mic: CameraProbe::BROWSER_MIC }
+      follow_redirect!
+      expect(response.body).to include('id="trigger_level"', 'value="62"')
+
+      post setup_heard_path, params: { over_db: 58.0, len_ms: 300 }, as: :json
+      expect(response).to have_http_status(:unprocessable_content)   # under +62
+
+      patch setup_trigger_level_path, params: { db: 57 }, as: :json
+      expect(response.parsed_body).to eq("db" => 57.0)
+      expect(user.reload.trigger_levels).to eq("browser" => 57.0)
+
+      post setup_heard_path, params: { over_db: 58.0, len_ms: 300 }, as: :json
+      expect(response).to have_http_status(:no_content)
+      expect(user.reload.sound_check).to include("trigger_db" => 57.0)
+      get setup_start_path
+      expect(response.body).to include("✓ heard a shot", "trigger +57 dB")
+
+      patch setup_trigger_level_path, params: { db: 60 }, as: :json   # passed at 57: ask again at 60
+      get setup_microphone_path
+      expect(response).to have_http_status(:ok)
+    end
+
     it "remembers a shot the page heard - at the engine's rule, not below it" do
       post setup_heard_path, params: { over_db: 58.0, len_ms: 300 }, as: :json
       expect(response).to have_http_status(:unprocessable_content)

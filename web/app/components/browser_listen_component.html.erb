@@ -1,7 +1,7 @@
 <div id="listen_panel" class="space-y-3"
      data-controller="browser-listen"
-     data-browser-listen-db-value="<%= SoundTrigger::DB %>" data-browser-listen-ms-value="<%= SoundTrigger::MS %>"
-     data-browser-listen-scale-value="<%= scale_max %>" data-browser-listen-heard-url-value="<%= helpers.setup_heard_path %>">
+     data-browser-listen-db-value="<%= level %>" data-browser-listen-ms-value="<%= SoundTrigger::MS %>"
+     data-browser-listen-scale-value="<%= SCALE_MAX %>" data-browser-listen-heard-url-value="<%= helpers.setup_heard_path %>">
   <% if (url = https_url) %>
     <p class="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200" data-browser-listen-target="insecure" hidden>
       A browser lets a page use the microphone only over https.
@@ -15,11 +15,11 @@
   </p>
   <div class="relative h-4 overflow-hidden rounded bg-gray-200 dark:bg-gray-800" role="meter" aria-label="Loudness over the room">
     <div class="h-full bg-blue-600" style="width: 0%" data-browser-listen-target="bar"></div>
-    <div class="absolute inset-y-0 w-0.5 bg-gray-900 dark:bg-white" style="left: <%= trigger_pct %>%" title="trigger level"></div>
+    <div class="absolute inset-y-0 w-0.5 bg-gray-900 dark:bg-white" style="left: <%= trigger_pct %>%" title="trigger level" data-browser-listen-target="line"></div>
   </div>
   <p class="text-xs text-gray-600 dark:text-gray-300">
     <span data-browser-listen-target="level">Now +0 dB over the room.</span>
-    The line marks the trigger level, +<%= SoundTrigger::DB.round %> dB, at least <%= SoundTrigger::MS.round %> ms.
+    The line marks the trigger level (+<span data-browser-listen-target="levelText"><%= level.round %></span> dB); a shot also lasts at least <%= SoundTrigger::MS.round %> ms.
   </p>
   <p class="text-sm text-gray-700 dark:text-gray-200" data-browser-listen-target="summary" hidden></p>
 

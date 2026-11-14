@@ -6,8 +6,13 @@
 # ported), at the engine's own trigger rule (SoundTrigger). A shot it hears is
 # reported to SessionSetupController#heard and remembered.
 class BrowserListenComponent < ApplicationComponent
-  def scale_max = SoundTrigger::DB * 1.4
-  def trigger_pct = (SoundTrigger::DB / scale_max * 100).round
+  SCALE_MAX = 90.0   # the meter's full width, dB over the room
+
+  def initialize(level:) = @level = level
+
+  attr_reader :level
+
+  def trigger_pct = (level / SCALE_MAX * 100).round
 
   def https_url
     return if request.ssl? || request.host.in?(%w[ localhost 127.0.0.1 ])

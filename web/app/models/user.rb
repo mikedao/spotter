@@ -22,7 +22,7 @@ class User < ApplicationRecord
   # (2026-11-13: every shot of a session went unheard behind a remembered pass).
   def sound_checked?(mic)
     mic.present? && sound_check.is_a?(Hash) && sound_check["mic"] == mic &&
-      sound_check["trigger_db"].to_f == SoundTrigger::DB && sound_check["trigger_ms"].to_f == SoundTrigger::MS
+      sound_check["trigger_db"].to_f == SoundTrigger.level(self, mic) && sound_check["trigger_ms"].to_f == SoundTrigger::MS
   end
   def sound_checked_at = (Time.zone.parse(sound_check["at"].to_s) if sound_check.is_a?(Hash))
 

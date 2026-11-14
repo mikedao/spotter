@@ -77,6 +77,7 @@ class EngineRunner
         engine_session_id: "#{Time.current.strftime('%Y%m%d-%H%M%S')}-#{SecureRandom.hex(2)}",
         target:, per_card: per_card.presence, camera:, mic:, course: course.presence, rule: "pellet",
         status: "starting", started_at: Time.current,
+        trigger_db: (SoundTrigger.level(user, mic) unless mic == CameraProbe::NO_MIC),
         stream_port: free_port, **gear   # gun, pellet, gun_adjustments (GearParams)
       )
       user.update!(last_camera: camera, last_mic: mic)
@@ -116,6 +117,7 @@ class EngineRunner
       [ python, "phase1.py", "shot", "--auto",
         "--target", session.target, "--device", session.camera,
         "--mic=#{session.mic.presence || mic}",
+        *([ "--trigger-db", session.trigger_db.to_s ] if session.trigger_db),
         "--report-to", web_url, "--session-id", session.engine_session_id,
         *([ "--per-card", session.per_card.to_s ] if session.per_card),
         *([ "--course", session.course ] if session.course),

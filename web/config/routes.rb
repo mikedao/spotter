@@ -22,6 +22,7 @@ Rails.application.routes.draw do
     post "microphone", action: :listen
     post "microphone/stop", action: :stop_listen, as: :stop_listen
     post "microphone/heard", action: :heard, as: :heard   # the browser's sound check heard a shot
+    patch "microphone/level", action: :trigger_level, as: :trigger_level   # this mic's trigger level
     get "start", action: :start, as: :start
   end
 

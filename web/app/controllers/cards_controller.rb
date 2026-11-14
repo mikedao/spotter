@@ -11,16 +11,20 @@ class CardsController < ApplicationController
 
   def destroy
     if @card.on_target?
+      message = "Card #{@card.number} is on the target - change cards first, then delete it."
+      return render_toast(:alert, message) if params[:back] == "live"
       return redirect_to(practice_session_card_path(@session, @card.number), status: :see_other,
-                         alert: "Card #{@card.number} is on the target - change cards first, then delete it.")
+                         alert: message)
     end
 
     shots = @card.shots.count { it.scored? }
     EngineRunner.forget!(@session, @card.shots.to_a) if @session.live?
     @card.remove!
     LiveBroadcast.new(@session.reload).call if @session.live?
-    redirect_to practice_session_path(@session), status: :see_other,
-                notice: "Deleted card #{@card.number}#{" and its #{shots == 1 ? 'shot' : "#{shots} shots"}" if shots.positive?}."
+    message = "Deleted card #{@card.number}#{" and its #{shots == 1 ? 'shot' : "#{shots} shots"}" if shots.positive?}."
+    return render_toast(:notice, message) if params[:back] == "live"
+
+    redirect_to practice_session_path(@session), status: :see_other, notice: message
   end
 
   private

@@ -11,7 +11,7 @@ class RigCheck::Listen < RigCheck::LiveProcess
   class << self
     def label = "sound check"
 
-    def command(user:, mic:, seconds:)
+    def command(user:, mic:, seconds:, **)
       mic = mic.to_s.strip
       raise EngineRunner::BadCamera, "pick a microphone" if mic.empty? || mic == CameraProbe::NO_MIC
       raise EngineRunner::BadCamera, "that isn't a microphone name" unless EngineRunner.valid_mic?(mic)
@@ -20,13 +20,22 @@ class RigCheck::Listen < RigCheck::LiveProcess
         "--seconds", seconds.to_i.clamp(5, MAX_SECONDS).to_s ]
     end
 
-    def initial_data(mic:, seconds:) = { "mic" => mic.to_s.strip, "seconds" => seconds.to_i, "sounds" => [] }
+    def initial_data(mic:, seconds:, level: SoundTrigger::DB)
+      { "mic" => mic.to_s.strip, "seconds" => seconds.to_i, "sounds" => [], "level" => level }
+    end
+
+    # The trigger level changed in the middle of a check: judge by the new one.
+    def set_level(user, db)
+      state = state_for(user)
+      RigCheck::MUTEX.synchronize { state.data["level"] = db } if state
+      state
+    end
 
     def apply(state, event, _user)
       d = state.data
       case event["type"]
       when "start" then d.merge!("trigger_db" => event["trigger_db"], "trigger_ms" => event["trigger_ms"])
-      when "level" then d["level"] = event
+      when "level" then d["meter"] = event
       when "sound" then d["sounds"] << event
       when "error" then state.error = event["message"]
       when "end" then d["summary"] = event

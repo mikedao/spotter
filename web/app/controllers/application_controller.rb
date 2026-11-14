@@ -1,4 +1,10 @@
 class ApplicationController < ActionController::Base
+  # A toast without leaving the page (the live range screen: leaving it stops its
+  # microphone and announcer). The panels are redrawn by the live broadcast.
+  def render_toast(kind, message)
+    render turbo_stream: turbo_stream.append_all("body", FlashComponent.new(flash: { kind.to_s => message }))
+  end
+
   include Authentication
 
   helper_method :current_user

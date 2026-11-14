@@ -10,7 +10,11 @@ class ListenPanelComponent < ApplicationComponent
   def running? = @state&.running?
   def data = @state&.data || {}
   def sounds = data["sounds"] || []
-  def shots = sounds.count { it["would_trigger"] }
+  # Judged at the mic's own trigger level (it can change during the check), not
+  # the engine's flag, which knows only the engine's default.
+  def level = (data["level"] || data["trigger_db"]).to_f.nonzero? || SoundTrigger::DB
+  def would_trigger?(sound) = SoundTrigger.would_trigger?(sound["over_db"], sound["len_ms"], level:)
+  def shots = sounds.count { would_trigger?(it) }
   def heard_a_shot? = shots.positive?
   def summary = data["summary"]
 
@@ -31,10 +35,10 @@ class ListenPanelComponent < ApplicationComponent
 
   private
     def sound_row(s)
-      verdict = if s["would_trigger"]
+      verdict = if would_trigger?(s)
         tag.span("would trigger", class: "rounded bg-green-100 px-2 py-0.5 text-green-900 dark:bg-green-950 dark:text-green-200")
       else
-        tag.span(s["over_db"] < data["trigger_db"].to_f ? "too quiet" : "too short", class: "text-gray-600 dark:text-gray-300")
+        tag.span(s["over_db"].to_f < level ? "too quiet" : "too short", class: "text-gray-600 dark:text-gray-300")
       end
       tag.tr(safe_join([ tag.td(s["n"], class: "py-1.5"), tag.td(format("%.1f s", s["t"].to_f)), tag.td("+#{s["over_db"].round} dB"),
                          tag.td("#{s["len_ms"]} ms"), tag.td(verdict) ]))

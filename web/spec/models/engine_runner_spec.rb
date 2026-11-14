@@ -54,6 +54,22 @@ RSpec.describe EngineRunner do
     end
   end
 
+  it "runs the session at the microphone's own trigger level, and records it" do
+    allow(Process).to receive(:spawn).and_return(999_999)
+    allow(described_class).to receive(:watch)
+    SoundTrigger.set_level!(user, CameraProbe::BROWSER_MIC, 57)
+
+    session = described_class.start!(user:, target: "pistol", per_card: nil, camera: "1", mic: CameraProbe::BROWSER_MIC)
+    expect(session.trigger_db).to eq(57.0)
+    expect(Process).to have_received(:spawn) do |_env, *cmd, **|
+      expect(cmd.each_cons(2)).to include([ "--trigger-db", "57.0" ])
+    end
+
+    session.update!(ended_at: Time.current, engine_pid: nil)
+    other = described_class.start!(user:, target: "pistol", per_card: nil, camera: "1", mic: CameraProbe::NO_MIC)
+    expect(other.trigger_db).to be_nil   # camera only: no trigger at all
+  end
+
   it "has no built-in camera or microphone: nothing picked is refused, no mic is camera only" do
     expect { described_class.start!(user:, target: "pistol", per_card: nil) }
       .to raise_error(EngineRunner::BadCamera, /pick a camera/)

@@ -3,9 +3,14 @@
 # row opens the shot's review page.
 class ShotListComponent < ApplicationComponent
   # deletable: a Delete button on each row (the card page), back to that page after.
-  # plot: a capture that wasn't scored opens the live range screen's plot panel.
-  def initialize(shots:, title: "Shots", deletable: false, plot: false)
-    @shots, @title, @deletable, @plot = shots, title, deletable, plot
+  # live: the LIVE range screen, which must never be left - leaving it stops its
+  # microphone and announcer (2026-11-13: 20 shots of a session went unheard while
+  # the shooter was on other pages). A capture that wasn't scored opens the plot
+  # panel over it; each row has a Delete that answers in place (a toast; the live
+  # broadcast redraws the panels); a shot's own page opens in a new tab.
+  def initialize(shots:, title: "Shots", deletable: false, live: false)
+    @shots, @title, @live = shots, title, live
+    @deletable = deletable || live
   end
 
   def call
@@ -26,6 +31,7 @@ class ShotListComponent < ApplicationComponent
         safe_join([
           link_to(plot?(shot) ? helpers.plot_shot_path(shot) : shot_path(shot),
                   data: (plot?(shot) ? { turbo_frame: "plot" } : {}),
+                  target: (@live && !plot?(shot) ? "_blank" : nil),
                   class: "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800") do
             shot.scored? ? scored_row(shot) : unscored_row(shot)
           end,
@@ -37,7 +43,7 @@ class ShotListComponent < ApplicationComponent
     def delete_button(shot)
       what = shot.scored? ? "shot #{shot.number}" : "this unscored capture"
       tag.div(class: "shrink-0 px-2") do
-        button_to("Delete", shot_path(shot, back: "card"), method: :delete, "aria-label": "Delete #{what}",
+        button_to("Delete", shot_path(shot, back: @live ? "live" : "card"), method: :delete, "aria-label": "Delete #{what}",
                   form: { data: { turbo_confirm: "Delete #{what}? Its pictures and your call go too, and the later shots on this card move up a number. This can't be undone." } },
                   class: "min-h-11 cursor-pointer rounded-md px-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-300")
       end
@@ -56,7 +62,7 @@ class ShotListComponent < ApplicationComponent
       ])
     end
 
-    def plot?(shot) = @plot && shot.unscored? && shot.after_image.attached?
+    def plot?(shot) = @live && shot.unscored? && shot.after_image.attached?
 
     def unscored_row(shot)
       safe_join([

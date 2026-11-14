@@ -64,4 +64,33 @@ RSpec.describe "Deleting during a live session" do
     delete shot_path(shots[2])
     expect(card2.shots.count).to eq(1)
   end
+
+  describe "from the range screen itself (back=live)" do
+    before { allow(EngineRunner).to receive(:forget!) }
+
+    it "answers in place with a toast, not a page to go to" do
+      delete shot_path(shots[2], back: "live"), as: :turbo_stream
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('action="append"', "Deleted card 2, shot 3.")
+      expect(card2.shots.count).to eq(2)
+
+      delete practice_session_card_path(session, 1, back: "live"), as: :turbo_stream
+      expect(response.body).to include("Deleted card 1 and its shot.")
+    end
+
+    it "says why, in place, for the card on the target" do
+      delete practice_session_card_path(session, 2, back: "live"), as: :turbo_stream
+      expect(response.body).to include("is on the target - change cards first", 'role="alert"')
+      expect(session.cards.count).to eq(2)
+    end
+
+    it "puts Delete on the live screen's shots and earlier cards, their pages in a new tab" do
+      get practice_session_path(session)
+      page = Nokogiri::HTML(response.body)
+      expect(page.css("form[action='#{shot_path(shots[0], back: "live")}']")).to be_present
+      expect(page.css("form[action='#{practice_session_card_path(session, 1, back: "live")}']")).to be_present
+      expect(page.css("a[href='#{shot_path(shots[0])}'][target='_blank']")).to be_present
+      expect(page.css("a[href='#{practice_session_card_path(session, 1)}'][target='_blank']")).to be_present
+    end
+  end
 end

@@ -149,7 +149,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 284 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 292 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -835,6 +835,22 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   puma.rb, the https one with it; `SPOTTER_LOG_TO_STDOUT` keeps the log in the
   terminal. Trust `spotter-ca.pem` once on the laptop; sign in again on https
   (separate cookies). Also unblocks installing the range screen as an app.
+  **Session 10 (2026-11-13, first real browser-trigger session): ~35 heard, 35
+  camera-found.** Three causes, all fixed the same day: (1) 7 shots read
+  +58..+62 in the browser, under the fixed +62 -> the TRIGGER LEVEL IS PER MIC
+  (`SoundTrigger.level`, `users.trigger_levels`), set in the sound check
+  (`TriggerLevelComponent`; the browser check re-judges what it heard at once),
+  recorded per session (`practice_sessions.trigger_db`) and passed to the engine
+  as `--trigger-db` and to the range screen's browser; (2) 8 shots were "echo of
+  last shot" after a sound that found NO hole -> only a SCORED shot opens the 2 s
+  echo window now (`last_trig` set after `score_now` succeeds; reproduced and
+  fixed with the real engine); (3) 20 shots fell in stretches of minutes with no
+  sound from the browser at all - the shooter was on other pages (leaving the
+  range screen stops its mic AND announcer) -> the live range screen deletes
+  shots and earlier cards IN PLACE (Delete + the confirm modal, answered with a
+  Turbo Stream toast, `ApplicationController#render_toast`; the live broadcast
+  redraws), and opens a shot's / card's page in a NEW TAB. 23 sounds found no
+  hole (14 in the first two minutes): harmless.
   **Later option: the trigger from the Kiyo's mic ON THE PI.** It hears
   IMPACTS at the target (the hole exists when it sounds; no coughs, cocking
   clicks or announcer) - the original +45 dB / 180 ms tuning. Plan: a Pi service
