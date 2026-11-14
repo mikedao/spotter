@@ -42,6 +42,18 @@ def words(n):
     return ONES[n // 100] + " hundred" + ("" if rest == 0 else " " + words(rest))
 
 
+# How a shot's SCORE is given and said (2026-11-14, the shooter): the RING below
+# 10 ("nine"), the decimal from 10 up ("ten four") - as the standard announcer.
+# Written into the trained model (adapter/format.json) by `train`; `serve` turns
+# the web app's facts (always with the decimal) into this form for such a model.
+SCORE_FORMAT = "ring"
+
+
+def score_words(d, rng=None):
+    """A shot's score as given / said: the ring below 10, else decimal_words."""
+    return words(int(d)) if d < 10.0 else decimal_words(d, rng)
+
+
 def decimal_words(d, rng=None):
     """9.6 -> nine six (or nine point six); 10.0 -> ten oh / ten flat."""
     whole, tenth = divmod(round(d * 10), 10)
@@ -50,6 +62,9 @@ def decimal_words(d, rng=None):
     if tenth == 0:
         return rng.choice([f"{words(whole)} oh", f"{words(whole)} flat", f"{words(whole)} point oh"])
     return rng.choice([f"{words(whole)} {ONES[tenth]}", f"{words(whole)} point {ONES[tenth]}"])
+
+
+MAX_WORDS, MAX_WORDS_CARD = 18, 30
 
 
 class Builder:
@@ -90,7 +105,7 @@ class Builder:
         frm, step, step_text = self.step(decimal)
         card_end = r.random() < 0.12                       # a card / series ends on a tenth shot
         n = r.choice(range(10, 61, 10)) if card_end else r.choice([k for k in range(1, 61) if k % 10])
-        spoken = decimal_words(decimal)
+        spoken = score_words(decimal)
         facts = {"shot": words(n), "score": spoken, "how far": "inner ten" if inner else step_text,
                  "direction": direction}
 
@@ -125,9 +140,10 @@ class Builder:
             facts["tens today"] = words(t)
             extra.append(self.pick(p.TENS_TODAY, tens=words(t)))
 
-        say_score = decimal_words(decimal, r)
+        say_score = score_words(decimal, r)
         deg = r.choice(p.CENTER) if inner else self.fill(r.choice(p.DEGREE[step]), dir=direction)
         out = []
+        optional = []                                   # parts dropped first when a line runs long
         sighter = penalty = None
         if r.random() < 0.06:
             sighter = True
@@ -180,22 +196,26 @@ class Builder:
             else:
                 prev = min(10.9, max(0.0, decimal + r.uniform(-2.5, 2.5)))
             prev = int(prev * 10) / 10.0
-            facts["previous"] = decimal_words(prev)
+            facts["previous"] = score_words(prev)
             pool = p.PREV_BETTER if ring > int(prev) else p.PREV_WORSE if ring < int(prev) else p.PREV_SAME
             extra.insert(0, self.pick(pool))
-        if moment:
-            if r.random() < 0.4:
-                out.append(self.pick(p.REACT[quality]))
-            out.append(moment)
-        elif not sighter and not penalty and not woven:
-            out.append(self.pick(p.REACT[quality]))
-            if r.random() < 0.15:                       # very chatty: sometimes two
-                out.append(self.pick(p.REACT[quality]))
-            if quality in ("inner", "ten") and r.random() < 0.08:
-                out.append(self.fill(r.choice(["{name} approves.", "that's {name} certified.", "{name} likes that."])))
+        def opt(part):
+            optional.append(part)
+            out.append(part)
 
-        if extra and not sighter and r.random() < 0.45:
-            out.append(r.choice(extra))
+        if moment:
+            if r.random() < 0.4 and not card_end:
+                opt(self.pick(p.REACT[quality]))
+            out.append(moment)
+        elif not sighter and not penalty and not woven and not card_end:
+            opt(self.pick(p.REACT[quality]))
+            if r.random() < 0.05:                       # very chatty: now and then two
+                opt(self.pick(p.REACT[quality]))
+            if quality in ("inner", "ten") and r.random() < 0.08:
+                opt(self.fill(r.choice(["{name} approves.", "that's {name} certified.", "{name} likes that."])))
+
+        if extra and not sighter and not card_end and r.random() < 0.3:
+            opt(r.choice(extra))
 
         if r.random() < 0.1:
             flag = r.choice(list(p.FLAGS))
@@ -226,6 +246,12 @@ class Builder:
                 else:
                     facts["last series"] = "yes"
                     out.append(self.pick(p.LAST_SERIES))
+        # SHORT (2026-11-14: in the demo, shots 10 s apart came faster than she
+        # finished): an ordinary shot <= MAX_WORDS, a card's last <= MAX_WORDS_CARD;
+        # optional parts go first, never the score, a moment, a flag or the card.
+        cap = MAX_WORDS_CARD if card_end else MAX_WORDS
+        while len(" ".join(out).split()) > cap and optional:
+            out.remove(optional.pop())
         return self.facts("shot", **facts), " ".join(out)
 
     # ---- the ends, and the engine's own lines --------------------------------------
@@ -312,15 +338,29 @@ def check(facts_text, answer):
         why.append("characters")
     if not answer.strip() or len(answer.split()) > 70:
         why.append("length")
-    if FORBIDDEN.search(answer):
+    # never the goal - but a real score that happens to be 565 is a fact, not the goal
+    spoken = answer
+    for value in (v for line in facts_text.splitlines() for k, _, v in [line.partition(": ")] if k != "event"):
+        spoken = spoken.replace(value, "")
+    if FORBIDDEN.search(spoken):
         why.append("goal")
     if not all(is_word(w) for w in re.findall(r"[a-z][a-z'-]*", answer)):
         why.append("not a word")
     if facts.get("event") == "shot":
-        whole, tenth = facts["score"].rsplit(" ", 1)
-        forms = [f"{whole} {tenth}", f"{whole} point {tenth}"]
-        if tenth == "oh":
-            forms += [f"{whole} flat", f"{whole} point oh", f"{whole} zero"]
+        score = facts["score"].split()
+        if len(score) == 1:                        # the ring (below 10): said alone
+            ring = score[0]
+            forms = [ring]
+            tenths = "|".join(ONES[:10] + ["oh", "flat"])
+            given = [v for k, v in facts.items() if k != "score"]          # "card average: eight two" is a fact
+            if any(not any(m.group(0) in v or m.group(0).replace(" point", "") in v for v in given)
+                   for m in re.finditer(rf"\b{ring}\s+(point\s+)?({tenths})\b", answer)):
+                why.append("decimal")
+        else:
+            whole, tenth = score[0], score[-1]
+            forms = [f"{whole} {tenth}", f"{whole} point {tenth}"]
+            if tenth == "oh":
+                forms += [f"{whole} flat", f"{whole} point oh", f"{whole} zero"]
         if not any(re.search(rf"\b{f}\b", answer) for f in forms):
             why.append("score")
         d = facts["direction"]
@@ -423,6 +463,28 @@ def speak_line(model, tok, system, facts, budget_s=LIVE_BUDGET_S):
     return answer, pieces, why, attempt
 
 
+def model_format(name, adapter="adapter"):
+    """The score format a trained model expects: "ring" (adapter/format.json,
+    written by train) or "decimal" (models trained before 2026-11-14)."""
+    path = CACHE / name / adapter / "format.json"
+    return json.loads(path.read_text()).get("score", "decimal") if path.exists() else "decimal"
+
+
+def to_format(facts, fmt):
+    """The web app's facts (scores always with the decimal: "score: nine six") in
+    the model's form: for a "ring" model a score below 10 is its ring ("nine")."""
+    if fmt != "ring":
+        return facts
+    lines = []
+    for line in facts.splitlines():
+        key, _, value = line.partition(": ")
+        parts = value.split()
+        if key in ("score", "previous") and len(parts) == 2 and parts[0] in ONES[:10]:
+            line = f"{key}: {parts[0]}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def likely_pieces(name):
     """Every piece she is likely to say, most used first: the pieces of her
     training answers (she mostly reuses them; the 2,000 most used are 98% of
@@ -437,6 +499,7 @@ def likely_pieces(name):
                 for sentence in voicelines.split(json.loads(line)["messages"][2]["content"]):
                     counts.update(sentence)
     out = [piece for piece, _ in counts.most_common()]
+    out += [words(n) for n in range(10)]
     for d in range(110):
         whole, tenth = divmod(d, 10)
         forms = ([f"{words(whole)} oh", f"{words(whole)} flat", f"{words(whole)} point oh"] if tenth == 0 else
@@ -461,6 +524,7 @@ def serve(name, port, adapter="adapter"):
     model, tok = load(name, adapter)
     voice = speak.Voice(p.VOICE)
     system = p.PERSONA.replace("{name}", p.NAME)
+    fmt = model_format(name, adapter)                           # "ring" / "decimal" scores
     say(model, tok, system, "event: ready")                    # warm up
     lock = threading.Lock()                                     # one line at a time (one GPU)
 
@@ -504,7 +568,7 @@ def serve(name, port, adapter="adapter"):
                 return self.reply(404, {"error": "not found"})
             try:
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-                facts = str(req["facts"])
+                facts = to_format(str(req["facts"]), fmt)
                 t0 = time.time()
                 with lock:
                     answer, pieces, why, tries = speak_line(model, tok, system, facts,
@@ -553,6 +617,8 @@ def train(name, iters=1000):
            "--steps-per-eval", "200", "--val-batches", "25", "--max-seq-length", "512", "--save-every", "250"]
     with open(here / "train.log", "w") as log:
         subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True, env={**__import__("os").environ, "PYTHONUNBUFFERED": "1"})
+    # what the model was trained to expect (serve translates the facts to it)
+    (here / "adapter" / "format.json").write_text(json.dumps({"score": SCORE_FORMAT}))
 
 
 def main():

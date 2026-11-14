@@ -127,6 +127,9 @@ export default class extends Controller {
   enqueue(announcement) {
     if (!this.on) return
     if (this.waiting) { this.queue = [ announcement ]; return }   // only the latest, once there's sound
+    // A newer line of the same kind replaces one still waiting to play (a
+    // personality's shot lines): never more than one line behind the shooting.
+    if (announcement.supersede) this.queue = this.queue.filter((a) => a.supersede !== announcement.supersede)
     this.queue.push(announcement)
     if (!this.playing) this.next()
   }

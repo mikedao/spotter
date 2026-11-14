@@ -73,6 +73,40 @@ RSpec.describe "Announcer on the range screen" do
     expect(fetched.map { URI(it).request_uri }).to match_array(expected)
   end
 
+  it "drops a personality's shot line still waiting when a newer one arrives, never other lines" do
+    session = create(:practice_session, user:, status: "shooting")
+    allow(EngineRunner).to receive(:reconcile!)
+    allow(EngineRunner).to receive(:snapshot).and_return(nil)
+    allow(Voice).to receive(:available?).and_return(true)
+    allow(Voice).to receive(:piece!).and_return(wav)
+    visit new_session_path
+    fill_in "Username", with: user.username
+    fill_in "PIN", with: "1010"
+    click_button "Sign in"
+    visit practice_session_path(session)
+    click_button "🔈 Tap anywhere for sound" if page.has_button?("🔈 Tap anywhere for sound", wait: 1)
+    expect(page).to have_button("🔊 Sound on")
+
+    line = ->(text, supersede) do
+      Announcement.new(session, { "kind" => "ok", "plain_kind" => "ok", "supersede" => supersede,
+                                  "gaps" => { "sentence" => 0.1, "comma" => 0.05 },
+                                  "sentences" => [ { "pieces" => [ text ] } ] }).send(:payload).to_json
+    end
+    # Four arrive together: the first plays; of the three shot lines waiting, only
+    # the newest is kept; the line that isn't a shot line is never dropped.
+    page.execute_script(<<~JS, [ line.("shot 1", "shot"), line.("shot 2", "shot"), line.("ready", nil), line.("shot 3", "shot") ])
+      for (const payload of arguments[0]) {
+        const div = document.createElement("div")
+        div.dataset.controller = "announcement"
+        div.dataset.announcementPayloadValue = payload
+        document.getElementById("announcements").appendChild(div)
+      }
+    JS
+    expect(page).to have_css("[data-controller='announcer'][data-played='3']", wait: 5)
+    sleep 1
+    expect(page).to have_css("[data-controller='announcer'][data-played='3']")   # "shot 2" never played
+  end
+
   it "turns chatty mode on and off from the range screen, without a page load" do
     session = create(:practice_session, user:, status: "shooting")
     allow(EngineRunner).to receive(:reconcile!)

@@ -155,6 +155,8 @@ RSpec.describe PersonalityAnnouncer do
     announcer.shot!(shot)
     expect(Personality).to have_received(:say).with("katey", a_string_including("score: nine six"), budget_s: 2.5)
     expect(said.join).to include("almost").and include("af_nicole")
+    payload = JSON.parse(said.join[/data-announcement-payload-value="([^"]+)"/, 1].gsub("&quot;", '"'))
+    expect(payload).to include("supersede" => "shot", "gaps" => { "sentence" => 0.3, "comma" => 0.15 })
   end
 
   it "says the engine's own line when she can't" do

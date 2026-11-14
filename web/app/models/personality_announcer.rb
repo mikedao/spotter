@@ -16,6 +16,9 @@
 class PersonalityAnnouncer
   HOLD_S = 4.0          # how long a shot's standard line waits for the shot event
   BUDGET_S = 2.5        # how long she may take to write a line (talk.py LIVE_BUDGET_S)
+  # Her lines are many short sentences: the standard 0.55 / 0.25 s pauses made a
+  # long one 10-15 s, and shots 10 s apart got ahead of her (the demo, 2026-11-14).
+  GAPS = { "sentence" => 0.3, "comma" => 0.15 }.freeze
 
   class_attribute :inline, default: false
   @held = {}
@@ -63,7 +66,7 @@ class PersonalityAnnouncer
     end
     standard = held ? Announcement.new(@session, held) : Announcement.for_shot(shot)
     facts = PersonalityFacts.new(@session).for_shot(shot)
-    later { speak(facts, standard.kind || "ok") || standard.deliver! }
+    later { speak(facts, standard.kind || "ok", supersede: "shot") || standard.deliver! }
     true
   end
 
@@ -87,11 +90,13 @@ class PersonalityAnnouncer
     end
 
     # Her line, delivered; false when she couldn't (the caller says the standard one).
-    def speak(facts, kind)
+    # supersede: "shot" = a newer shot's line drops this one if it is still waiting
+    # to play (the range screen's queue), so she is never more than a line behind.
+    def speak(facts, kind, supersede: nil)
       reply = Personality.say(@personality.id, facts, budget_s: BUDGET_S)
       return false unless reply && reply["ok"] && reply["sentences"].present?
 
-      Announcement.new(@session, { "kind" => kind, "plain_kind" => kind,
+      Announcement.new(@session, { "kind" => kind, "plain_kind" => kind, "gaps" => GAPS, "supersede" => supersede,
                                    "sentences" => reply["sentences"].map { { "pieces" => it } } }).deliver!
       true
     end

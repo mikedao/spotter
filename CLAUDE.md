@@ -715,6 +715,24 @@ crime against paper", "emotionally a seven" were judged fine).
   running -> standard announcer (and it is started). `Voice.for` = the
   personality's voice; the voice grid still shows the user's own.
 
+- **Changes for her NEXT training (made 2026-11-14, data not yet regenerated):**
+  NO PET NAMES (the shooter: "babe" after a comma made an odd pause - every {pet}
+  and literal babe/nerd/loser/trouble/sharpshooter is out of katey.py); RING-ONLY
+  scores below 10, as the standard announcer (`talk.SCORE_FORMAT`; `train` writes
+  adapter/format.json, `serve` turns the web app's facts - always with the decimal -
+  into the model's form, so the web app never changes; a model without format.json
+  = "decimal", i.e. the current one); SHORTER lines (MAX_WORDS 18 / 30 on a card's
+  last shot - optional parts dropped first; a second reaction 5%, extras 30%:
+  median 15 words, was 20). Checks: a decimal after a ring-only score fails; a real
+  final score of 565 is a fact, not the goal. To retrain: `talk.py data && talk.py
+  train`, then `talk.py test`, then restart her process (`Personality.stop!`; the
+  next session starts it).
+- **Pacing, live now:** in the demo (shots 10 s apart) she fell behind - her lines
+  ran 10-15 s. Her lines use shorter pauses (`PersonalityAnnouncer::GAPS` 0.3 /
+  0.15 s, standard 0.55 / 0.25), and her SHOT lines carry `supersede: "shot"`: in
+  the range screen's queue a newer one drops an older one still WAITING (the one
+  playing finishes; other lines are never dropped) - never more than a line behind.
+
 ## Announcer voice: Kokoro (2026-11)
 
 The shooter rejected the Mac voices (incl. Premium) for **Kokoro** (kokoro-onnx,
