@@ -48,6 +48,16 @@ TRIGGER_MS = 180.0
 # the sound. A card still moving inside that window is looked at again, not
 # rejected: it may be the card settling from the hit.
 LOOK_FOR_S = 3.0
+# ...but the looks start CHEAP (2026-11-14): the hole reaches the engine's frames
+# ~0.55-0.95 s after the gun is heard (session 11, 40 heard shots: the first full
+# look at ~0.67 s saw it on only 13; a full look costs ~0.8 s, so a miss meant
+# the next look at ~1.4 s and a score at ~2.2 s). Until QUICK_LOOK_UNTIL_S after
+# the sound every new frame is compared with the baseline under the baseline's
+# own fit (the camera check's hole test, ~0.04 s), and the one full fit + score
+# is done on the frame where the hole first shows. Replayed on session 11:
+# sound to score median 2.23 -> ~1.6 s. After it (or anything unusual) the full
+# looks carry on as before, so it is never slower.
+QUICK_LOOK_UNTIL_S = 2.0
 
 
 def _outcome(res):
@@ -1366,8 +1376,21 @@ def _shot_auto(a, spec):
             label = f"camera, after a sound +{heard['db']:.0f} dB"
         if after is None:
             after = cam.grab(a.frames)
-        t_first = time.time()
         looks = []                           # a heard shot's looks: [s after the sound, outcome]
+        if trigger == "sound" and st.get("tf_b") is not None and not st["dirty"]:
+            # CHEAP LOOKS first (QUICK_LOOK_UNTIL_S): every new frame against the
+            # baseline under its own fit; stop at the frame showing the hole (it
+            # gets the full fit below) or anything unusual (the full path judges).
+            # No movement check here (~0.1 s a frame): the full scoring below
+            # checks it on the frame that showed something, as before.
+            t_q = time.time()
+            while t_q - at < QUICK_LOOK_UNTIL_S:
+                if _quick_new_hole(st["before"], st["tf_b"], after, st["tf_b"], spec) is not None:
+                    break
+                looks.append([round(t_q - at, 2), "no hole (quick)"])
+                after = cam.grab(1)
+                t_q = time.time()
+        t_first = time.time()
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
         # A real shot changes a hole-sized patch. If large parts of the card
@@ -1650,19 +1673,7 @@ def _shot_auto(a, spec):
             def new_hole(frame, tf_now):
                 """Position (mm) of the strongest hole-sized new region against
                 the baseline, or None."""
-                reg = (st["before"] if tf_now is st["tf_b"] else
-                       register(st["before"], st["tf_b"], tf_now, frame.shape))
-                d = new_light(frame, reg)
-                hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0,
-                                                min_circularity=0.30)
-                hd, _ = _keep_on_card(hd, tf_now, spec)
-                nominal = np.pi * (PELLET_MM / 2.0 / tf_now.mm_per_px) ** 2
-                hd = [h for h in hd if h["peak"] >= 40 and
-                      h["area_px"] >= 0.5 * nominal]
-                if not hd:
-                    return None
-                h = max(hd, key=lambda h: h["peak"] * h["area_px"])
-                return tf_now.to_mm(h["xw"], h["yw"])
+                return _quick_new_hole(st["before"], st["tf_b"], frame, tf_now, spec)
 
             def watch():
                 """Card present? View still? New hole without a sound?"""
@@ -2170,6 +2181,25 @@ def cmd_bench(a):
     print(f"\n  budget {dec:.2f} mm. geom/worst = score noise from the geometry "
           "alone; phantom = false shots `shot` would report.")
     print(f"  frame -> {snap}\n")
+
+
+def _quick_new_hole(before, tf_b, frame, tf_now, spec):
+    """Position (mm) of the strongest hole-sized new region in `frame` against
+    the baseline `before`, or None. With tf_now IS tf_b (a quiet view: the card
+    hasn't moved) no registration is needed - the cheap check of the camera's
+    quiet path and of a heard shot's first looks."""
+    from geometry import register, new_light
+    from scoring import PELLET_MM
+    reg = before if tf_now is tf_b else register(before, tf_b, tf_now, frame.shape)
+    d = new_light(frame, reg)
+    hd, _, _ = target0.detect_holes(d, tf_now.mm_per_px, min_mm=2.0, min_circularity=0.30)
+    hd, _ = _keep_on_card(hd, tf_now, spec)
+    nominal = np.pi * (PELLET_MM / 2.0 / tf_now.mm_per_px) ** 2
+    hd = [h for h in hd if h["peak"] >= 40 and h["area_px"] >= 0.5 * nominal]
+    if not hd:
+        return None
+    h = max(hd, key=lambda h: h["peak"] * h["area_px"])
+    return tf_now.to_mm(h["xw"], h["yw"])
 
 
 def _keep_on_card(holes, tf, spec):
