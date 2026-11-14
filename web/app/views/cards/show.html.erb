@@ -9,6 +9,16 @@
   <span class="text-gray-600 dark:text-gray-300"><%= @session.title %> · card <%= @card.number %> of <%= @session.cards.size %></span>
   <% if @previous %><%= link_to "← Card #{@previous}", practice_session_card_path(@session, @previous), class: link %><% end %>
   <% if @next %><%= link_to "Card #{@next} →", practice_session_card_path(@session, @next), class: link %><% end %>
+  <span class="ml-auto">
+    <% if @card.on_target? %>
+      <span class="text-gray-600 dark:text-gray-300">On the target now - change cards to delete it.</span>
+    <% else %>
+      <% shots = @card.scored_shots.size %>
+      <%= render(ButtonComponent.new(href: practice_session_card_path(@session, @card.number), method: :delete, variant: :secondary, size: :sm,
+            form: { data: { turbo_confirm: "Delete card #{@card.number}#{" and its #{pluralize(shots, 'shot')}" if shots.positive?}? " \
+                                           "Later cards and shots are renumbered. This can't be undone." } })) { "Delete card" } %>
+    <% end %>
+  </span>
 </nav>
 
 <div class="grid items-start gap-4 wide:grid-cols-[auto_minmax(0,32rem)] wide:justify-center short:grid-cols-[auto_minmax(0,1fr)]">

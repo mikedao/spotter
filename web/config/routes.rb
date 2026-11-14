@@ -37,7 +37,7 @@ Rails.application.routes.draw do
     post :trigger, on: :member # a shot the range screen's browser heard (mic "browser"), relayed to the engine
     resource :shotmetrix, only: :show, controller: "shotmetrix"   # the session as Shotmetrix QR codes
     resource :report, only: :show   # the session as a printable report (Save as PDF)
-    resources :cards, only: :show, param: :number   # any card of the session, its shots deletable
+    resources :cards, only: %i[ show destroy ], param: :number   # any card of the session, its shots deletable
   end
   resources :shots, only: %i[ show update destroy ] do
     post :pinpoint, on: :member   # score a capture by tapping its hole
