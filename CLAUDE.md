@@ -1124,9 +1124,15 @@ because ISSF awards the higher value when the hole touches the line.
   ~1.4 s, score ~2.2 s). (1) Until QUICK_LOOK_UNTIL_S (2 s) EVERY new frame gets
   the camera check's hole test under the baseline's fit (`_quick_new_hole`,
   ~0.04 s; no movement check per frame - it cost 0.1 s and the full scoring checks
-  it), then the full path. (2) A QUIET view (`_scene_moving` under the baseline's
-  fit says no) is SCORED on the baseline's geometry: no re-fit, no registration
-  (scoring ~0.3 s, was ~0.8). Measured first on 120 real shots (sessions 10-11),
+  it), then the full path. (2) A QUIET view of a HEARD shot (`_scene_moving` under
+  the baseline's fit says no) is SCORED on the baseline's geometry: no re-fit, no
+  registration (scoring ~0.3 s, was ~0.8). HEARD ONLY (session 15): for a CAMERA
+  find the second sighting must stay independent - on the baseline's fit a card
+  corner shifting after real shots (a magnet's edge, lower left; the curled edge
+  had just been moved there) passed both looks and scored 0.0 three times (277,
+  282, 286); its own fit + registration rejected all three, and the 17 real
+  camera finds came out the same both ways. Camera, sound_camera and final_check
+  finds keep the full per-frame fit. Measured first on 120 real shots (sessions 10-11),
   own fit vs baseline fit: position median 0.04 mm, 90% < 0.15, worst 1.04 (a
   torn hole's circle fit, not geometry), **0 rings changed**, 7 decimals by 0.1;
   your taps tie (0.69 vs 0.73 mm). The fit ALSO showed the card "moving" 0.03 mm
@@ -1141,7 +1147,9 @@ because ISSF awards the higher value when the hole touches the line.
   poorly") until the next shot. `estimates.geometry_from` = "baseline" / "frame".
   Real engine, hole shown 0.4 / 0.75 / 1.1 s after a relayed browser sound
   (camstream --hold --first): sound to score 1.37 / 2.01 / 2.13 s -> 0.93 / 1.23 /
-  1.57 s; two shots in a row scored 6.5 and 9.6 (demo 044, 045). Judge it live by
+  1.57 s; two shots in a row scored 6.5 and 9.6 (demo 044, 045). **Session 15
+  (first real one): heard shots median 1.19 s (0.84-1.49), was 2.23 s** - the
+  hole showed at +0.6..+1.2 s, scoring then a steady ~0.26 s. Judge it live by
   the looks and `detect_seconds` per session, and the eval's position error.
 - **The Pi stream lagged 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
   first capture after a sound could show the card BEFORE the pellet: in one

@@ -1410,15 +1410,21 @@ def _shot_auto(a, spec):
         # while the shooter, in the baseline frame, was mounting the card).
         # Solved ONCE here and handed to _score_pair, which used to solve the
         # same frame again (~0.5-1 s per shot on a slow laptop).
-        # A QUIET view is scored on the BASELINE's geometry (2026-11-14, the
-        # shooter's call): no ~0.33 s re-fit and no registration. Measured on
+        # A QUIET view of a HEARD shot is scored on the BASELINE's geometry
+        # (2026-11-14, the shooter's call): no ~0.33 s re-fit and no registration. Measured on
         # 120 real shots (sessions 10-11) against each frame's own fit: hole
         # position median 0.04 mm apart (90% < 0.15), 0 rings changed, 7
         # decimals by 0.1 (so decimals below 10 aren't announced: _spoken_score).
         # Anything not quiet takes the full per-frame fit, as before; the new
         # baseline gets its own fit after the score is out (below), so the
         # geometry is still re-derived from the card every shot - never static.
-        quiet = (st.get("tf_b") is not None and not st["dirty"] and
+        # HEARD shots only (2026-11-14, session 15): the sound already proves a
+        # shot. A shot the CAMERA found has only its two sightings, and the second
+        # must be independent - with the baseline's fit a card corner that shifted
+        # after a real shot (a magnet's edge) passed both looks and scored 0.0
+        # three times; its own fit + registration rejected all three. So camera
+        # finds (and sound_camera, final_check) keep the full per-frame fit.
+        quiet = (trigger == "sound" and st.get("tf_b") is not None and not st["dirty"] and
                  not _scene_moving(st["before"], st["tf_b"], after, st["tf_b"], spec))
         if quiet:
             tf_a = st["tf_b"]
