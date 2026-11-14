@@ -149,7 +149,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 292 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 297 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -239,6 +239,17 @@ once it beats the rules on held-out SESSIONS, judged on the live shadow numbers.
   `STEPS=50` for a quick test run (it REPLACES the model - back it up first).
   The parts alone: `ml:export`, `ml:eval [SAVE=1]`, `ml:train`. The engine loads a
   new model at its next start (old one kept as `hole-prev.*`).
+- **Progress over time** (2026-11-13, the shooter: "as much information as
+  possible"): `ModelProgress` writes one row per trained model to
+  `engine/out/ml/progress.jsonl` (ml:update; `bin/rails ml:progress` prints it and
+  records a model missing from it). The **Scoring model page** (`/model`, menu):
+  a readiness verdict from LIVE results only (needs 3 live sessions; "ahead" =
+  more disagreements won AND at least as many rings), tiles, charts (live per
+  session, held out and position error per training: `ModelChartComponent`),
+  sessions table, every disagreement linked to its shot, calibration table,
+  trainings table. mleval adds `head_to_head` (where engine and model differ,
+  who was right) and `calibration` (p_ring bins vs actual); train.py stores the
+  whole held-out check + training time/loss/steps in hole.json.
 - `TrainingExport` -> `engine/out/ml/dataset/` (`index.jsonl` +
   `shots/<id>/{before,after}.jpg,label.json`): a MIRROR of the DB, incremental,
   demo user left out. Call kinds: `tapped` (position = label), `accepted`,
@@ -1072,7 +1083,22 @@ because ISSF awards the higher value when the hole touches the line.
   now **62** (was 45, for the Kiyo hearing impacts as quiet as +48.5 - use
   `--trigger-db 45` with that mic). "Not scored" is NEVER SPOKEN any more (the
   shooter: false triggers made it annoying); still logged and reported.
-- **The Pi stream lags 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
+- **Heard shots are LOOKED AT UNTIL FOUND (2026-11-13):** on the WIRED Studio the
+  Pi's frames arrive ~8 ms after capture (median; X-Timestamp vs arrival, clocks
+  within 4 ms) and OpenCV's MJPEG reader adds nothing (measured with a numbered
+  local stream) - the 0.2-1.6 s lag below was the LAPTOP over Wi-Fi. Session 10
+  (sound to score): 21 shots 1.82-1.98 s (fixed 1.0 s wait + ~0.85 s), 9 shots
+  3.1-3.6 s (needed a later look; why was never logged). Now the first look is
+  at `--settle` 0.5 s (was 1.0), then EVERY new frame until the hole shows, up
+  to LOOK_FOR_S 3 s; a card moving inside that window is looked at again (was:
+  rejected at once). Each look is logged ("looks: +0.55 s hole; done 1.39 s
+  after the sound") and stored as `estimates.timing`. Demo card through the real
+  engine: hole ready 1.39 s (was ~1.85); hole at +1.5 s scored 2.79 s (was ~3.2);
+  no hole gives up at 3.65 s. A look costs ~0.8 s - mostly the full fit, kept
+  on purpose (every frame its own geometry). UNVERIFIED: whether a torn flap still
+  settling at 0.5 s moves the hole's position - watch the eval's position error
+  per session (`ml:update`) and the looks; `--settle 1.0` restores the old wait.
+- **The Pi stream lagged 0.2-1.6 s** (ustreamer's X-Timestamp vs arrival), so the
   first capture after a sound could show the card BEFORE the pellet: in one
   session 13 of 20 shots read "no new hole" and the camera check found them
   seconds later. After a SOUND with no hole yet, `score_now` looks again

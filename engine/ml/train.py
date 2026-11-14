@@ -171,6 +171,9 @@ def device():
     return torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
+LAST_RUN = {}          # the last train(): seconds, final loss (for the model's metadata)
+
+
 def train(labels, steps, seed=0, log=False):
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
@@ -190,6 +193,7 @@ def train(labels, steps, seed=0, log=False):
         if log and (step % 200 == 0 or step == steps - 1):
             print(f"    step {step:>5}  loss {loss.item():.3f}  ({time.time() - t0:.0f} s)", flush=True)
     net.eval()
+    LAST_RUN.update(seconds=round(time.time() - t0, 1), final_loss=round(float(loss.item()), 4), steps=steps)
     return net
 
 
@@ -278,7 +282,9 @@ def main():
         sys.exit(f"only {len(labels)} called shots with close-ups - not enough to train on")
     print(f"{len(labels)} called shots with close-ups, training on {device()}")
 
+    t_cv = time.time()
     oof = cross_validate(labels, a.steps)
+    cv_seconds = round(time.time() - t_cv, 1)
     scale = sigma_scale(labels, oof)
     for p in oof:
         p["sigma_mm"] = round(p["sigma_mm"] * scale, 3)
@@ -289,15 +295,23 @@ def main():
     s = mleval.summarize(shown)
     mleval.report(s, shown)
     r, m = s["ring"]["rules"], s["ring"]["model"]
-    cv = {"cv": {"by": groups(labels)[2], "rules_agree": r["agree"], "model_agree": m["agree"], "n": m["n"],
+    # Everything the held-out check measured, kept with the model (ModelProgress
+    # in the web app tracks it over time): rings with their 95% ranges, position
+    # error, flags, head to head, and whether its confidence is honest.
+    cv = {"cv": {"by": groups(labels)[2], "folds": len(groups(labels)[1]), "steps": a.steps,
+                 "rules_agree": r["agree"], "model_agree": m["agree"], "n": m["n"],
+                 "rules_ci95": r["ci95"], "model_ci95": m["ci95"],
                  "model_median_mm": s["position"]["model"].get("median_mm"),
                  "rules_median_mm": s["position"]["rules"].get("median_mm"),
-                 "model_flags": s["flags_model"]}, "sigma_scale": scale}
+                 "position": s["position"], "flags": s["flags"], "model_flags": s["flags_model"],
+                 "head_to_head": s["head_to_head"], "calibration": s["calibration"]},
+          "sigma_scale": scale}
     if a.cv_only:
         return
 
     print(f"\nTRAINING on all {len(labels)} shots")
     net = train(labels, a.steps, log=True)
+    cv["training"] = {**LAST_RUN, "device": str(device()), "cv_seconds": cv_seconds}
     export(net, labels, cv, Path(a.out))
 
 

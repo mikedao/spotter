@@ -170,6 +170,48 @@ def model_flag_stats(labels):
             "flagged_needlessly": len(flagged) - len(caught)}
 
 
+def model_ring(label):
+    pos = pos_model(label)
+    return ring_at(label, pos)[0] if pos else None
+
+
+def head_to_head(labels):
+    """Where the engine's rules and the model gave DIFFERENT rings, who was right?
+    The deciding number for letting the model score: agreeing shots can't tell
+    them apart."""
+    out = {"n": 0, "same": 0, "model_right": 0, "rules_right": 0, "neither": 0, "shots": []}
+    for lb in labels:
+        mr = model_ring(lb)
+        if mr is None:
+            continue
+        out["n"] += 1
+        rr, t = lb["proposal"]["ring"], true_ring(lb)
+        if mr == rr:
+            out["same"] += 1
+            continue
+        who = "model" if mr == t else "rules" if rr == t else "neither"
+        out[{"model": "model_right", "rules": "rules_right", "neither": "neither"}[who]] += 1
+        out["shots"].append({"shot_id": lb["shot_id"], "session_id": lb["session_id"], "rules": rr, "model": mr,
+                             "called": t, "p_ring": lb["estimates"]["model"].get("p_ring"), "right": who})
+    return out
+
+
+CAL_BINS = [(0.0, 0.5), (0.5, 0.7), (0.7, 0.9), (0.9, 0.99), (0.99, 1.01)]
+
+
+def calibration(labels):
+    """Is the model's confidence honest? Shots grouped by how sure it was of its
+    ring (p_ring), and how often that ring was the called one: a well-calibrated
+    model is right ~90% of the time when it says 0.9."""
+    rows = []
+    for lo, hi in CAL_BINS:
+        b = [lb for lb in labels if lb["estimates"].get("model") and lo <= lb["estimates"]["model"].get("p_ring", 0) < hi]
+        right = sum(model_ring(lb) == true_ring(lb) for lb in b)
+        rows.append({"p_from": lo, "p_to": min(hi, 1.0), "n": len(b), "right": right,
+                     "mean_p": round(statistics.mean(lb["estimates"]["model"]["p_ring"] for lb in b), 3) if b else None})
+    return rows
+
+
 def mark_sweep(labels):
     """Ring agreement of the rules' POSITION as the touch allowance varies (the
     PELLET_MARK_MM fit, scoring.py). Accepted calls were judged at 0.65, so they
@@ -218,6 +260,8 @@ def summarize(labels):
         "position": {m: position_stats(rules, m) for m in methods},
         "flags": flag_stats(rules),
         "flags_model": model_flag_stats(rules) if "model" in methods else None,
+        "head_to_head": head_to_head(rules) if "model" in methods else None,
+        "calibration": calibration(rules) if "model" in methods else None,
         "mark_sweep": mark_sweep(rules),
         "taps": tap_consistency(labels),
         "per_session": per_session(rules),
@@ -233,12 +277,20 @@ def per_session(labels):
         m = ring_stats(s, "model")
         mp = position_stats(s, "model")
         versions = sorted({lb["estimates"]["model"].get("version") for lb in s if lb["estimates"].get("model")})
+        h = head_to_head(s)
+        f, fm = flag_stats(s), model_flag_stats(s)
         out.append({"session_id": sid, "date": min(lb["fired_at"] for lb in s)[:10],
                     "target": s[0]["target"], "n": len(s), "agree": r["agree"],
-                    "tapped": p["n"], "median_mm": p.get("median_mm"),
+                    "tapped": p["n"], "median_mm": p.get("median_mm"), "p90_mm": p.get("p90_mm"),
+                    "wrong_spot": p.get("wrong_spot"), "flagged": f["flagged"], "flags_caught": f["caught"],
+                    "ring_changed": f["ring_changed"],
                     # the model as it ran LIVE in that session (shadow): trained before it
                     "model_n": m["n"], "model_agree": m["agree"],
-                    "model_median_mm": mp.get("median_mm"), "model_versions": versions})
+                    "model_median_mm": mp.get("median_mm"), "model_p90_mm": mp.get("p90_mm"),
+                    "model_wrong_spot": mp.get("wrong_spot"), "model_flagged": fm["flagged"],
+                    "model_flags_caught": fm["caught"], "model_wrong": fm["wrong"],
+                    "model_right": h["model_right"], "rules_right": h["rules_right"], "neither": h["neither"],
+                    "model_versions": versions})
     return out
 
 
@@ -277,6 +329,22 @@ def report(s, labels, previous=None):
     w = s["mark_sweep"]
     print(f"\nTOUCH ALLOWANCE (scoring.PELLET_MARK_MM = 4.5 + 2 x 0.65): rules' positions agree best "
           f"({w['best']}/{s['ring']['rules']['n']}) at {w['window'][0]:.2f}-{w['window'][1]:.2f} mm")
+
+    h = s.get("head_to_head")
+    if h and h["n"]:
+        print(f"\nHEAD TO HEAD (shots where the model ran): same ring {h['same']} of {h['n']}; where they differ, "
+              f"model right {h['model_right']}, engine right {h['rules_right']}, neither {h['neither']}")
+        for d in h["shots"][:10]:
+            print(f"  /shots/{d['shot_id']:<6} engine {d['rules']}  model {d['model']} (P {d['p_ring']})  you called {d['called']}"
+                  f"  -> {d['right']} right" if d["right"] != "neither" else
+                  f"  /shots/{d['shot_id']:<6} engine {d['rules']}  model {d['model']} (P {d['p_ring']})  you called {d['called']}  -> neither")
+    cal = s.get("calibration")
+    if cal and any(c["n"] for c in cal):
+        print("\nMODEL CONFIDENCE (is its P(ring) honest?)")
+        for c in cal:
+            if c["n"]:
+                print(f"  sure {c['p_from']:.2f}-{c['p_to']:.2f}: {c['right']}/{c['n']} right ({100 * c['right'] / c['n']:.0f}%), "
+                      f"it said {100 * c['mean_p']:.0f}% on average")
 
     t = s["taps"]
     if t["inconsistent"]:

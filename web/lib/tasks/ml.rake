@@ -2,7 +2,8 @@
 # the hand-written rules agree with the calls (the number a model has to beat).
 # Run after every session, once every shot has a call:
 #
-#   bin/rails ml:update               # ALL OF IT: export, compare (saved), retrain, recap
+#   bin/rails ml:update               # ALL OF IT: export, compare (saved), retrain, recap + progress
+#   bin/rails ml:progress             # the model's history, training by training
 #   bin/rails ml:eval                 # export, then the baseline report
 #   bin/rails ml:export               # just the export
 #   bin/rails ml:eval SAVE=1          # also append the result to eval-history.jsonl
@@ -90,5 +91,17 @@ namespace :ml do
          (cv ? "; on #{cv["by"]}s it hadn't seen: engine #{cv["rules_agree"]} of #{cv["n"]}, model #{cv["model_agree"]} of #{cv["n"]}" : "")
     puts "  Your next session uses it (shadow: the engine's rules still score)."
     puts "=" * 72
+    ModelProgress.record!
+    puts
+    puts "PROGRESS"
+    puts ModelProgress.table
+  end
+
+  # The model's history, one row per training (ModelProgress). Also records the
+  # current model if it isn't there yet (a training run by hand, or before this).
+  desc "How the scoring model has progressed, training by training"
+  task progress: :environment do
+    ModelProgress.record!
+    puts ModelProgress.table
   end
 end

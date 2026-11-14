@@ -41,8 +41,22 @@ TRIGGER_DB = 62.0
 TRIGGER_MS = 180.0
 # After a sound trigger with no new hole yet, look this many more times, this
 # far apart, for a frame that arrived late (the Pi stream lags 0.2-1.6 s).
-LATE_LOOKS = 3
-LATE_LOOK_S = 0.6
+# A heard shot: the first look comes --settle s after the sound (0.5; was 1.0
+# while the Pi's frames crossed Wi-Fi twice and arrived 0.2-1.6 s late - on the
+# wired Studio they arrive ~10 ms after capture, measured 2026-11-13), then
+# every new frame is looked at until the hole shows, for up to LOOK_FOR_S after
+# the sound. A card still moving inside that window is looked at again, not
+# rejected: it may be the card settling from the hit.
+LOOK_FOR_S = 3.0
+
+
+def _outcome(res):
+    """One look at a frame after a sound, in a word (the timing log)."""
+    if res is None:
+        return "no target"
+    if res.get("moving"):
+        return "moving"
+    return "hole" if res.get("found") else "no hole"
 # A camera find this soon after a sound whose capture showed no hole is that
 # sound's shot - heard AND seen ("sound_camera"; the Pi stream's lag).
 # A new hole seen by a quick camera check is scored from a frame taken at least
@@ -1355,6 +1369,8 @@ def _shot_auto(a, spec):
             label = f"camera, after a sound +{heard['db']:.0f} dB"
         if after is None:
             after = cam.grab(a.frames)
+        t_first = time.time()
+        looks = []                           # a heard shot's looks: [s after the sound, outcome]
         n = _next_shot_number()
         print(f"  ===== shot {n:03d}  ({label})")
         # A real shot changes a hole-sized patch. If large parts of the card
@@ -1375,8 +1391,9 @@ def _shot_auto(a, spec):
             print("  ! the after frame's geometry is off (a hole on the aiming "
                   "mark's edge?) - using the baseline's", flush=True)
             tf_a, geo_a = st["tf_b"], None
-        if tf_a is not None and _scene_moving(st["before"], st["tf_b"], after,
-                                              tf_a, spec):
+        def reject_moving(after):
+            """The view changed too much (a person, the card moving): not scored,
+            frames kept, a new baseline once the view is still."""
             stamp = time.strftime("%H%M%S")  # never silent, never lose frames
             for tag, img in (("before", st["before"]), ("after", after)):
                 cv2.imwrite(str(OUT / "shots" / f"unscored_{stamp}_{tag}.png"),
@@ -1393,39 +1410,46 @@ def _shot_auto(a, spec):
             if trigger == "sound":
                 st["heard"] = {"t": at, "db": sound_db or 0.0}
             return False
-        with silent():
-            res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
-                              tf=tf_a, geo=geo_a, verbose=a.verbose,
-                              prior=st["prior"])
-        if res is None:
-            time.sleep(0.5)                  # something in the way - retry
-            after = cam.grab(a.frames)
+
+        moving = tf_a is not None and _scene_moving(st["before"], st["tf_b"], after, tf_a, spec)
+        if moving and not (trigger == "sound" and time.time() - at < LOOK_FOR_S):
+            return reject_moving(after)
+        res = {"moving": True} if moving else None
+        if not moving:
             with silent():
                 res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
-                                  verbose=a.verbose, prior=st["prior"])
-        # Over the Pi's Wi-Fi a frame arrives 0.2-1.6 s after it was TAKEN
-        # (measured 2026-11-12), so the first capture after a sound can still
-        # show the card before the pellet landed: "not scored", then the camera
-        # check found it seconds later. Look again before giving up - no wait
-        # at all when the first capture already has the hole.
-        if trigger == "sound":
-            for _ in range(LATE_LOOKS):
-                if res is not None and res.get("found"):
-                    break
-                time.sleep(LATE_LOOK_S)
+                                  tf=tf_a, geo=geo_a, verbose=a.verbose,
+                                  prior=st["prior"])
+            if res is None and trigger != "sound":
+                time.sleep(0.5)              # something in the way - retry
                 after = cam.grab(a.frames)
-                tf_l, info_l = locate_info(after)
-                if tf_l is None or _scene_moving(st["before"], st["tf_b"], after, tf_l, spec):
-                    break                    # someone in view: not a late frame
-                geo_l = info_l
-                if not _fit_ok(info_l) or not _same_view(tf_l, st["tf_b"]):
-                    tf_l, geo_l = st["tf_b"], None
                 with silent():
                     res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
-                                      tf=tf_l, geo=geo_l, verbose=a.verbose,
-                                      prior=st["prior"])
-                if res is not None and res.get("found"):
-                    print("  (found on a later frame - the stream was behind)", flush=True)
+                                      verbose=a.verbose, prior=st["prior"])
+        # A heard shot: look at every new frame until the hole shows (see
+        # LOOK_FOR_S) - the card may still be settling from the hit, or the
+        # frame came before the pellet. Each look is logged and kept with the
+        # shot (estimates.timing), to measure how long the card really takes.
+        if trigger == "sound":
+            looks.append([round(t_first - at, 2), _outcome(res)])
+            while not (res is not None and res.get("found")) and time.time() - at < LOOK_FOR_S:
+                after = cam.grab(a.frames)
+                t_look = time.time()
+                tf_l, info_l = locate_info(after)
+                if tf_l is not None and (not _fit_ok(info_l) or not _same_view(tf_l, st["tf_b"])):
+                    tf_l, info_l = st["tf_b"], None
+                if tf_l is not None and _scene_moving(st["before"], st["tf_b"], after, tf_l, spec):
+                    res = {"moving": True}
+                else:
+                    with silent():
+                        res = _score_pair(a, spec, st["before"], st["tf_b"], after, n,
+                                          tf=tf_l, geo=info_l, verbose=a.verbose,
+                                          prior=st["prior"])
+                looks.append([round(t_look - at, 2), _outcome(res)])
+            print("  looks: " + ", ".join(f"+{t:.2f} s {o}" for t, o in looks)
+                  + f"; done {time.time() - at:.2f} s after the sound", flush=True)
+            if res is not None and res.get("moving"):
+                return reject_moving(after)
         sdir = OUT / "shots"
         if res is None or not res.get("found"):
             stamp = time.strftime("%H%M%S")  # never lose frames
@@ -1509,6 +1533,8 @@ def _shot_auto(a, spec):
             est = dict(res["estimates"],
                        closeup={"centre": [round(centre[0], 3), round(centre[1], 3)],
                                 "px_per_mm": 20.0, "size_px": 480})
+            if looks:
+                est["timing"] = {"settle_s": a.settle, "looks": looks}
             files = frames(b_img, a_img)
             if hole_model is not None:
                 # SHADOW MODE: the learned locator reads the same close-ups the
@@ -2459,8 +2485,10 @@ def main():
                            help="auto: loudness over the room floor")
             s.add_argument("--trigger-ms", type=float, default=TRIGGER_MS,
                            help="auto: minimum sound length")
-            s.add_argument("--settle", type=float, default=1.0,
-                           help="auto: seconds after impact before capture")
+            s.add_argument("--settle", type=float, default=0.5,
+                           help="auto: seconds after the sound before the first look "
+                                "(then every new frame until the hole shows, up to "
+                                "LOOK_FOR_S; was 1.0)")
             s.add_argument("--verbose", action="store_true",
                            help="auto: print every sound and full reports")
             s.add_argument("--no-speak", dest="speak", action="store_false",

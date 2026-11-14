@@ -45,6 +45,9 @@ Rails.application.routes.draw do
     get :plot, on: :member        # ...in a panel over the live range screen
   end
 
+  # The learned scoring model: how its training is going (ModelProgress).
+  resource :scoring_model, only: :show, path: "model"
+
   # The journal: trends across sessions, against the shooter's goal.
   resource :journal, only: %i[ show update ] do
     get :report   # the journal as a printable progress report (Save as PDF)
