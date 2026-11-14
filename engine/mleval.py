@@ -287,8 +287,9 @@ def report(s, labels, previous=None):
         print("\nPER SESSION (rules)")
         for r in s["per_session"]:
             med = f"{r['median_mm']:.2f} mm" if r["median_mm"] is not None else "-"
+            model = (f"   model live {r['model_agree']}/{r['model_n']}" if r.get("model_n") else "")
             print(f"  #{r['session_id']:<5} {r['date']}  {r['target']:<6} {r['agree']:>3}/{r['n']:<3} rings   "
-                  f"{r['tapped']:>3} tapped, median {med}")
+                  f"{r['tapped']:>3} tapped, median {med}{model}")
 
     rows = worst([lb for lb in labels if not lb.get("pinpointed")])
     if rows:

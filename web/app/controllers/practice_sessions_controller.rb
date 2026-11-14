@@ -1,5 +1,5 @@
 class PracticeSessionsController < ApplicationController
-  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume update_model destroy ]
+  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -9,7 +9,6 @@ class PracticeSessionsController < ApplicationController
   # The range screen: live while the session runs, its record afterwards.
   def show
     EngineRunner.reconcile!(@session)
-    ModelUpdate.reconcile!(@session)
   end
 
   # Start: the setup wizard's last step. Create the session and launch the
@@ -49,15 +48,6 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_session_path(@session, anchor: "diary"), notice: "Saved the diary.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     redirect_to practice_session_path(@session, anchor: "diary"), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
-  end
-
-  # "Update the scoring model" (every shot reviewed): export, compare, retrain -
-  # in the background, the card on the session page following it live.
-  def update_model
-    ModelUpdate.start!(@session)
-    redirect_to practice_session_path(@session, anchor: "model_update"), status: :see_other
-  rescue ModelUpdate::Busy => e
-    redirect_to practice_session_path(@session, anchor: "model_update"), alert: "#{e.message.upcase_first}.", status: :see_other
   end
 
   # Stop: the same as Ctrl+C - the engine does its final check, then ends the session.
