@@ -220,9 +220,14 @@ numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
 Still open: CSV export; Pi stream latency. DROPPED (the shooter, 2026-11-14):
 importing the pre-web `engine/out/shots` log, and the caliper check of decimals.
-Next session: the shooter lowers the browser mic's trigger (~+62, see "Session 11")
-and mounts a card UPSIDE DOWN for the bow test (holder vs card: 9 of 12 cards'
-worst patch sat upper-left in the picture; a richer lens model did NOT remove it).
+Next session: the shooter lowers the browser mic's trigger (~+62, see "Session 11").
+**"Bowed at the top" SOLVED (2026-11-14): the card's curl + the holder.** 9 of 12
+cards' worst flatness patch sat upper-left in the picture (0.2-0.43 mm); a richer
+lens model (free distortion centre + tangential terms, refit offline) did NOT remove
+it and its parameters varied card to card (not a lens property). Mounted UPSIDE
+DOWN, the patch WENT AWAY (did not move): the cards are printed landscape and curl
+side to side, and the holder doesn't hold the lifted edge flat at the upper left.
+Mount cards that way up (or clip the holder's upper left / flatten cards first).
 
 ## Learned scoring model (started 2026-11-13)
 
