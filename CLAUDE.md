@@ -276,6 +276,11 @@ once it beats the rules on held-out SESSIONS, judged on the live shadow numbers.
   heatmap CE + soft-argmax L1 (tapped weight 1, accepted 0.5) + a ring term
   (probability inside the called ring). Held-out folds by SESSION, by CARD while
   there are < 3 sessions. `sigma_scale` calibrates the spread on held-out taps.
+- **Tapping habit changed after session 8** (the shooter, 2026-11-13): session 8 was
+  tapped heavily (49/60, easy shots too), later sessions only where the engine looked
+  off (session 10: 23/60). Tap-distance numbers are not comparable across that change
+  (session 8's look better only because easier shots were tapped); ring agreement and
+  head to head are.
 - One rig, indoors (the garage), fixed lighting: fitting the rig is the goal, but
   split by session (paper, diffuser wear, camera bumps).
 - **Results 2026-11-13** (60 calls, ONE session, 6 held-out cards; small - the

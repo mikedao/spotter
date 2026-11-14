@@ -43,11 +43,17 @@ RSpec.describe "The scoring model page" do
 
     get scoring_model_path
     body = response.body
-    expect(body).to include("Ready to score? Too early to tell", "1 of 3 sessions")
-    expect(body).to include("58 → 57", "1 : 2")                              # tiles: live rings, who was right
-    expect(body).to include(shot_path(shot), "57%")                          # the disagreement, linked
-    expect(body).to include("46 <span", "(100.0%)")                           # calibration
-    expect(body).to include("20261113-2230", "112/120", "115/120", "87-97%")   # the training, with its range
-    expect(body).to include("<svg")
+    expect(body).to include("Should the model score your shots yet?", "Not yet - too early to tell", "1 of 3 live sessions")
+    expect(body).to include("The three numbers that matter", "1. Rings right", "2. When they disagreed", "3. Mistakes that slipped through")
+    doc = Nokogiri::HTML(body)
+    rings = doc.at_css("p:contains('1. Rings right')").parent.text.squish
+    expect(rings).to include("58 engine", "57 model", "of 60 shots", "Engine ahead")
+    differed = doc.at_css("p:contains('2. When they disagreed')").parent.text.squish
+    expect(differed).to include("2 engine right", "1 model right", "3 shots where they gave different rings")
+    missed = doc.at_css("p:contains('3. Mistakes that slipped through')").parent.text.squish
+    expect(missed).to include("0 engine", "0 model", "Flags to review: engine 20, model 11", "Even")
+    expect(body).to include(shot_path(shot), "57% sure")                    # the disputed shot, linked
+    expect(body).to include("Behind the scenes", "46 (100%)")                # calibration, folded away
+    expect(body).to include("20261113-2230", "112/120", "115/120", "87-97%")  # the training, with its range
   end
 end

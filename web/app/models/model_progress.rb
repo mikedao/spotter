@@ -67,13 +67,18 @@ class ModelProgress
       end
     end
 
+    # Summed over the live sessions. Wrong rings and how many of them were flagged:
+    # `ring_changed` / `flags_caught` (engine), `model_wrong` / `model_flags_caught`.
+    COUNTED = %w[model_right rules_right neither flagged model_flagged ring_changed flags_caught
+                 model_wrong model_flags_caught].freeze
+
     def live_totals(live = live_sessions)
-      %w[n rules_agree model_agree model_right rules_right neither flagged model_flagged].index_with { 0 }.tap do |t|
+      (%w[n rules_agree model_agree] + COUNTED).index_with { 0 }.tap do |t|
         live.each do |s|
           t["n"] += s["model_n"].to_i
           t["rules_agree"] += s["agree"].to_i
           t["model_agree"] += s["model_agree"].to_i
-          %w[model_right rules_right neither flagged model_flagged].each { t[it] += s[it].to_i }
+          COUNTED.each { t[it] += s[it].to_i }
         end
       end
     end

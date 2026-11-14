@@ -1,152 +1,147 @@
 <% content_for :title, "Scoring model" %>
+<%# Laid out to answer one question first - should the model score yet? - then the
+    three numbers that decide it, all LIVE (shots it had never seen), then the
+    sessions and the disputed shots; training-time detail folded away below. %>
 <% muted = "text-gray-600 dark:text-gray-300" %>
 <% th = "px-2 py-1.5 font-medium" %>
 <% td = "px-2 py-1.5" %>
-<% pct = ->(a, n) { n.to_i.positive? ? "#{(100.0 * a.to_i / n.to_i).round(1)}%" : "-" } %>
+<% pct = ->(a, n) { n.to_i.positive? ? "#{(100.0 * a.to_i / n.to_i).round}%" : "-" } %>
 <% mm = ->(v) { v ? format("%.2f", v) : "-" } %>
 <% ci = ->(c) { c ? "#{(100 * c[0]).round}-#{(100 * c[1]).round}%" : "" } %>
+<% good = "text-green-700 dark:text-green-400" %>
+<% bad = "text-amber-700 dark:text-amber-400" %>
+<%# who is ahead on a number: higher_better tells which way %>
+<% lead = lambda do |engine, model, higher_better: true|
+     next [ "Even", muted ] if engine == model
+     model_ahead = higher_better ? model > engine : model < engine
+     model_ahead ? [ "Model ahead", good ] : [ "Engine ahead", bad ]
+   end %>
 
 <div class="mb-4 flex flex-wrap items-baseline justify-between gap-3">
   <h1 class="text-2xl font-semibold">Scoring model</h1>
   <% if @meta %>
-    <p class="text-sm <%= muted %>">
-      Current model <span class="font-medium tabular-nums"><%= @meta["version"] %></span>,
-      trained on <%= pluralize(@meta["trained_on"], "called shot") %> from <%= pluralize(@meta["sessions"], "session") %>.
-      It runs in shadow: the engine's rules still score every shot.
-    </p>
+    <p class="text-sm <%= muted %>">Model <%= @meta["version"] %> · learned from <%= @meta["trained_on"] %> shots in <%= pluralize(@meta["sessions"], "session") %> ·
+      in shadow (the engine still scores every shot)</p>
   <% end %>
 </div>
 
-<div class="mx-auto max-w-6xl space-y-4">
+<div class="mx-auto max-w-4xl space-y-5">
   <% if @summary.nil? && @rows.empty? %>
     <%= render(CardComponent.new) do %>
       <p>No results yet. After reviewing a session's shots, run <code>bin/rails ml:update</code> in <code>web/</code>.</p>
     <% end %>
   <% else %>
-    <% look = { early: "border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900",
-                ahead: "border-green-300 bg-green-50 text-green-950 dark:border-green-800 dark:bg-green-950 dark:text-green-100",
-                behind: "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100" } %>
-    <section class="rounded-lg border p-4 <%= look[@readiness.state] %>" aria-labelledby="readiness">
-      <h2 id="readiness" class="text-lg font-semibold">Ready to score? <%= @readiness.headline %></h2>
-      <p class="mt-1"><%= @readiness.detail %></p>
+    <% t = ModelProgress.live_totals(@live) %>
+    <% look = { early: "border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900",
+                ahead: "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950",
+                behind: "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950" } %>
+
+    <%# 1. The answer %>
+    <section class="rounded-lg border p-5 <%= look[@readiness.state] %>" aria-labelledby="answer">
+      <p class="text-sm font-medium <%= muted %>">Should the model score your shots yet?</p>
+      <h2 id="answer" class="mt-1 text-2xl font-semibold">
+        <%= { early: "Not yet - too early to tell", ahead: "It's ready to consider", behind: "Not yet - the engine is still as good or better" }[@readiness.state] %>
+      </h2>
+      <div class="mt-3 flex items-center gap-3">
+        <div class="h-2 w-48 overflow-hidden rounded bg-gray-200 dark:bg-gray-800" role="progressbar" aria-label="Live sessions so far"
+             aria-valuenow="<%= @live.size %>" aria-valuemax="<%= ModelProgress::MIN_LIVE_SESSIONS %>">
+          <div class="h-full bg-blue-600" style="width: <%= [ 100 * @live.size / ModelProgress::MIN_LIVE_SESSIONS, 100 ].min %>%"></div>
+        </div>
+        <span class="text-sm"><%= @live.size %> of <%= ModelProgress::MIN_LIVE_SESSIONS %> live sessions</span>
+      </div>
+      <p class="mt-3 text-sm <%= muted %>">
+        Judged only on <strong>live</strong> sessions: the model was trained before them, so every shot was new to it - like a real session.
+        <% if @readiness.state == :early %>Shoot, review every shot, run <code>ml:update</code>; after <%= ModelProgress::MIN_LIVE_SESSIONS %> sessions there is enough to decide.<% end %>
+      </p>
     </section>
 
-    <% t = ModelProgress.live_totals(@live) %>
-    <% held = @rows.last&.dig("held_out") || {} %>
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <% [ [ "Rings, live", t["n"].positive? ? "#{t["rules_agree"]} → #{t["model_agree"]}" : "-", t["n"].positive? ? "engine → model, of #{t["n"]} shots it had never seen" : "no live session yet" ],
-           [ "Where they differed", t["n"].positive? ? "#{t["model_right"]} : #{t["rules_right"]}" : "-", "model right : engine right#{" (#{t["neither"]} neither)" if t["neither"].positive?}" ],
-           [ "Flags, live", t["n"].positive? ? "#{t["flagged"]} → #{t["model_flagged"]}" : "-", "shots marked uncertain, engine → model" ],
-           [ "Off your taps", held["model_median_mm"] ? "#{mm.(held["rules_median_mm"])} → #{mm.(held["model_median_mm"])}" : "-", "median mm, engine → model (held out)" ] ].each do |label, value, note| %>
+    <%# 2. The three numbers that decide it %>
+    <% if t["n"].positive? %>
+      <h2 class="text-lg font-semibold">The three numbers that matter
+        <span class="text-sm font-normal <%= muted %>">(live, <%= t["n"] %> shots - each scored by the model running in that session, trained before it)</span></h2>
+      <div class="grid gap-3 md:grid-cols-3">
+        <% rings_lead = lead.(t["rules_agree"], t["model_agree"]) %>
         <%= render(CardComponent.new) do %>
-          <p class="text-sm <%= muted %>"><%= label %></p>
-          <p class="text-2xl font-semibold tabular-nums"><%= value %></p>
-          <p class="text-xs <%= muted %>"><%= note %></p>
+          <p class="font-medium">1. Rings right</p>
+          <p class="mt-2 text-3xl font-semibold tabular-nums"><%= t["rules_agree"] %> <span class="text-base font-normal <%= muted %>">engine</span></p>
+          <p class="text-3xl font-semibold tabular-nums"><%= t["model_agree"] %> <span class="text-base font-normal <%= muted %>">model</span></p>
+          <p class="mt-1 text-sm <%= muted %>">of <%= t["n"] %> shots, matching your call</p>
+          <p class="mt-2 text-sm font-medium <%= rings_lead[1] %>"><%= rings_lead[0] %></p>
         <% end %>
-      <% end %>
-    </div>
 
-    <% if @live.any? %>
-      <%= render(CardComponent.new(title: "Live, session by session")) do %>
-        <p class="mb-2 text-sm <%= muted %>">Rings matching your calls, on shots the model had never seen (it was trained before the session).</p>
-        <%= render(ModelChartComponent.new(label: "Live ring agreement per session, engine and model", points: @live.map { |s|
-              { label: s["date"].to_s[5..], engine: 100.0 * s["agree"] / s["n"], model: 100.0 * s["model_agree"] / s["model_n"],
-                title: "session ##{s["session_id"]}: #{s["agree"]} of #{s["n"]} vs #{s["model_agree"]} of #{s["model_n"]}" } })) %>
-      <% end %>
-    <% end %>
-
-    <% if @rows.size > 0 %>
-      <div class="space-y-4">
-        <%= render(CardComponent.new(title: "Held out, training by training")) do %>
-          <p class="mb-2 text-sm <%= muted %>">Rings matching your calls on shots kept back while training.</p>
-          <%= render(ModelChartComponent.new(label: "Held-out ring agreement per training", points: @rows.filter_map { |r|
-                h = r["held_out"] || {}
-                next unless h["n"].to_i.positive?
-
-                { label: r["at"].to_s[5, 5], engine: 100.0 * h["rules_agree"] / h["n"], model: 100.0 * h["model_agree"] / h["n"],
-                  title: "#{r["version"]}: #{h["rules_agree"]} vs #{h["model_agree"]} of #{h["n"]}" } })) %>
+        <% differed = t["model_right"] + t["rules_right"] + t["neither"] %>
+        <% h2h_lead = lead.(t["rules_right"], t["model_right"]) %>
+        <%= render(CardComponent.new) do %>
+          <p class="font-medium">2. When they disagreed</p>
+          <% if differed.zero? %>
+            <p class="mt-2 text-3xl font-semibold">Never</p>
+            <p class="mt-1 text-sm <%= muted %>">same ring on every shot - nothing to tell them apart yet</p>
+          <% else %>
+            <p class="mt-2 text-3xl font-semibold tabular-nums"><%= t["rules_right"] %> <span class="text-base font-normal <%= muted %>">engine right</span></p>
+            <p class="text-3xl font-semibold tabular-nums"><%= t["model_right"] %> <span class="text-base font-normal <%= muted %>">model right</span></p>
+            <p class="mt-1 text-sm <%= muted %>"><%= pluralize(differed, "shot") %> where they gave different rings<%= " (#{t["neither"]} neither right)" if t["neither"].positive? %> - the clearest test</p>
+            <p class="mt-2 text-sm font-medium <%= h2h_lead[1] %>"><%= h2h_lead[0] %></p>
+          <% end %>
         <% end %>
-        <%= render(CardComponent.new(title: "Distance from your taps")) do %>
-          <p class="mb-2 text-sm <%= muted %>">Median, held out, in mm: lower is better.</p>
-          <%= render(ModelChartComponent.new(label: "Median position error per training", unit: "mm", points: @rows.filter_map { |r|
-                h = r["held_out"] || {}
-                next unless h["model_median_mm"]
 
-                { label: r["at"].to_s[5, 5], engine: h["rules_median_mm"], model: h["model_median_mm"], title: r["version"] } })) %>
+        <% missed_engine = t["ring_changed"] - t["flags_caught"] %>
+        <% missed_model = t["model_wrong"] - t["model_flags_caught"] %>
+        <% miss_lead = lead.(missed_engine, missed_model, higher_better: false) %>
+        <%= render(CardComponent.new) do %>
+          <p class="font-medium">3. Mistakes that slipped through</p>
+          <p class="mt-2 text-3xl font-semibold tabular-nums"><%= missed_engine %> <span class="text-base font-normal <%= muted %>">engine</span></p>
+          <p class="text-3xl font-semibold tabular-nums"><%= missed_model %> <span class="text-base font-normal <%= muted %>">model</span></p>
+          <p class="mt-1 text-sm <%= muted %>">wrong rings it did NOT flag for you to check. Flags to review: engine <%= t["flagged"] %>, model <%= t["model_flagged"] %></p>
+          <p class="mt-2 text-sm font-medium <%= miss_lead[1] %>"><%= miss_lead[0] %></p>
         <% end %>
       </div>
     <% end %>
 
-    <% if (sessions = @summary&.dig("per_session")).present? %>
-      <%= render(CardComponent.new(title: "Sessions")) do %>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm tabular-nums">
-            <thead class="<%= muted %>"><tr>
-              <th class="<%= th %>">Session</th><th class="<%= th %>">Shots</th><th class="<%= th %>">Rings: engine</th><th class="<%= th %>">model (live)</th>
-              <th class="<%= th %>">Differed: model / engine right</th><th class="<%= th %>">Off taps (mm): engine</th><th class="<%= th %>">model</th>
-              <th class="<%= th %>">Flags: engine</th><th class="<%= th %>">model</th><th class="<%= th %>">Model</th>
-            </tr></thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-              <% sessions.reverse_each do |s| %>
-                <% live = s["model_n"].to_i.positive? %>
-                <tr>
-                  <td class="<%= td %>"><%= (ps = @sessions[s["session_id"]]) ? link_to(s["date"], practice_session_path(ps), class: "text-blue-700 hover:underline dark:text-blue-300") : s["date"] %></td>
-                  <td class="<%= td %>"><%= s["n"] %> <span class="<%= muted %>">(<%= s["tapped"] %> tapped)</span></td>
-                  <td class="<%= td %>"><%= s["agree"] %> <span class="<%= muted %>"><%= pct.(s["agree"], s["n"]) %></span></td>
-                  <td class="<%= td %>"><%= live ? safe_join([ s["model_agree"], " ", tag.span(pct.(s["model_agree"], s["model_n"]), class: muted) ]) : tag.span("not running", class: muted) %></td>
-                  <td class="<%= td %>"><%= live ? "#{s["model_right"].to_i} / #{s["rules_right"].to_i}#{" (#{s["neither"]} neither)" if s["neither"].to_i.positive?}" : "-" %></td>
-                  <td class="<%= td %>"><%= mm.(s["median_mm"]) %></td>
-                  <td class="<%= td %>"><%= live ? mm.(s["model_median_mm"]) : "-" %></td>
-                  <td class="<%= td %>"><%= s["flagged"] %><% if s["ring_changed"] %> <span class="<%= muted %>">(caught <%= s["flags_caught"] %>/<%= s["ring_changed"] %>)</span><% end %></td>
-                  <td class="<%= td %>"><%= live ? safe_join([ s["model_flagged"], " ", tag.span("(caught #{s["model_flags_caught"]}/#{s["model_wrong"]})", class: muted) ]) : "-" %></td>
-                  <td class="<%= td %> <%= muted %>"><%= Array(s["model_versions"]).join(", ").presence || "-" %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-        <p class="mt-2 text-xs <%= muted %>">Off taps: median distance from the holes you placed (tapped shots only - you tap mostly where the engine looked off).
-          Flags caught: of the shots it got wrong, how many it had marked uncertain.</p>
-      <% end %>
-    <% end %>
-
-    <% if (h2h = @summary&.dig("head_to_head")) && h2h["shots"].present? %>
-      <%= render(CardComponent.new(title: "Where the engine and the model disagreed (live)")) do %>
-        <p class="mb-2 text-sm <%= muted %>">Same ring on <%= h2h["same"] %> of <%= h2h["n"] %> shots. These are the rest - the shots that decide which is better.</p>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm tabular-nums">
-            <thead class="<%= muted %>"><tr><th class="<%= th %>">Shot</th><th class="<%= th %>">Engine</th><th class="<%= th %>">Model</th>
-              <th class="<%= th %>">Model sure</th><th class="<%= th %>">You called</th><th class="<%= th %>">Right</th></tr></thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-              <% h2h["shots"].reverse_each do |d| %>
-                <tr>
-                  <td class="<%= td %>"><%= @own_shots.include?(d["shot_id"]) ? link_to("Shot ##{d["shot_id"]}", shot_path(d["shot_id"]), class: "text-blue-700 hover:underline dark:text-blue-300") : "##{d["shot_id"]}" %></td>
-                  <td class="<%= td %>"><%= d["rules"] %></td>
-                  <td class="<%= td %>"><%= d["model"] %></td>
-                  <td class="<%= td %>"><%= d["p_ring"] ? "#{(100 * d["p_ring"]).round}%" : "-" %></td>
-                  <td class="<%= td %>"><%= d["called"] %></td>
-                  <td class="<%= td %> font-medium"><%= { "model" => "model", "rules" => "engine", "neither" => "neither" }[d["right"]] %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      <% end %>
-    <% end %>
-
-    <% if (cal = @summary&.dig("calibration")).present? && cal.any? { it["n"].to_i.positive? } %>
-      <%= render(CardComponent.new(title: "Is the model's confidence honest? (live)")) do %>
-        <p class="mb-2 text-sm <%= muted %>">Shots grouped by how sure the model was of its ring. When it says 90%, it should be right about 90% of the time - that is what makes its flags trustworthy.</p>
-        <table class="w-full max-w-xl text-left text-sm tabular-nums">
-          <thead class="<%= muted %>"><tr><th class="<%= th %>">It was sure</th><th class="<%= th %>">Shots</th><th class="<%= th %>">It said</th><th class="<%= th %>">Actually right</th></tr></thead>
+    <%# 3. Session by session %>
+    <% if @live.any? %>
+      <%= render(CardComponent.new(title: "Session by session (live)")) do %>
+        <table class="w-full text-left text-sm tabular-nums">
+          <thead class="<%= muted %>"><tr><th class="<%= th %>">Session</th><th class="<%= th %>">Rings right: engine</th>
+            <th class="<%= th %>">model</th><th class="<%= th %>">Disagreed: engine / model right</th><th class="<%= th %>">Verdict</th></tr></thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-            <% cal.each do |c| %>
-              <% next unless c["n"].to_i.positive? %>
+            <% @live.reverse_each do |s| %>
+              <% v = lead.(s["agree"].to_i, s["model_agree"].to_i) %>
               <tr>
-                <td class="<%= td %>"><%= (100 * c["p_from"]).round %>-<%= (100 * c["p_to"]).round %>%</td>
-                <td class="<%= td %>"><%= c["n"] %></td>
-                <td class="<%= td %>"><%= (100 * c["mean_p"]).round %>%</td>
-                <td class="<%= td %>"><%= c["right"] %> <span class="<%= muted %>">(<%= pct.(c["right"], c["n"]) %>)</span></td>
+                <td class="<%= td %>"><%= (ps = @sessions[s["session_id"]]) ? link_to(s["date"], practice_session_path(ps), class: "text-blue-700 hover:underline dark:text-blue-300") : s["date"] %>
+                  <span class="block text-xs <%= muted %>">model <%= Array(s["model_versions"]).join(", ") %></span></td>
+                <td class="<%= td %>"><%= s["agree"] %>/<%= s["n"] %></td>
+                <td class="<%= td %>"><%= s["model_agree"] %>/<%= s["model_n"] %></td>
+                <td class="<%= td %>"><%= s["rules_right"].to_i %> / <%= s["model_right"].to_i %></td>
+                <td class="<%= td %> font-medium <%= v[1] %>"><%= v[0] == "Even" ? "Same" : v[0].sub(" ahead", " better") %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        <% if @live.size >= 2 %>
+          <div class="mt-4">
+            <%= render(ModelChartComponent.new(label: "Rings right per live session, engine and model", points: @live.map { |s|
+                  { label: s["date"].to_s[5..], engine: 100.0 * s["agree"] / s["n"], model: 100.0 * s["model_agree"] / s["model_n"],
+                    title: "#{s["agree"]} vs #{s["model_agree"]} of #{s["n"]}" } })) %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <%# 4. The shots that decide it %>
+    <% if (h2h = @summary&.dig("head_to_head")) && h2h["shots"].present? %>
+      <%= render(CardComponent.new(title: "The shots they disagreed on")) do %>
+        <p class="mb-2 text-sm <%= muted %>">Open one to see the hole: these are the shots that show which one reads holes better.</p>
+        <table class="w-full text-left text-sm tabular-nums">
+          <thead class="<%= muted %>"><tr><th class="<%= th %>">Shot</th><th class="<%= th %>">Engine said</th><th class="<%= th %>">Model said</th>
+            <th class="<%= th %>">You called</th><th class="<%= th %>">Right</th></tr></thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+            <% h2h["shots"].reverse_each do |d| %>
+              <tr>
+                <td class="<%= td %>"><%= @own_shots.include?(d["shot_id"]) ? link_to("Shot ##{d["shot_id"]}", shot_path(d["shot_id"]), class: "text-blue-700 hover:underline dark:text-blue-300") : "##{d["shot_id"]}" %></td>
+                <td class="<%= td %>"><%= d["rules"] %></td>
+                <td class="<%= td %>"><%= d["model"] %> <span class="<%= muted %>">(<%= d["p_ring"] ? "#{(100 * d["p_ring"]).round}% sure" : "?" %>)</span></td>
+                <td class="<%= td %>"><%= d["called"] %></td>
+                <td class="<%= td %> font-medium"><%= { "model" => "model", "rules" => "engine", "neither" => "neither" }[d["right"]] %></td>
               </tr>
             <% end %>
           </tbody>
@@ -154,40 +149,90 @@
       <% end %>
     <% end %>
 
-    <% if @rows.any? %>
-      <%= render(CardComponent.new(title: "Trainings")) do %>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm tabular-nums">
-            <thead class="<%= muted %>"><tr>
-              <th class="<%= th %>">Trained</th><th class="<%= th %>">Model</th><th class="<%= th %>">Learned from</th>
-              <th class="<%= th %>">Held out: engine</th><th class="<%= th %>">model</th><th class="<%= th %>">Off taps (median / worst 10%)</th>
-              <th class="<%= th %>">Wrong spot &gt;3 mm</th><th class="<%= th %>">Flags (caught / raised)</th><th class="<%= th %>">Training</th>
-            </tr></thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-              <% @rows.reverse_each do |r| %>
-                <% h = r["held_out"] || {} %>
-                <% k = r["kinds"] || {} %>
-                <% tr = r["training"] || {} %>
-                <tr>
-                  <td class="<%= td %>"><%= r["at"].to_s[0, 10] %></td>
-                  <td class="<%= td %>"><%= r["version"] %></td>
-                  <td class="<%= td %>"><%= r["trained_on"] %> shots, <%= pluralize(r["sessions"], "session") %>
-                    <% if k.any? %><span class="<%= muted %>">(<%= k["tapped"] %> tapped, <%= k["accepted"] %> accepted)</span><% end %></td>
-                  <td class="<%= td %>"><%= h["rules_agree"] %>/<%= h["n"] %> <span class="<%= muted %>"><%= ci.(h["rules_ci95"]) %></span></td>
-                  <td class="<%= td %>"><%= h["model_agree"] %>/<%= h["n"] %> <span class="<%= muted %>"><%= ci.(h["model_ci95"]) %></span></td>
-                  <td class="<%= td %>"><%= mm.(h["rules_median_mm"]) %> → <%= mm.(h["model_median_mm"]) %>
-                    <% if h["model_p90_mm"] %><span class="<%= muted %>">/ <%= mm.(h["rules_p90_mm"]) %> → <%= mm.(h["model_p90_mm"]) %></span><% end %></td>
-                  <td class="<%= td %>"><%= h["rules_wrong_spot"] || "-" %> → <%= h["model_wrong_spot"] || "-" %></td>
-                  <td class="<%= td %>">engine <%= h["rules_flags_caught"] || "?" %>/<%= h["rules_flagged"] || "?" %>, model <%= h["model_flags_caught"] || "?" %>/<%= h["model_flagged"] || "?" %></td>
-                  <td class="<%= td %> <%= muted %>"><%= tr["steps"] ? "#{tr["steps"]} steps, #{(tr["cv_seconds"].to_f + tr["seconds"].to_f).fdiv(60).round(1)} min" : "-" %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-        <p class="mt-2 text-xs <%= muted %>">Held out: each part of the data checked by a model trained without it (by card while there are fewer than 3 sessions, then by session), with the 95% range. Flags caught: its wrong rings it had marked uncertain, of all the shots it marked.</p>
-      <% end %>
-    <% end %>
+    <%# 5. Behind the scenes %>
+    <details class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <summary class="cursor-pointer font-medium">Behind the scenes: training checks, position and confidence</summary>
+      <div class="mt-4 space-y-6">
+
+        <% if @rows.any? %>
+          <section>
+            <h3 class="font-medium">Training checks</h3>
+            <p class="mb-2 text-sm <%= muted %>">At each training, part of your shots is held back and scored by a model trained without them. A useful early sign, but
+              live sessions above are the real test.</p>
+            <% held_points = @rows.filter_map { |r| h = r["held_out"] || {}; next unless h["n"].to_i.positive?
+                 { label: r["at"].to_s[5, 5], engine: 100.0 * h["rules_agree"] / h["n"], model: 100.0 * h["model_agree"] / h["n"],
+                   title: "#{h["rules_agree"]} vs #{h["model_agree"]} of #{h["n"]}" } } %>
+            <% if held_points.size >= 2 %>
+              <%= render(ModelChartComponent.new(label: "Held-out rings right per training", points: held_points)) %>
+            <% end %>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm tabular-nums">
+                <thead class="<%= muted %>"><tr><th class="<%= th %>">Trained</th><th class="<%= th %>">Learned from</th>
+                  <th class="<%= th %>">Rings right: engine</th><th class="<%= th %>">model</th><th class="<%= th %>">Training time</th></tr></thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                  <% @rows.reverse_each do |r| %>
+                    <% h = r["held_out"] || {} %>
+                    <% k = r["kinds"] || {} %>
+                    <% tr = r["training"] || {} %>
+                    <tr>
+                      <td class="<%= td %>"><%= r["at"].to_s[0, 10] %> <span class="<%= muted %>"><%= r["version"] %></span></td>
+                      <td class="<%= td %>"><%= r["trained_on"] %> shots, <%= pluralize(r["sessions"], "session") %>
+                        <% if k.any? %><span class="<%= muted %>">(<%= k["tapped"] %> tapped, <%= k["accepted"] %> accepted)</span><% end %></td>
+                      <td class="<%= td %>"><%= h["rules_agree"] %>/<%= h["n"] %> <span class="<%= muted %>"><%= ci.(h["rules_ci95"]) %></span></td>
+                      <td class="<%= td %>"><%= h["model_agree"] %>/<%= h["n"] %> <span class="<%= muted %>"><%= ci.(h["model_ci95"]) %></span></td>
+                      <td class="<%= td %> <%= muted %>"><%= tr["steps"] ? "#{(tr["cv_seconds"].to_f + tr["seconds"].to_f).fdiv(60).round(1)} min" : "-" %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-1 text-xs <%= muted %>">The % ranges: with this few shots, the true rate is likely somewhere in there. They narrow as shots add up.</p>
+          </section>
+        <% end %>
+
+        <% if (sessions = @summary&.dig("per_session")).present? %>
+          <section>
+            <h3 class="font-medium">Distance from your taps</h3>
+            <p class="mb-2 text-sm <%= muted %>">How far each one placed the hole from where you tapped it (median, mm - lower is better). Only shots you
+              <em>tapped</em> count, and which shots you tap changed after the first session (then everything, now only the ones that look off),
+              so compare engine and model within a session, not session against session.</p>
+            <table class="w-full max-w-2xl text-left text-sm tabular-nums">
+              <thead class="<%= muted %>"><tr><th class="<%= th %>">Session</th><th class="<%= th %>">Tapped</th><th class="<%= th %>">Engine</th><th class="<%= th %>">Model</th></tr></thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                <% sessions.reverse_each do |s| %>
+                  <tr>
+                    <td class="<%= td %>"><%= s["date"] %></td>
+                    <td class="<%= td %>"><%= s["tapped"] %> of <%= s["n"] %></td>
+                    <td class="<%= td %>"><%= mm.(s["median_mm"]) %></td>
+                    <td class="<%= td %>"><%= s["model_n"].to_i.positive? ? mm.(s["model_median_mm"]) : tag.span("not running", class: muted) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </section>
+        <% end %>
+
+        <% if (cal = @summary&.dig("calibration")).present? && cal.any? { it["n"].to_i.positive? } %>
+          <section>
+            <h3 class="font-medium">Is the model honest about how sure it is?</h3>
+            <p class="mb-2 text-sm <%= muted %>">It flags a shot when it is less than 90% sure of the ring. That only works if "90% sure" really means right 9 times in 10.</p>
+            <table class="w-full max-w-xl text-left text-sm tabular-nums">
+              <thead class="<%= muted %>"><tr><th class="<%= th %>">It was</th><th class="<%= th %>">Shots</th><th class="<%= th %>">Actually right</th></tr></thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                <% cal.each do |c| %>
+                  <% next unless c["n"].to_i.positive? %>
+                  <tr>
+                    <td class="<%= td %>"><%= (100 * c["p_from"]).round %>-<%= (100 * c["p_to"]).round %>% sure</td>
+                    <td class="<%= td %>"><%= c["n"] %></td>
+                    <td class="<%= td %>"><%= c["right"] %> (<%= pct.(c["right"], c["n"]) %>)</td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </section>
+        <% end %>
+      </div>
+    </details>
 
     <p class="text-sm <%= muted %>">Updated by <code>bin/rails ml:update</code> after each reviewed session; <code>bin/rails ml:progress</code> prints the history in the terminal.</p>
   <% end %>
