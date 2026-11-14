@@ -8,7 +8,7 @@
 #   Announcement.new(session, data).deliver!
 class Announcement
   # A shot the shooter plotted by hand, read like the engine reads a shot:
-  # "shot 4. 9.3, shot a touch low" (phase1._spoken / _spoken_direction).
+  # "shot 4. 9.3, slightly low" (phase1._spoken / _spoken_direction).
   def self.for_shot(shot)
     lead = shot.sighter? ? "sighter" : "shot #{shot.match_number || shot.number}"
     words = [ format("%.1f", shot.final_decimal), spoken_direction(shot) ]
@@ -17,13 +17,21 @@ class Announcement
                                  "sentences" => [ { "pieces" => [ lead ] }, { "pieces" => words } ] })
   end
 
-  # "shot a touch low" (rings 10-9), "shot low" (8-7), "shot well low" (6 or worse).
-  def self.spoken_direction(shot)
+  # The direction with how far out, as the engine says it (voicelines.spoken_direction):
+  # bands by the decimal score, several phrasings each, from the SAME file the engine
+  # reads (engine/directions.json) - "just low" (a 10), "a touch low" (9.5+) ...
+  # "well low" (6), "way low" (5 or worse).
+  def self.spoken_direction(shot, random: Random.new)
     direction = shot.direction
     return "center" if direction.nil? || direction == "center"
 
-    ring = shot.final_ring.to_i
-    "shot #{ring >= 9 ? 'a touch ' : (ring >= 7 ? '' : 'well ')}#{direction}"
+    decimal = shot.final_decimal.to_f.round(1)
+    band = direction_bands.find { decimal >= it["from"] }
+    band["phrases"].sample(random:).gsub("{dir}", direction)
+  end
+
+  def self.direction_bands
+    @direction_bands ||= JSON.parse(EngineRunner.engine_dir.join("directions.json").read)["bands"]
   end
 
   def initialize(session, data)

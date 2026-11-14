@@ -53,4 +53,30 @@ RSpec.describe Announcement do
     allow(Voice).to receive(:exported_path).and_return(Pathname("/nonexistent.m4a"))
     expect(described_class.new(session, shot).payload[:kokoro]).to be(false)
   end
+
+  describe ".spoken_direction" do
+    def said(decimal, direction = "low left") = described_class.spoken_direction(Struct.new(:direction, :final_decimal).new(direction, decimal))
+
+    # Run the engine's voicelines.spoken_direction many times: every phrasing it can pick.
+    def engine_phrases(decimal)
+      code = "import json, voicelines as v; print(json.dumps(sorted({v.spoken_direction('low left', #{decimal}) for _ in range(400)})))"
+      out, status = Open3.capture2(EngineRunner.python, "-c", code, chdir: EngineRunner.engine_dir.to_s)
+      skip "engine Python not available" unless status.success?
+      JSON.parse(out)
+    end
+
+    it "words how far out exactly as the engine does, band by band (engine/directions.json)" do
+      [ 10.3, 9.9, 9.5, 9.4, 9.0, 8.9, 8.0, 7.0, 6.0, 5.9, 0.0 ].each do |decimal|
+        ruby = Array.new(400) { said(decimal) }.uniq.sort
+        expect(ruby).to eq(engine_phrases(decimal)), "band for #{decimal}"
+      end
+    end
+
+    it "steps from just to way out, and says center for an inner ten" do
+      expect(described_class.direction_bands.map { it["from"] }).to eq([ 10.0, 9.5, 9.0, 8.0, 7.0, 6.0, 0.0 ])
+      expect(said(9.6, "center")).to eq("center")
+      expect(Array.new(100) { said(9.6) }).to all(end_with("low left"))
+      expect(described_class.direction_bands.flat_map { it["phrases"] }).to all(match(/\A[a-z' ]+\{dir\}\z/))
+    end
+  end
 end

@@ -11,6 +11,10 @@ is rendered once per voice and cached, so playback is instant; PIECES lists
 every piece the engine can say, so the cache can be filled ahead of time.
 """
 
+import json
+import random
+from pathlib import Path
+
 import course                                   # noqa: E402 - pure Python too
 
 SENTENCE_GAP_S = 0.55
@@ -34,17 +38,41 @@ DEFAULT_VOICE = "af_heart"
 # What the rig check / voice picker plays: a normal shot, a flagged one, the end
 # of a card, and the ready call.
 SAMPLE = ["shot 3. 8.5, shot high left",
-          "shot 4. 9.0, shot a touch low. line call",
+          "shot 4. 9.6, shot a touch low. line call",
           "shot 10. 10.3, center, inner ten. that's 10. new card please",
           "ready"]
 
 DIRECTIONS = ["center", "right", "high right", "high", "high left",
               "left", "low left", "low", "low right"]
-# How a direction is said (phase1._spoken_direction): "shot low", with how far
-# out - "a touch" (rings 10-9), plain (8-7), "well" (6 or worse). One piece each,
-# because a direction said on its own ("low.") sounded wrong.
-DEGREES = ["a touch ", "", "well "]
-DIRECTION_PHRASES = ["center"] + [f"shot {g}{d}" for g in DEGREES for d in DIRECTIONS[1:]]
+# How a direction is said (phase1._spoken_direction): how far out, by the
+# DECIMAL score, in seven bands from "just low" (a 10 that isn't an inner ten)
+# to "way low" (5 or worse), several phrasings each (directions.json - shared
+# with the web app, which reads the same file). One piece each, because a
+# direction said on its own ("low.") sounded wrong.
+DIRECTION_BANDS = json.loads((Path(__file__).with_name("directions.json")).read_text())["bands"]
+DIRECTION_PHRASES = ["center"] + [ph.replace("{dir}", d) for band in DIRECTION_BANDS
+                                  for ph in band["phrases"] for d in DIRECTIONS[1:]]
+_last_phrase = {}
+
+
+def direction_band(decimal):
+    """The band a decimal score falls in (directions.json, first 'from' reached)."""
+    decimal = round(float(decimal), 1)
+    return next(b for b in DIRECTION_BANDS if decimal >= b["from"])
+
+
+def spoken_direction(direction, decimal, rng=random):
+    """ "a touch low": the direction with how far out, one of the band's
+    phrasings at random, never the one this band used last time."""
+    if direction == "center":
+        return "center"
+    band = direction_band(decimal)
+    options = band["phrases"]
+    if len(options) > 1:
+        options = [o for o in options if o != _last_phrase.get(band["from"])]
+    choice = rng.choice(options)
+    _last_phrase[band["from"]] = choice
+    return choice.replace("{dir}", direction)
 FLAGS = ["line call", "ring uncertain", "overlaps a hole", "rough hole",
          "found without a sound"]
 FIXED = ["ready", "inner ten", "new card please", "card off", "new card",
