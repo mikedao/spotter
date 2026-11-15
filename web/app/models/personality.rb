@@ -18,7 +18,7 @@ class Personality
 
   ALL = {
     "katey" => Entry.new(id: "katey", name: "Katey", voice: "af_nicole",
-                         description: "Flirty goth girl. Deadpan, unimpressed, roasts your bad shots. Swears.")
+                         description: "Mean girl. Queen bee, unimpressed, roasts your bad shots. Swears.")
   }.freeze
 
   class << self
@@ -26,11 +26,14 @@ class Personality
     def find(id) = ALL[id.to_s]
     def valid?(id) = ALL.key?(id.to_s)
 
-    # The user's personality, when it can actually run here (its model trained).
+    # The user's personality, when it can actually run here (its bank of lines and
+    # the voices are here).
     def for(user)
       entry = find(user&.personality)
-      entry if entry && trained?(entry.id)
+      entry if entry && ready?(entry.id)
     end
+
+    def ready?(id) = PersonalityBank.available?(id) && Voice.available?
 
     def dir(id) = Voice.dir.join("cache", "talk", id.to_s)
     def trained?(id) = dir(id).join("adapter", "adapters.safetensors").exist? && Voice.available?

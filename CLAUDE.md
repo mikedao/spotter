@@ -668,7 +668,8 @@ Not built yet: see "Where we left off" for the agreed order.
 A personality = a VOICE + a small language model fine-tuned to talk like a
 character, run LOCALLY on the Studio (the shooter's choice: a local model, not
 set phrases, not an API). One so far: **Katey**, designed by the shooter one
-question at a time: a flirty goth Instagram girl in Nicole's voice (af_nicole) -
+question at a time: a MEAN GIRL, the high-school queen bee as in the movie (was a
+flirty goth Instagram girl until 2026-11-14) in Nicole's voice (af_nicole) -
 deadpan and unimpressed, openly flirty (NOT bold - dialled back), mean-girl
 roasts AND teasing on bad shots, full swearing used sparingly, a little
 Instagram slang, pet names (babe, loser, nerd, trouble, sharpshooter), VERY

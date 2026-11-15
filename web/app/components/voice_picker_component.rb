@@ -10,9 +10,8 @@ class VoicePickerComponent < ApplicationComponent
   def personalities = Personality.all
   def chosen_personality = Personality.find(@user.personality)
   def voice_name(personality) = Voice.find(personality.voice)&.name
-  def trained?(personality) = Personality.trained?(personality.id)
+  def ready?(personality) = Personality.ready?(personality.id)
   # Its process's progress rendering its likely lines ({ "prepared", "of" }), or nil.
-  def health(personality) = (@health ||= {})[personality.id] ||= Personality.health(personality.id)
   def available? = Voice.available?
   def groups = Voice.all.group_by(&:accent)
 

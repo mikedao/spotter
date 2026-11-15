@@ -290,6 +290,8 @@ class Builder:
 
 NUMBER_WORDS = set(ONES) | set(TENS[2:]) | {"hundred"}
 FORBIDDEN = re.compile(r"\b(goal|pace|qualif\w*|trials?|olympics?|five hundred sixty five|565)\b")
+# never anything near suicide or self-harm, not even as a joke (the shooter, 2026-11-14)
+SELF_HARM = re.compile(r"\b(suicid\w*|kill (my|your|him|her)sel(f|ves)|delete (my|your)sel(f|ves)|end (it all|my life|your life)|self[- ]harm\w*|slit\w*|hang (my|your)self|overdos\w*|unalive\w*|kms|kys|jump off)\b")
 
 
 _VOCAB = None
@@ -344,6 +346,8 @@ def check(facts_text, answer):
         spoken = spoken.replace(value, "")
     if FORBIDDEN.search(spoken):
         why.append("goal")
+    if SELF_HARM.search(answer):
+        why.append("self-harm")
     if not all(is_word(w) for w in re.findall(r"[a-z][a-z'-]*", answer)):
         why.append("not a word")
     if facts.get("event") == "shot":

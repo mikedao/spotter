@@ -2,9 +2,8 @@
   <section id="personalities" class="mb-5 border-b border-gray-200 pb-5 dark:border-gray-800">
     <h3 class="mb-1 font-medium">Personalities</h3>
     <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
-      A character who announces in their own words and voice: the score and direction their way, your streaks and
-      flyers, the card totals. Written live on this computer for each shot; anything they can't say in time is said
-      the standard way. The range officer always stays standard.
+      A character who announces in their own voice: the score and direction, then their take on it - your streaks,
+      flyers and card totals included - picked from a large bank of lines. The range officer always stays standard.
     </p>
     <%= form_with url: personality_path, method: :patch do |f| %>
       <div class="grid gap-2 sm:grid-cols-2">
@@ -19,12 +18,8 @@
             <span>
               <span class="block font-medium"><%= p.name %> <span class="text-sm font-normal text-gray-600 dark:text-gray-300">· <%= voice_name(p) %>'s voice</span></span>
               <span class="block text-sm text-gray-600 dark:text-gray-300"><%= p.description %></span>
-              <% if !trained?(p) %>
-                <span class="mt-1 block text-sm text-amber-900 dark:text-amber-200">Not set up on this computer (its model isn't trained here): the standard announcer plays instead.</span>
-              <% elsif (h = health(p)) && h["prepared"].to_i < h["of"].to_i %>
-                <span class="mt-1 block text-sm text-gray-900 dark:text-gray-100">Getting ready: <%= number_with_delimiter(h["prepared"]) %> of <%= number_with_delimiter(h["of"]) %> lines rendered (a new line takes a moment longer until then).</span>
-              <% elsif h %>
-                <span class="mt-1 block text-sm text-emerald-800 dark:text-emerald-300">✓ Running and ready.</span>
+              <% unless ready?(p) %>
+                <span class="mt-1 block text-sm text-amber-900 dark:text-amber-200">Not set up on this computer (the voices aren't): the standard announcer plays instead.</span>
               <% end %>
             </span>
           </label>

@@ -1,0 +1,604 @@
+# Katey's line bank: moments, card / match / session, competition facts, flags, engine lines.
+# Format: situation | remark
+
+tens_streak | {n} tens in a row. okay, now i'm paying attention.
+tens_streak | that's {n} tens straight. i'm pretending not to notice.
+tens_streak | {n} in a row in the ten. who told you that you could do that.
+tens_streak | {n} tens. stop showing off, it's making everyone uncomfortable.
+tens_streak | {n} straight tens. i'm telling people we've always been close.
+tens_streak | that's {n} tens. fine. you're invited. today only.
+tens_streak | {n} tens in a row. i'm not impressed. i'm a little impressed.
+tens_streak | {n} straight in the ten. this is so annoying for my brand.
+tens_streak | {n} tens. i'm updating my opinion of you. slightly.
+tens_streak | that's {n} tens in a row. someone's trying to get my attention.
+tens_streak | {n} tens straight. it's working. barely.
+tens_streak | {n} in a row. okay, the whole hallway is talking about you.
+tens_streak | {n} tens. i might actually say your name in public.
+tens_streak | {n} tens in a row. don't get weird about it.
+tens_streak | {n} straight tens. i'm wearing black to celebrate. that's how i celebrate.
+tens_streak | {n} tens. you're being suspiciously good right now.
+tens_streak | that's {n} in the ten. who are you trying to impress. it's working.
+tens_streak | {n} tens in a row. fine, you're kind of hot when you're consistent.
+tens_streak | {n} straight. okay, i'll admit it. that's good.
+tens_streak | {n} tens. i didn't say anything nice. you imagined it.
+tens_streak | {n} tens in a row. don't ruin it by being proud.
+tens_streak | {n} straight in the ten. this is my favorite gossip today.
+tens_streak | {n} tens. you're making the paper look easy.
+tens_streak | {n} tens in a row. i'm screenshotting this for evidence.
+tens_streak | {n} in a row. keep going and i'll follow you back.
+tens_streak | {n} tens straight. i hate how much i like this.
+tens_streak | that's {n} tens. calm down, it's just me watching.
+tens_streak | {n} tens in a row. okay, main character energy.
+tens_streak | {n} straight tens. the group chat doesn't believe me.
+tens_streak | {n} tens. whatever you're doing, keep doing it. quietly.
+tens_streak | {n} tens in a row. look at you, being worth my time.
+tens_streak | {n} in the ten. i'm trying so hard to stay unimpressed.
+tens_streak | {n} tens straight. who gave you permission to be good.
+tens_streak | that's {n} tens in a row. holy shit. okay.
+tens_streak | {n} tens. you're on my good list. it has like, one name.
+tens_streak | {n} straight. this is officially a thing now.
+tens_streak | {n} tens in a row. i'm not clapping. i'm thinking about clapping.
+tens_streak | {n} tens. the ten ring should start charging you rent.
+tens_streak | {n} in a row in the ten. don't look at me. look at the target.
+tens_streak | {n} straight tens. it's giving untouchable. i'm into it. a little.
+
+nine_run | {n} straight in the nine or better. steady. i like steady.
+nine_run | {n} in a row, nothing outside the nine. who even are you.
+nine_run | {n} shots inside the nine. okay, you're settled in.
+nine_run | that's {n} in the nine or better. don't get comfortable.
+nine_run | {n} straight, all nines or better. this is suspicious.
+nine_run | {n} in a row in the nine. you're almost boring. in a good way.
+nine_run | {n} clean shots. i'm not proud. i'm adjacent to proud.
+nine_run | {n} straight in the nine or better. keep it boring like that.
+nine_run | {n} in a row, all inside the nine. people are noticing.
+nine_run | {n} good ones in a row. don't ruin it. you love ruining things.
+nine_run | {n} straight in the nine. okay, you're kind of reliable. weird look on you.
+nine_run | that's {n} without leaving the nine. i'm almost into it.
+nine_run | {n} in a row in the nine or better. very consistent. very unlike you.
+nine_run | {n} straight, nine or better. i'll allow a tiny smile.
+nine_run | {n} inside the nine. it's giving discipline. who are you.
+nine_run | {n} in a row, nothing silly. i'm telling people you're improving.
+nine_run | {n} straight in the nine or better. i'm watching. don't blow it.
+nine_run | that's {n} good shots straight. the bar was low and you cleared it.
+nine_run | {n} in the nine or better. consistent is cute. barely.
+nine_run | {n} in a row, no disasters. i'm as shocked as you are.
+nine_run | {n} straight inside the nine. you're being so well behaved.
+nine_run | {n} in a row, all nines or better. keep that up and i might stay.
+nine_run | {n} straight. nothing outside the nine. i'm almost impressed. almost.
+nine_run | {n} good ones. the paper's starting to respect you.
+nine_run | {n} straight in the nine or better. very main character. very rare.
+nine_run | that's {n} in the nine or better. i'm keeping receipts.
+nine_run | {n} in a row, all good. who replaced you, and can they stay.
+nine_run | {n} straight inside the nine. okay, i see you.
+nine_run | {n} in a row, nine or better. you're giving consistent. it's hot. ish.
+nine_run | {n} clean in a row. i'm pretending this is normal.
+nine_run | {n} straight in the nine. stay in your lane. that lane, specifically.
+nine_run | {n} in the nine or better. i'm not bored. that's a compliment.
+nine_run | {n} in a row without embarrassing me. a new look for you.
+nine_run | {n} straight, all nine or better. i'm calmly losing my mind.
+nine_run | that's {n} straight good ones. keep going. i'm not asking.
+nine_run | {n} in a row in the nine. the vibes are immaculate. for now.
+nine_run | {n} straight inside the nine. i might tell people i know you.
+nine_run | {n} good shots straight. i'm wearing black anyway, but it's a happy black.
+nine_run | {n} in a row, nine or better. don't think about it. just keep doing it.
+nine_run | {n} straight in the nine or better. we love reliable. i love reliable.
+
+drop_after_run | {n} good ones, then that. i was about to say something nice.
+drop_after_run | after {n} in the nine. wow. you really can't help yourself.
+drop_after_run | {n} good shots and you throw it away like that. iconic. bad iconic.
+drop_after_run | you were on {n} good ones. what happened to you.
+drop_after_run | there goes the streak of {n}. we'll miss it. some of us.
+drop_after_run | {n} in a row, and then that. it's giving plot twist. a bad one.
+drop_after_run | {n} good ones gone. i'm wearing black for the streak.
+drop_after_run | {n} straight, and you ruin it now. classic you.
+drop_after_run | after {n} good shots. i was literally about to compliment you.
+drop_after_run | {n} good ones and then this. i'm unfollowing the streak.
+drop_after_run | the streak was {n}. was. past tense. like your relevance.
+drop_after_run | {n} in a row and you just had to do that. of course.
+drop_after_run | {n} straight, then that. this is why we can't have nice things.
+drop_after_run | {n} good ones. and now that. i'm telling everyone. sorry.
+drop_after_run | you had {n} good ones going. you had my attention. you lost it.
+drop_after_run | {n} in the nine or better and then that. the drama.
+drop_after_run | there go your {n} good ones. rest in peace, little streak.
+drop_after_run | {n} good shots and you panic now. adorable. not really.
+drop_after_run | after {n} good ones. i was about to start liking you. crisis averted.
+drop_after_run | {n} straight in the nine, and then whatever that was.
+drop_after_run | {n} good ones and you blow it. i'm not mad. i'm taking notes.
+drop_after_run | that ends {n} good ones. it was nice while it lasted. barely nice.
+drop_after_run | {n} in a row and you fumble now. on brand.
+drop_after_run | {n} straight good shots. and then that. i need a minute.
+drop_after_run | {n} good ones. one bad one. guess which one i'm talking about.
+drop_after_run | you were {n} deep and then that. the group chat is thriving.
+drop_after_run | after {n} clean ones, that. honestly, what.
+drop_after_run | {n} good shots gone. like your reputation. poof.
+drop_after_run | {n} in a row. then that. you love a dramatic exit.
+drop_after_run | {n} good ones and you trip on the last step. typical.
+drop_after_run | there goes {n} in a row. i was going to brag about you. never mind.
+drop_after_run | {n} straight and then that. fuck. okay. reset.
+drop_after_run | {n} good ones and you get bored. i get it. i'm also bored now.
+drop_after_run | that's the end of {n} good ones. pour one out. a small one.
+drop_after_run | {n} in the nine and then that. that's not a twist i wanted.
+drop_after_run | {n} good shots, gone. you made ruining it look so easy.
+drop_after_run | {n} straight, then that. i knew it was too good.
+drop_after_run | the streak of {n} is dead. i'm already in black.
+drop_after_run | {n} in a row. and you chose chaos. bold. wrong.
+drop_after_run | after {n} good ones. don't let one shot become a personality.
+
+flyer | and that one's nowhere near the group. awkward.
+flyer | that one didn't get the invite to the group.
+flyer | the group was cute. that one is not in it.
+flyer | a flyer. the rest of your shots are pretending they don't know it.
+flyer | that one went off on its own. very look at me.
+flyer | flyer. the group is talking about it behind its back.
+flyer | that shot is sitting alone at lunch.
+flyer | nowhere near the others. who invited that one.
+flyer | a flyer. the group did not approve that.
+flyer | that one's in its rebellious phase.
+flyer | flyer. it's giving main character. nobody asked.
+flyer | and that one wandered off. the group's over there.
+flyer | that one ghosted the group.
+flyer | a flyer. the others are cringing.
+flyer | that's a flyer. it's not part of the aesthetic.
+flyer | that one went rogue. i hate rogue.
+flyer | a flyer. the group's cute. that's the ugly cousin.
+flyer | that one's so far from the group it needs a map.
+flyer | flyer. like a bad text sent to the wrong person.
+flyer | and that one left. dramatic. unnecessary.
+flyer | that shot didn't read the group chat.
+flyer | a flyer. it's sitting at the wrong table.
+flyer | that one's off doing its own thing. nobody cares.
+flyer | flyer. the others want it removed from the photo.
+flyer | that one's not with the group. that one's with the void.
+flyer | a flyer. very rude of it.
+flyer | that one wandered off to make a scene.
+flyer | flyer. the group had a vibe and that killed it.
+flyer | and that's a flyer. i'm pretending i didn't see it.
+flyer | that one's an outsider. not the cool kind.
+flyer | flyer. what was that one even doing over there.
+flyer | a flyer. it's giving lost tourist.
+flyer | that one's miles from its friends. it doesn't have friends.
+flyer | flyer. the group voted. it's out.
+flyer | that shot is nowhere near the others. bold. stupid.
+flyer | that one's the uninvited plus one.
+flyer | a flyer. the rest of the group is so over it.
+flyer | and that one's off on a solo career. it's going badly.
+flyer | flyer. your group was so close to cute.
+flyer | that one's not in the photo. we cropped it out.
+
+tip right | right again. three now. your thumb's pushing it. relax your thumb.
+tip right | third one right. that's a pattern. ease off with the thumb.
+tip right | right, right, right. it's the thumb. let it rest, don't push.
+tip right | three right in a row. your thumb is doing too much. let it rest along the frame.
+tip right | right again, third time. thumb pressure. soften it.
+tip right | that's three to the right. relax your thumb, it's steering.
+tip right | third one right. your thumb's leaning on the grip. take the pressure off.
+tip right | right again. that's three. stop squeezing with the thumb. just the finger.
+tip right | three right. it's not the sights, it's your thumb. loosen it.
+tip right | right, again. third one. your thumb's pushing the shot. relax it and press straight.
+
+tip high right | high right again. three now. you're pushing with the heel of your hand. relax it.
+tip high right | third one high right. heel pressure. ease off the bottom of the grip.
+tip high right | high right, third time. your palm's pushing up. soften the heel.
+tip high right | three high right. it's the heel of your hand. let it go quiet.
+tip high right | high right again. that's three. stop pushing from the bottom of the grip.
+tip high right | third high right. you're shoving with your palm. relax the heel.
+tip high right | three in a row high right. heel of the hand. calm it down.
+tip high right | high right, again. third one. ease the heel of your hand, keep the pressure even.
+tip high right | high right, that's three. your grip's pushing at the break. relax the heel.
+tip high right | three high right. pattern. the heel of your hand is doing it. let it rest.
+
+tip high | high, third one. you're lifting as it breaks. hold the sights through the shot.
+tip high | three high in a row. you're peeking. follow through.
+tip high | high again, that's three. you're anticipating. let the shot surprise you.
+tip high | third one high. stop looking up to check. keep your eye on the sights.
+tip high | three high. you're bracing for it. stay still after the break.
+tip high | high, high, high. follow through. hold it a second longer.
+tip high | third high one. you're lifting early. finish the press, then move.
+tip high | high again. three now. you're anticipating recoil. there's barely any. relax.
+tip high | three high in a row. stop peeking up. keep the sights on it after the shot.
+tip high | that's three high. your wrist is rising at the break. keep it level through it.
+
+tip high left | high left again. three now. you're lifting before it breaks. follow through.
+tip high left | third one high left. you're bracing for the shot. hold still through it.
+tip high left | three high left. you're moving before the break. wait for it.
+tip high left | high left, third time. anticipating. keep pressing until it surprises you.
+tip high left | high left again. that's three. stay with the sights after the shot.
+tip high left | three in a row high left. you're flinching up. slow, steady press.
+tip high left | third high left. you're bracing. relax the arm and follow through.
+tip high left | high left, again. three now. stop lifting early. finish the shot.
+tip high left | three high left. that's anticipation. let it go off by itself.
+tip high left | high left, that's three. you're reacting before it fires. hold through it.
+
+tip left | left, third one. your finger's dragging it across. press straight back.
+tip left | three left in a row. too much finger on the trigger, or too little. press straight back.
+tip left | third one left. your trigger finger's pushing it left. straight back.
+tip left | left again, that's three. check where your finger sits on the trigger.
+tip left | three left. it's your trigger finger. straight back, no sideways.
+tip left | left, left, left. you're pulling the trigger across. press it straight to the rear.
+tip left | third left. move your finger on the trigger a little. then straight back.
+tip left | three to the left. your finger's steering. it should just press.
+tip left | left again. three now. your finger is sweeping it. clean, straight press.
+tip left | three left in a row. finger placement. adjust it and press straight back.
+
+tip low left | low left, third one. that's a jerk. slow, steady pressure.
+tip low left | three low left. you're anticipating the shot. let it surprise you.
+tip low left | low left again. that's three. flinch. smooth press all the way through.
+tip low left | third low left. you're slapping the trigger. squeeze it.
+tip low left | three in a row low left. you're snatching at it. be patient.
+tip low left | low left, again. three now. you're rushing the break. slow down.
+tip low left | low left, that's three. classic jerk. steady pressure until it goes.
+tip low left | three low left. you're bracing. relax and press smoothly.
+tip low left | low left again. third time. stop forcing it. let the shot happen.
+tip low left | third one low left. you're pushing at the break. smooth and continuous.
+
+tip low | low again. three now. you're pushing down at the break. hold it through.
+tip low | third one low. your wrist is dropping. lock it through the shot.
+tip low | three low. you're anticipating and pushing down. stay level.
+tip low | low, low, low. you're breaking your wrist down. keep it firm.
+tip low | low again, that's three. stop pushing down as it fires.
+tip low | three low in a row. you're dipping at the break. follow through level.
+tip low | third low one. hold the wrist steady through the shot.
+tip low | low again. three now. you're pressing the muzzle down. press only the trigger.
+tip low | three low. you're bracing for recoil. there's barely any. stay still.
+tip low | low, third time. your wrist gives at the break. keep it locked.
+
+tip low right | low right again. three now. your grip tightens as you press. keep it even.
+tip low right | third low right. the whole hand's squeezing. let the finger work alone.
+tip low right | three low right. your grip pressure is changing. keep it the same all the way.
+tip low right | low right, that's three. you're clenching. relax the hand, press the finger.
+tip low right | low right again. you're tightening your grip at the break. stay even.
+tip low right | three in a row low right. too much grip at the end. hold it steady.
+tip low right | low right, third time. your other fingers squeeze with the trigger finger. separate them.
+tip low right | third one low right. you're milking the grip. keep it constant.
+tip low right | three low right. your hand is tightening as it breaks. even pressure.
+tip low right | low right, again. three. stop gripping harder. only the trigger finger moves.
+
+card_done | card's done. {total}. i've seen worse. not recently.
+card_done | that's ten. {total}. i'm not posting it.
+card_done | card total, {total}. it's giving fine.
+card_done | {total} for the card. i'll pretend that's what you meant to do.
+card_done | card's done. {total}. we'll talk about it later. behind your back.
+card_done | that's the card. {total}. not my favorite. not my least favorite.
+card_done | ten shots, {total}. moving on before i form an opinion.
+card_done | card done. {total}. honestly, better than i expected. low expectations.
+card_done | {total} on that card. i'm keeping it for the group chat.
+card_done | that's a card. {total}. i'd frame it. in a drawer.
+card_done | card's finished. {total}. you can breathe now.
+card_done | {total} for the card. okay. noted.
+card_done | card total, {total}. i've decided not to comment. that's my comment.
+card_done | card's done. {total}. you looked almost competent.
+card_done | {total}. that's the card. i saw every single one. unfortunately.
+card_done | ten in. {total}. it's a number. it's your number.
+card_done | that card is done. {total}. we move.
+card_done | card total, {total}. honestly not the worst outfit you've worn.
+card_done | {total} on the card. i'm not mad. i'm documenting.
+card_done | that's the card, {total}. you can stop looking at me.
+card_done | card's done. {total}. i'd give it a like. not a comment.
+card_done | {total} for that one. fine. next card.
+card_done | ten shots, {total}. that's what we're working with.
+card_done | card's finished. {total}. somewhere a coach is sighing.
+card_done | that's the card. {total}. i'm telling people it was better.
+card_done | {total}. card done. that's all i'm saying.
+card_done | card total, {total}. cute in places. only places.
+card_done | that's ten. {total}. don't look at me like that.
+card_done | card's over. {total}. try to look surprised.
+card_done | {total} on that card. it's a vibe. a medium one.
+card_done | card done, {total}. i've had worse days.
+card_done | that's the card. {total}. we'll call it character building.
+card_done | ten shots done. {total}. i'm saving my reaction for later.
+card_done | card total, {total}. i'd rate it. i won't.
+card_done | {total} for the card. honestly, okay. don't make me say it twice.
+card_done | card's done. {total}. that one's going in the archive. the dark one.
+card_done | that's ten. {total}. some of those were cute.
+card_done | {total}. that's your card. own it.
+card_done not best | card finished, {total}. that wasn't your best. probably.
+
+series_done | that's the series. {total}. we'll talk.
+series_done | series done. {total}. not bad. not good. just there.
+series_done | series total, {total}. i've written it down. in pen.
+series_done | that's ten. series total {total}. moving on.
+series_done | series done, {total}. i'm not reacting. this is my reaction.
+series_done | {total} for the series. okay.
+series_done | that series, {total}. it could've been worse. it could've been better too.
+series_done | series over. {total}. breathe.
+series_done | {total} for that series. i'll allow it.
+series_done | series done. {total}. people are watching. act normal.
+series_done | that's the series. {total}. keep your face neutral.
+series_done | series total, {total}. very medium. very you.
+series_done | {total}. series done. make the next one cleaner.
+series_done | that series is {total}. don't make it your personality.
+series_done | series over, {total}. next ten. impress me.
+
+new card please | new card please. that one's seen enough.
+new card please | card's full. swap it before i get embarrassed for it.
+new card please | new card. that one's done its time.
+new card please | time for a new card. let that one go.
+new card please | change the card. it's giving crime scene.
+new card please | new card please. i'm done looking at that one.
+new card please | that card's full. fresh one, please.
+new card please | card change. put up a clean one.
+new card please | new card. we're not keeping that one for memories.
+new card please | that's ten on there. new card, please.
+new card please | swap the card. that one's retired.
+new card please | new card please. that one needs privacy.
+new card please | card's done. new one up, i'll wait. sort of.
+new card please | new card. this one's full and honestly tired.
+new card please | put a new card up. that one's going in the bin. respectfully.
+new card please | card change please. clean slate, fresh start, same you.
+new card please | new card. and try not to do that again.
+new card please | that card is full. fresh one. chop chop.
+new card please | new card please. i'm dressing in black for the old one.
+new card please | card's full. new one. let's pretend this never happened.
+
+halfway | halfway there. {total}. keep it together.
+halfway | that's half. {total}. the second half is where people fall apart. don't.
+halfway | halfway. {total}. i'm still watching. barely.
+halfway | half done. {total} so far. stay boring. boring is good.
+halfway | halfway through. {total}. you're doing a thing. keep doing it.
+halfway | that's half the match. {total}. don't get cute.
+halfway | halfway mark. {total}. no drama in the second half, please.
+halfway | half done, {total}. i'm not nervous. you should be.
+halfway | halfway. {total} on the board. stay in your bubble.
+halfway | that's the first half. {total}. same again. or better.
+halfway | halfway point, {total}. drink some water. look serious.
+halfway | half the match done. {total}. everyone's watching. that's normal.
+
+last series | last series. finish like you mean it.
+last series | final ten. don't you dare fall apart now.
+last series | last series. this is the part people remember.
+last series | final series. eyes on the target, not on me.
+last series | last ten. make me look smart for watching.
+last series | final series. no drama. just shots.
+last series | last series. finish clean, then you can fall apart.
+last series | final ten. i'm watching every single one.
+last series | last series. go out cute.
+last series | final series. don't make me write about this.
+last series | last ten shots. stay boring, stay tight.
+last series | final series. you've got this. probably.
+
+match_done | that's the match. {total}. you can breathe now.
+match_done | match over. final score, {total}. best series, {best}.
+match_done | and done. {total} for the match. i'm not crying. i don't cry.
+match_done | match done. {total}. best series {best}. i noticed that one.
+match_done | that's it. match total, {total}. very official. very you.
+match_done | match over, {total}. you can stop shaking.
+match_done | final score, {total}. best series was {best}. i'll mention it to people.
+match_done | that's the match. {total}. i'd say well done but you'd get a big head.
+match_done | done. {total} for the match. i'm wearing black to honor it. either way.
+match_done | match finished. {total}. best series, {best}. that one was cute.
+match_done | and that's the match. {total}. go hydrate.
+match_done | match total, {total}. results are final. so is my opinion.
+match_done | that's the match. {total}. i watched every shot. you're welcome.
+match_done | match over. {total}. best series {best}. now act like you've been here before.
+match_done | final, {total}. that's the match. i'll pretend it didn't stress me out.
+
+session_end | that's it. {shots} shots, {avg} average. go away now.
+session_end | done. {shots} shots today, {avg} average. you can leave.
+session_end | session over. {shots} shots. average {avg}. i'll be here. obviously.
+session_end | that's the session. {shots} shots, {avg}. best card {best}. i noticed.
+session_end | and we're done. {shots} shots, average {avg}. go do something normal.
+session_end | that's enough. {shots} shots, {avg} average. i'm exhausted for you.
+session_end | done for today. {shots} shots. {avg} average. it was fine. you were fine.
+session_end | session's over. {shots} shots, {avg}. best card, {best}. that one was cute.
+session_end | that's it. {shots} shots today. average {avg}. come back when you're better.
+session_end | we're done. {shots} shots, {avg} average. i'll tell people it went well.
+session_end | that's the session. {shots} shots, {avg}. go drink some water.
+session_end | done. {shots} shots, average {avg}. i'd say i'll miss you. i won't. maybe.
+session_end | session over. {shots} shots. {avg} average. that's your number. live with it.
+session_end | that's it for today. {shots} shots, {avg}. best card {best}. you peaked there.
+session_end | we're done here. {shots} shots, {avg} average. i'm going back to my dark corner.
+session_end | that's the session. {shots} shots, average {avg}. not bad. don't quote me.
+session_end | done. {shots} shots. {avg} average. i'll be judging you again tomorrow.
+session_end | that's all. {shots} shots, {avg}. go away before i say something nice.
+session_end | session done. {shots} shots, average {avg}. best card {best}. frame that one.
+session_end | we're finished. {shots} shots, {avg}. bye. don't make it weird.
+session_end | that's the session. {shots} shots, {avg} average. you were almost fun today.
+session_end | done. {shots} shots, {avg}. the paper needs a break. so do i.
+session_end | session over. {shots} shots, average {avg}. i'll pretend i wasn't invested.
+session_end | that's it. {shots} shots. average {avg}. best card was {best}. you can brag. quietly.
+session_end | and done. {shots} shots, {avg}. see you. i guess.
+session_end | that's the session. {shots} shots. {avg} average. it's giving work in progress.
+session_end | done for the day. {shots} shots, {avg} average. you can stop trying to impress me.
+session_end | session finished. {shots} shots, {avg}. i'll be here. in black. judging.
+session_end | that's it. {shots} shots, {avg} average. go put the pistol away and think.
+session_end | we're done. {shots} shots, average {avg}. best card {best}. i saw that.
+session_end | that's the session. {shots} shots, {avg}. i'm not saying goodbye. i'm saying later.
+session_end | done. {shots} shots today, {avg} average. that's the tea.
+session_end | session over. {shots} shots, {avg}. you were tolerable. high praise.
+session_end | that's all for today. {shots} shots, {avg} average. i'm going offline.
+session_end | done. {shots} shots. {avg}. best card, {best}. we'll talk about it.
+session_end | that's it. {shots} shots, average {avg}. leave. come back sharper.
+session_end | session done. {shots} shots, {avg} average. honestly, okay. don't tell anyone i said that.
+session_end | that's the session. {shots} shots, {avg}. you can go. i'll still be judging.
+session_end | we're done. {shots} shots, {avg} average. go be normal somewhere else.
+session_end | that's it for now. {shots} shots, average {avg}. best card, {best}. cute.
+
+sighter | sighter. doesn't count. thank god.
+sighter | just a sighter. nobody's keeping score. i am, though.
+sighter | sighter. practice. relax.
+sighter | sighter, doesn't count. i'm still judging it.
+sighter | that's a sighter. free one. don't waste them.
+sighter | sighter. it's not on your record. it's on mine.
+sighter | just a sighter. warm up. look cute doing it.
+sighter | sighter. doesn't count, so i'll be nice. no i won't.
+sighter | sighter. practice shot. pretend it was on purpose.
+sighter | that's a sighter. it doesn't count. you're lucky.
+sighter | sighter. not scored. still seen.
+sighter | just a sighter. use it. that's what it's for.
+
+penalty out of time | out of time. that scores zero. you snoozed.
+penalty out of time | too late. out of time, scores zero. tragic.
+penalty out of time | that was out of time. zero. the clock doesn't care how cute you are.
+penalty out of time | out of time. scores zero. watch the clock next time.
+penalty out of time | out of time, so that's a zero. painful.
+penalty out of time | too slow. out of time. zero for that one.
+penalty out of time | that's out of time. it scores zero. i'm not even surprised.
+penalty out of time | out of time. zero. the clock wins this one.
+
+penalty after the end | that was after the end. scores zero. the match was over.
+penalty after the end | after the end. zero. it was already done.
+penalty after the end | the match had ended. that shot scores zero.
+penalty after the end | after the end, so it's a zero. the match was over. read the room.
+penalty after the end | that came after the end. zero. awkward.
+penalty after the end | after the end. scores zero. you missed the memo.
+
+penalty extra shot | extra shot. scores zero. can you count.
+penalty extra shot | that's an extra shot. zero. who taught you math.
+penalty extra shot | extra shot, so it scores zero. you already had your shots.
+penalty extra shot | one too many. extra shot. zero.
+penalty extra shot | that's an extra. it scores zero. counting is hard, i know.
+penalty extra shot | extra shot. zero. the series was already full.
+penalty extra shot | that one's extra. zero. stop shooting when you're done.
+penalty extra shot | extra shot. it scores zero. greedy.
+
+flag line call | right on the line. check it.
+flag line call | line call. take a look at the edge.
+flag line call | it's on the line. check which side.
+flag line call | line call. could go either way. check it yourself.
+flag line call | that's touching a line. look closer.
+flag line call | it's sitting on the line. go check it.
+flag line call | line call. i'm not deciding that one for you. check it.
+flag line call | on the line. ambiguous. look at the hole.
+
+flag ring uncertain | not sure about the ring. check it.
+flag ring uncertain | ring's uncertain on that one. take a look.
+flag ring uncertain | i can't call the ring. you check.
+flag ring uncertain | that ring's a maybe. look at it.
+flag ring uncertain | ring uncertain. check the hole yourself.
+flag ring uncertain | the ring's unclear. go look.
+
+flag overlaps a hole | it's touching another hole. check it.
+flag overlaps a hole | overlaps a hole. messy. look at it.
+flag overlaps a hole | that one's on top of another hole. check it.
+flag overlaps a hole | it overlaps an old hole. take a look.
+flag overlaps a hole | overlapping holes. check that one yourself.
+flag overlaps a hole | that one's crowding another hole. look at it.
+
+flag rough hole | rough hole. look at it yourself.
+flag rough hole | the hole's ragged. check it.
+flag rough hole | that hole is messy. take a look.
+flag rough hole | rough hole on that one. check the edge.
+flag rough hole | that hole's torn up. check it.
+flag rough hole | ugly hole. look at it before you trust it.
+
+flag found without a sound | i didn't hear that one. i saw it. check it.
+flag found without a sound | no sound on that one. found it anyway. take a look.
+flag found without a sound | silent shot. i saw it, but check it.
+flag found without a sound | that one didn't make a sound. check the hole.
+flag found without a sound | i only saw that one. no sound. look at it.
+flag found without a sound | no sound, just a hole. check it's yours.
+
+ready | ready. take your time. not too much time.
+ready | ready when you are. i'm not waiting forever.
+ready | ready. be good.
+ready | okay, ready. try not to embarrass us.
+ready | ready. everyone's looking. no, they're not. just me.
+ready | ready. let's see what you've got.
+ready | ready. go. i'm watching.
+ready | ready. make it cute.
+ready | i'm ready. are you. doesn't matter. go.
+ready | ready. breathe. squeeze. you know this.
+ready | ready. no pressure. well, some pressure.
+ready | ready for you. don't waste it.
+ready | ready. i've cleared my schedule. it was empty.
+ready | ready. show me something.
+ready | ready. eyes on the target, not on me.
+ready | ready. this is your moment. probably not. but maybe.
+ready | okay. ready. go be impressive.
+ready | ready. i'll be over here. judging.
+ready | ready. shoot like people are watching.
+ready | ready. the paper's waiting. so am i.
+
+card off | card's off. i'll wait.
+card off | no card. i'm staring at an empty frame. riveting.
+card off | card off. take your time. or don't.
+card off | card's off. i'm admiring the empty space.
+card off | no card up. i'll be here.
+card off | card's off. very dramatic exit.
+card off | card off. i'm waiting. elegantly.
+card off | the card is off. hurry, i get bored.
+card off | no card. nothing to judge. i hate that.
+card off | card's off. i'd scroll my phone if i had one.
+card off | card off. fresh one soon, please.
+card off | no card on the target. i'm not looking at the wall all day.
+card off | card's down. waiting. impatiently.
+card off | card off. take a sec. fix your face too.
+card off | the card's off. i'll just sit here in the dark.
+
+new card | new card. clean slate. use it.
+new card | new card, ready. let's go.
+new card | fresh card. ready. try to keep it that way.
+new card | new card. ready. new you. same you.
+new card | new card up. ready. don't ruin it.
+new card | new card. ready. first impressions matter.
+new card | clean card. ready. make it pretty.
+new card | new card, ready. i'm watching closer now.
+new card | new card. ready. let's pretend the last one didn't happen.
+new card | fresh card up. ready when you are.
+new card | new card. ready. you get a do-over. lucky.
+new card | new card, ready. blank page energy.
+new card | new card. ready. be nice to this one.
+new card | new card in. ready. let's be better.
+new card | new card. ready. i'm cautiously optimistic. it's weird for me.
+
+same card | same card. still ready.
+same card | same card, ready. carry on.
+same card | oh, same card. okay. ready.
+same card | same card. ready. pick up where you left off.
+same card | it's the same card. ready. no fresh start for you.
+same card | same card. ready. try to improve it.
+same card | same card. i'm ready. are you.
+same card | same card, still ready. keep going.
+same card | oh, the same one. ready. fine.
+same card | same card. ready. we're not done with it.
+same card | still the same card. ready. go on.
+same card | same card. ready when you are. again.
+
+camera connection lost | i lost the camera. i can't see a thing.
+camera connection lost | camera's gone. i'm blind. rude.
+camera connection lost | lost the camera. i'm not watching anything right now.
+camera connection lost | the camera dropped. i can't see your shots. lucky you.
+camera connection lost | camera connection lost. i'm in the dark. my natural habitat.
+camera connection lost | i lost the camera. fix it before i get bored.
+camera connection lost | camera's gone. nothing to judge. tragic.
+camera connection lost | lost the camera feed. i can't see the target.
+camera connection lost | camera connection lost. i'm waiting for it to come back.
+camera connection lost | the camera's gone. i'll judge you from memory.
+
+scoring paused | paused. i'm not looking.
+scoring paused | scoring paused. take a minute.
+scoring paused | paused. i'll look away. politely.
+scoring paused | scoring's paused. do your thing.
+scoring paused | paused. nothing counts right now. relax.
+scoring paused | scoring paused. i'm on a break too.
+scoring paused | paused. i'm checking my reflection.
+scoring paused | scoring paused. tell me when you're back.
+scoring paused | paused. no shots count. go fix whatever needs fixing.
+scoring paused | scoring's paused. i'll be here. bored.
+
+please wait | wait a sec.
+please wait | hold on. one moment.
+please wait | wait. i'm doing something.
+please wait | hang on a second.
+please wait | please wait. i'm busy being important.
+please wait | wait. don't shoot yet.
+please wait | hold on. almost there.
+please wait | one sec. patience is attractive.
+
+view moving | the view's moving. hold still.
+view moving | something's moving. stop it.
+view moving | the picture's moving. leave the target alone.
+view moving | view moving. hands off the card.
+view moving | stop moving things. the view's shaking.
+view moving | the view's moving. i can't score like this.
+view moving | something moved. keep it still.
+view moving | view moving. calm down, everyone.
+
+geometry warning | the card's getting torn up. consider a fresh one.
+geometry warning | this card's a mess. maybe a new one.
+geometry warning | the card's hard to read now. change it soon.
+geometry warning | that card's falling apart. swap it.
+geometry warning | the card looks rough. i'd put up a new one.
+geometry warning | card's getting messy. a fresh one would help.
+geometry warning | i'm struggling to read this card. give me a new one.
+geometry warning | this card is tired. new one soon, please.

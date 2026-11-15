@@ -158,7 +158,6 @@ class EngineRunner
       )
       session.update!(engine_pid: pid, engine_log: log.to_s)
       Voice.prewarm!(Voice.for(session.user).id, extra: Commentary.pieces(session.user))
-      Personality.for(session.user)&.then { Personality.ensure!(it.id) }   # its own process, kept running
       watch(session, pid)
       session
     end
