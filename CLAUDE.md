@@ -78,8 +78,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `voicelines.py` | What the engine says, as pieces; the 19 Kokoro voices (shared with `voice/`) |
 | `course.py` | Match / final courses of fire as data + the virtual range officer (`Runner`) |
 | `voice/` | The Kokoro announcer: own Python 3.13 venv, `setup.sh`, `speak.py` (see "Announcer voice") |
-| `voice/talk.py` | Announcer personalities' brain: training data, LoRA training, test, live `serve` (see "Announcer personalities") |
-| `voice/personalities/` | One file per personality: its voice and building blocks (`katey.py`) |
+| `voice/personalities/` | One personality each: `katey.py` (voice, rules), `katey_seed.txt` + `katey_bank/` (her bank of lines; see "Announcer personalities") |
 
 ### The central design idea
 
@@ -149,10 +148,10 @@ brew install python@3.13 && voice/setup.sh
 # chatty mode's lines are in git for SOME voices (Bella, Nicole, Heart, Michael); after a commentary edit:
 #  (cd ../web && bin/rails voices:chatty_list)   # rewrites web/public/voice-pieces/chatty.txt
 #  voice/.venv/bin/python voice/speak.py export --chatty --voice af_bella   # and af_nicole, af_heart, am_michael
-# announcer PERSONALITIES (Katey): her trained model is NOT in git (engine/voice/cache/talk/katey/,
-# ~28 MB adapter + the ~2 GB base model, fetched from Hugging Face on first use) - copy that folder,
-# or retrain (~1.5 h): voice/.venv/bin/python voice/talk.py data && voice/.venv/bin/python voice/talk.py train
-# (mlx-lm is in voice/requirements.txt; Apple Silicon only). Without it Settings says "not set up here".
+# announcer PERSONALITIES (Katey): her bank of lines AND every piece of it in Nicole's voice are IN GIT
+# (web/public/voice-pieces/af_nicole, list in personality-katey.txt); after a bank edit:
+#  (cd ../web && bin/rails voices:personality_list ID=katey)
+#  voice/.venv/bin/python voice/speak.py export --personality katey --voice af_nicole   # only new pieces render
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
 cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 297 examples, 0 failures
@@ -211,10 +210,9 @@ by ear; installing as an app; the camera fully visible in a live match on the
 laptop. The browser trigger has run at the firing line too (sessions 10-11; see
 "Session 11" under the deployment notes for its trigger level).
 
-**Announcer PERSONALITIES: built 2026-11-14** (Katey; see "Announcer personalities"). First
-check by ear on the rig: her lines, how long after the shot they land, and the fallbacks.
-**Next:** her lines in real sessions -> 👍/👎 on them as training data (the plan), maybe a
-bigger base model (Qwen3 4B, compared on `talk.py test`). Chatty's lines are in the
+**Announcer PERSONALITIES: built 2026-11-14** (Katey, a bank of lines; see "Announcer
+personalities"). First check by ear on the rig. **Next:** 👍/👎 on her lines in real
+sessions (a 👎 drops that line for good). Chatty's lines are in the
 git export for Bella, Nicole, Heart and Michael only (2026-11-12; 1,005 pieces each with the
 numbers filled in, ~12 min per voice); other voices render them at session
 start. Splitting the numbers out of the lines would make all 19 cheap.
@@ -665,79 +663,56 @@ Not built yet: see "Where we left off" for the agreed order.
 
 ## Announcer personalities: Katey (2026-11-14)
 
-A personality = a VOICE + a small language model fine-tuned to talk like a
-character, run LOCALLY on the Studio (the shooter's choice: a local model, not
-set phrases, not an API). One so far: **Katey**, designed by the shooter one
-question at a time: a MEAN GIRL, the high-school queen bee as in the movie (was a
-flirty goth Instagram girl until 2026-11-14) in Nicole's voice (af_nicole) -
-deadpan and unimpressed, openly flirty (NOT bold - dialled back), mean-girl
-roasts AND teasing on bad shots, full swearing used sparingly, a little
-Instagram slang, pet names (babe, loser, nerd, trouble, sharpshooter), VERY
-chatty (after every shot), occasional real tips for a RIGHT-handed shooter only
-for a pattern the shots show, says the SCORE AND DIRECTION herself (always both,
-with how far out in the seven directions.json steps, worded her way; shot number
-optional), says the engine's lines and diagnostic flags her way; the RANGE
-OFFICER stays standard; same in practice / match / final; NEVER the 565 goal.
-The shooter's tone calls stand: don't soften her lines ("fuck me, babe", "hate
-crime against paper", "emotionally a seven" were judged fine).
+A personality = a VOICE + a large BANK OF LINES it picks from. One so far:
+**Katey**, designed by the shooter one question at a time: a MEAN GIRL, the
+high-school queen bee as in the movie (in spirit; no quotes or names from it;
+was a flirty goth Instagram girl until 2026-11-14) in Nicole's voice
+(af_nicole), with a bit of goth edge now and then. Her rules are at the top of
+`engine/voice/personalities/katey.py`; the shooter's tone calls stand (don't
+soften her lines): mean is fine AS LONG AS IT'S FUNNY, very light flirting,
+swearing sometimes, NEVER anything near suicide or self-harm, never the 565
+goal, no pet names, no time of day.
 
-- **Engine side** (`engine/voice/`, the voice venv, + `mlx-lm`):
-  `personalities/katey.py` = her BUILDING BLOCKS (score lines, ~12 wordings per
-  distance step, reactions per kind of shot, lines woven around the score,
-  moments, tips, card/session/match lines, engine lines, lines for extra facts:
-  previous shot, first/ninth of a card, card average, time of day, how long, tens
-  today). `talk.py data` combines them with invented-but-consistent shot FACTS
-  into examples (6,000), so every number in an answer comes from the facts;
-  `train` = LoRA on `mlx-community/Llama-3.2-3B-Instruct-4bit` (16 layers, rank
-  8, 1,000 steps, prompt masked; ~1.5 h on the Studio, the engine only ~5%
-  slower meanwhile - measured with speedtest.py); `test` = held-out speed,
-  checks, new-sentence share; `serve` = live (127.0.0.1): POST /say {facts} ->
-  writes (temp 1.3 + min-p 0.1, up to 3 tries in 2.5 s), CHECKS (`check`: voice
-  characters, the score, the direction - "low" is not "low left" - no number not
-  in the facts except ring jokes like "emotionally a seven", never goal/pace/
-  trials, real words: the Mac dictionary + her training words, common endings),
-  renders every piece in her voice into the web app's voice cache, returns the
-  pieces. On start it pre-renders her ~2,650 likely pieces (her training answers'
-  pieces + every score) on 2 cores in the background (~20 min, once per machine).
-- **Measured** (300 held-out facts): 0 failed after retries; median 0.66 s to
-  write; 57% of sentences differ (she mostly RECOMBINES her blocks - sampling
-  can't fix that: a high temperature without min-p wrote junk words, with min-p
-  it's back to recombining; more/wider material and real-session feedback do).
-  Demo card through the real engine + web app: 11/11 lines hers, first try,
-  0.7-3.0 s from the shot event (slow ones = new pieces still rendering).
-- **Web side:** `Personality` (mirrors personalities/*.py, spec-checked; starts /
-  finds / asks the process: `tmp/personality-<id>.json`, `log/personality-<id>.log`;
-  ensured at session start and on choosing her; kept running), `users.personality`,
-  Settings > Announcer voice > **Personalities** (None / Katey, readiness).
-  `PersonalityFacts` = the facts EXACTLY as trained (key: value lines, numbers as
-  words; moments from `Commentary#moment` / `#summary_info`, shared with chatty
-  mode; extras given only now and then, as in training) - a spec runs talk.py's
-  generator to pin keys and wording. `PersonalityAnnouncer`: the engine's
-  SHOT announcement (leads "shot N" / "sighter") is HELD; on the shot event her
-  line is written off the request thread and played, else the held standard one
-  (also after HOLD_S 4 s without a shot event); engine lines ("ready", "card
-  off"...) hers else standard; "ro" standard; chatty mode SKIPPED (she covers
-  it); session end hers, in line (before the page reloads). Her process not
-  running -> standard announcer (and it is started). `Voice.for` = the
-  personality's voice; the voice grid still shows the user's own.
-
-- **Changes for her NEXT training (made 2026-11-14, data not yet regenerated):**
-  NO PET NAMES (the shooter: "babe" after a comma made an odd pause - every {pet}
-  and literal babe/nerd/loser/trouble/sharpshooter is out of katey.py); RING-ONLY
-  scores below 10, as the standard announcer (`talk.SCORE_FORMAT`; `train` writes
-  adapter/format.json, `serve` turns the web app's facts - always with the decimal -
-  into the model's form, so the web app never changes; a model without format.json
-  = "decimal", i.e. the current one); SHORTER lines (MAX_WORDS 18 / 30 on a card's
-  last shot - optional parts dropped first; a second reaction 5%, extras 30%:
-  median 15 words, was 20). Checks: a decimal after a ring-only score fails; a real
-  final score of 565 is a fact, not the goal. To retrain: `talk.py data && talk.py
-  train`, then `talk.py test`, then restart her process (`Personality.stop!`; the
-  next session starts it).
-- **Pacing, live now:** in the demo (shots 10 s apart) she fell behind - her lines
-  ran 10-15 s. Her lines use shorter pauses (`PersonalityAnnouncer::GAPS` 0.3 /
-  0.15 s, standard 0.55 / 0.25), and her SHOT lines carry `supersede: "shot"`: in
-  the range screen's queue a newer one drops an older one still WAITING (the one
-  playing finishes; other lines are never dropped) - never more than a line behind.
+- **The bank:** `personalities/katey_seed.txt` (lines the shooter approved one
+  by one + the rejected ones with why: the style guide) and `katey_bank/*.txt`,
+  ~2,300 lines, one per line, `situation | line`. Situations: the shot's step
+  (inner, ten, s95, s90, eight, seven, awful = 6 or worse; the steps of
+  engine/directions.json), moments (tens_streak, nine_run, drop_after_run,
+  flyer, `tip <direction>` = a real tip for a right-handed shooter after three
+  the same way), card_done (+ `card_done better` / `best today` / `not best`,
+  said only when true), series_done, new card please, halfway, last series,
+  match_done, session_end, sighter, penalties, diagnostic flags, and the
+  engine's lines (ready, card off, new card...). Placeholders {n} {total}
+  {shots} {avg} {best}. A new bank's review = a ~25-line sample (the shooter
+  doesn't skim the whole bank).
+- **What she says** (`PersonalityAnnouncer`, `PersonalityBank`): after a shot,
+  the SCORE AND DIRECTION as the standard announcer says them (ring only below
+  10; always right), then her line: the moment if there is one (Commentary's
+  rules + a bad shot after 5+ in the nine), else one for the shot's step; every
+  10 shots the card total her way (+ "new card please" in practice); flags in
+  diagnostic mode; penalties say why and "zero". The engine's SHOT announcement
+  is HELD until the shot event (else played after HOLD_S 4 s); engine lines hers
+  else standard; the RANGE OFFICER stays standard; chatty mode SKIPPED (she
+  covers it); session / match end hers, in line. Never the same line twice in a
+  session until a situation runs out (in process). Shorter pauses
+  (`GAPS` 0.3 / 0.15 s) and `supersede: "shot"` (a newer shot line drops an older
+  one still waiting), so she is never more than a line behind.
+- **Voice pieces are rendered ahead and IN GIT**: `PersonalityBank.pieces` =
+  every piece with numbers filled in (streaks in words, card totals 50-100,
+  shots 1-150, averages 5.0-10.9; 6,336 pieces) -> `bin/rails
+  voices:personality_list ID=katey` (writes public/voice-pieces/personality-katey.txt)
+  -> `speak.py export --personality katey --voice af_nicole`; a plain export
+  keeps them. A match's totals (hundreds) and the halfway total render on
+  first use (1-5 s, once).
+- **Web:** `Personality` (mirrors personalities/*.py, spec-checked; ready =
+  bank + voices here), `users.personality`, Settings > Announcer voice >
+  **Personalities** (None / Katey). `Voice.for` = the personality's voice; the
+  voice grid still shows the user's own. Specs check every situation exists,
+  the characters, the placeholders, no goal and nothing near suicide.
+- **Tried first and dropped (2026-11-14):** a small local language model (Llama
+  3.2 3B, LoRA, writing each line live). It mostly recombined its material, took
+  0.7-3 s a line, and anything it wrote went out unchecked by the shooter; the bank
+  is instant and every line can be vetoed. In git history (`talk.py`).
 
 ## Announcer voice: Kokoro (2026-11)
 

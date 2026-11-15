@@ -1,3 +1,2 @@
 kokoro-onnx
 soundfile
-mlx-lm==0.32.2   # announcer personalities: talk.py (Apple Silicon)

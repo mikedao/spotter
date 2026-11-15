@@ -16,6 +16,27 @@
 class PersonalityBank
   @used = Hash.new { |h, k| h[k] = Set.new }
   @lock = Mutex.new
+  ONES = %w[ zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen
+             sixteen seventeen eighteen nineteen ].freeze
+  TENS = %w[ _ _ twenty thirty forty fifty sixty seventy eighty ninety ].freeze
+
+  # 4 -> "four", 94 -> "ninety four" (a streak's count, as she says it).
+  def self.words(n)
+    n = n.to_i
+    return ONES[n] if n < 20
+    return TENS[n / 10] + (n % 10).then { it.zero? ? "" : " #{ONES[it]}" } if n < 100
+
+    "#{ONES[n / 100]} hundred" + (n % 100).then { it.zero? ? "" : " #{words(it)}" }
+  end
+
+  # The values a placeholder is filled with to render ahead (a streak's count in
+  # words, a card total 50-100, a session's shots and average). A match's totals
+  # (hundreds) are left to render on first use: too many, said once a match.
+  FILL = { "n" => (3..30).map { words(it) }, "total" => (50..100).map(&:to_s),
+           "best" => (50..100).map(&:to_s), "shots" => (1..150).map(&:to_s),
+           "avg" => (50..109).map { format("%.1f", it / 10.0) } }.freeze
+  LATER = %w[ halfway match_done ].freeze
+
   class << self
     attr_reader :used, :lock
 
@@ -33,6 +54,23 @@ class PersonalityBank
     end
 
     def reset! = (@lines = nil; lock.synchronize { used.clear })
+
+    # Every voice piece the bank can say, numbers filled in (FILL), to render
+    # ahead (`bin/rails voices:personality_list`).
+    def pieces(id)
+      lines(id).flat_map do |situation, list|
+        list.flat_map do |line|
+          Commentary.split(line).flatten.flat_map do |piece|
+            keys = piece.scan(/\{(\w+)\}/).flatten.uniq
+            next [ piece ] if keys.empty?
+            next [] if LATER.include?(situation) || piece.match?(/\A\{\w+\}\z/)   # a bare number: the standard set has it
+
+            keys.map { |k| FILL.fetch(k).map { [ k, it ] } }.reduce(&:product).map { Array(it).flatten.each_slice(2).to_h }
+                .map { |values| values.reduce(piece) { |t, (k, v)| t.gsub("{#{k}}", v) } }
+          end
+        end
+      end.uniq
+    end
   end
 
   def initialize(id, session, random: Random.new)

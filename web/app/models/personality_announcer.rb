@@ -120,7 +120,7 @@ class PersonalityAnnouncer
     def commentary = @commentary ||= Commentary.new(@session)
     def split(text) = Commentary.split(text.to_s)
     def number(v) = commentary.whole? ? v.to_i.to_s : format("%.1f", v)
-    def words(n) = PersonalityFacts.words(n)
+    def words(n) = PersonalityBank.words(n)
     def full_series(shots) = shots.each_slice(Commentary::SERIES).select { it.size == Commentary::SERIES }.map { |s| s.sum { commentary.value(it) } }
 
     # How good it was, in the bank's steps (the decimal, as engine/directions.json).

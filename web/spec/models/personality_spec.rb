@@ -1,8 +1,7 @@
 require "rails_helper"
 
-# Announcer personalities: the list (mirrors the engine), the facts a personality
-# is given (exactly as its model was trained), and the announcer that asks it and
-# falls back to the standard announcement.
+# Announcer personalities: the list (mirrors the engine), the bank of lines they
+# pick from, and the announcer that says them.
 RSpec.describe Personality do
   let(:voice_dir) { EngineRunner.engine_dir.join("voice") }
 
@@ -38,94 +37,6 @@ RSpec.describe Personality do
   end
 end
 
-RSpec.describe PersonalityFacts do
-  let(:user) { create(:user) }
-  let(:session) { create(:practice_session, user:, started_at: 30.minutes.ago, per_card: 10) }
-  let(:card) { create(:card, practice_session: session, number: 1) }
-
-  def fire(*decimals, at: [ 0.0, -3.0 ], **attrs)
-    decimals.map do |d|
-      n = (card.shots.maximum(:number) || 0) + 1
-      create(:shot, card:, number: n, ring: d.to_i, decimal_score: d, x_mm: at[0], y_mm: at[1],
-                    fired_at: session.started_at + n.minutes, **attrs)
-    end.last
-  end
-
-  # No extras (previous shot, time...): their chance never comes up.
-  def facts_for(shot, chance: 1.0) = described_class.new(session.reload, random: Random.new(1).tap { |r| def r.rand = 0.99 if chance == 1.0 }).for_shot(shot)
-  def parse(text) = text.lines.to_h { it.chomp.split(": ", 2) }
-
-  it "says numbers exactly as the model's training did (talk.py words / decimal_words)" do
-    nums = [ 0, 7, 13, 20, 42, 94, 100, 541, 600 ]
-    decs = [ 0.0, 5.9, 9.0, 9.6, 10.0, 10.9 ]
-    engine = begin
-      out, status = Open3.capture2(EngineRunner.python, "-c",
-                                   "import json, talk; print(json.dumps([[talk.words(n) for n in #{nums}], [talk.decimal_words(d) for d in #{decs}]]))",
-                                   chdir: EngineRunner.engine_dir.join("voice").to_s)
-      skip "engine Python not available" unless status.success?
-      JSON.parse(out)
-    end
-    expect([ nums.map { described_class.words(it) }, decs.map { described_class.decimal_words(it) } ]).to eq engine
-  end
-
-  it "uses only the facts, and the wording of them, the model was trained on" do
-    out, status = Open3.capture2(EngineRunner.python, "-c", <<~PY, chdir: EngineRunner.engine_dir.join("voice").to_s)
-      import json, random, talk
-      b = talk.Builder(talk.personality("katey"), random.Random(3))
-      keys, far = set(), set()
-      for _ in range(3000):
-          facts = b.example()["messages"][1]["content"]
-          for line in facts.splitlines():
-              k, v = line.split(": ", 1)
-              keys.add(k)
-              if k == "how far": far.add(v)
-      print(json.dumps([sorted(keys), sorted(far)]))
-    PY
-    skip "engine Python not available" unless status.success?
-    trained_keys, trained_far = JSON.parse(out)
-    fire(9.1, 9.4, 9.2, 9.5, 10.1, 10.2, 10.3, 9.9, 8.7)
-    shots = [ fire(6.4), fire(10.5, at: [ 0.0, 0.5 ], inner_ten: true) ]
-    texts = shots.map { facts_for(it, chance: 0.0) } + card.shots.map { described_class.new(session.reload, random: Random.new(it.id)).for_shot(it) }
-    texts.each do |text|
-      facts = parse(text)
-      expect(facts.keys - [ "event" ]).to all(be_in(trained_keys)), text
-      expect(trained_far).to include(facts["how far"])
-    end
-  end
-
-  it "gives the shot, the score and how far in words" do
-    facts = parse(facts_for(fire(9.6)))
-    expect(facts).to include("event" => "shot", "shot" => "one", "score" => "nine six",
-                             "how far" => "nine five to nine nine", "direction" => "low")
-    expect(parse(facts_for(fire(10.4, at: [ 0.0, 0.5 ], inner_ten: true)))).to include("how far" => "inner ten", "direction" => "center")
-  end
-
-  it "names the moment as chatty mode sees it: a streak, a bad shot after a run, the card total" do
-    fire(9.2, 10.1, 10.3)
-    expect(parse(facts_for(fire(10.2)))["moment"]).to eq "three tens in a row"
-    fire(9.1, at: [ 3.0, 0.0 ])
-    fire(9.3, at: [ -3.0, 0.0 ])                  # spread out: not three in a row on one side
-    expect(parse(facts_for(fire(7.2)))["moment"]).to eq "after six in a row in the nine or better"
-    last = fire(9.0, 9.0, 9.0)
-    expect(last.number).to eq 10
-    facts = parse(facts_for(last))
-    expect(facts).to include("card" => "done, total ninety one", "compared" => "first today", "new card" => "yes")
-  end
-
-  it "maps the engine's lines to hers, and leaves the range officer alone" do
-    f = described_class.new(session)
-    expect(f.for_engine_line([ [ "new card", "ready" ] ])).to eq "event: new card"
-    expect(f.for_engine_line([ [ "ready" ] ])).to eq "event: ready"
-    expect(f.for_engine_line([ [ "load" ] ])).to be_nil
-  end
-
-  it "sums up the session" do
-    fire(*Array.new(20) { 9.3 })
-    expect(parse(described_class.new(session.reload).for_session_end))
-      .to eq("event" => "session over", "shots" => "twenty", "average" => "nine oh", "best card" => "ninety")
-  end
-end
-
 RSpec.describe PersonalityBank do
   let(:session) { create(:practice_session) }
 
@@ -154,6 +65,13 @@ RSpec.describe PersonalityBank do
     bank = described_class.new("katey", session)
     expect(bank.pick("card_done", total: "87")).to include("87").and(satisfy { !it.include?("{") })
     20.times { expect(bank.pick("session_end", shots: 40, avg: "9.2")).not_to include("{best}") }
+  end
+
+  it "lists every piece it can say, numbers filled in, each one a valid voice piece (rendered ahead)" do
+    pieces = described_class.pieces("katey")
+    expect(pieces.size).to be > 5000
+    expect(pieces).to all(match(Voice.singleton_class.const_get(:PIECE)))
+    expect(pieces).to include("best card 71").and(satisfy { |ps| ps.none? { it.include?("{") } })
   end
 
   it "never repeats a line in a session until the situation runs out" do
