@@ -31,8 +31,19 @@ The repo has two halves:
 
 ## Quick start
 
-You need macOS (the rig is developed there) with Homebrew, Python 3.15,
-Ruby 4.0.9 (rbenv; `web/.ruby-version`) and Chrome for the browser specs.
+On a Mac or a Debian / Ubuntu Linux laptop, the installer sets up everything:
+
+```bash
+git clone https://github.com/mikedao/spotter.git ~/spotter && cd ~/spotter
+./install.sh
+```
+
+Then start it with **Start Spotter.command** (Mac, double-click) or
+`./start-spotter` (Linux). Building a rig? See
+[docs/building-a-rig.md](docs/building-a-rig.md).
+
+**By hand / for development:** Homebrew, Python 3.15, Ruby 4.0.9 (rbenv;
+`web/.ruby-version`) and Chrome for the browser specs.
 
 ```bash
 # engine
@@ -119,6 +130,9 @@ Settings. Every phrase is pre-rendered and in git, so it works with no setup.
   [Shotmetrix](https://github.com/shotmetrix/Shotmetrix-QRCode) QR code.
 
 ## The rig
+
+Building one? [docs/building-a-rig.md](docs/building-a-rig.md) goes step by step
+from parts to a passing camera check.
 
 - **Camera:** any webcam with a sharp 1080p picture (developed on a Razer Kiyo).
   It can sit **off to the side**, out of the line of fire (tested to 45 deg):

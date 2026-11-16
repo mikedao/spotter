@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Starts Spotter and opens it in the browser. Keep this window open while you
+# use Spotter; close it (or press Ctrl+C) to stop it.
+#
+# On a Mac, double-click "Start Spotter.command" instead: it runs this.
+
+ROOT=$(cd "$(dirname "$0")" && pwd)
+PORT=${PORT:-3000}
+URL="http://localhost:$PORT"
+LOG="$ROOT/web/log/spotter.log"
+
+finish() {
+  [ -t 0 ] && read -r -p "Press Return to close this window. "
+  exit "${1:-0}"
+}
+
+open_browser() {
+  if command -v open >/dev/null; then open "$1"; else xdg-open "$1" >/dev/null 2>&1 & fi
+}
+
+# Find rbenv: Homebrew's (Mac) or the installer's (Linux).
+for d in "$HOME/.rbenv/bin" /opt/homebrew/bin /usr/local/bin; do
+  [ -d "$d" ] && PATH="$d:$PATH"
+done
+if ! command -v rbenv >/dev/null || [ ! -x "$ROOT/engine/.venv/bin/python" ]; then
+  echo "Spotter isn't installed yet. In this folder, run:  ./install.sh"
+  finish 1
+fi
+eval "$(rbenv init - bash)"
+
+if curl -fsS -o /dev/null "$URL/up" 2>/dev/null; then
+  echo "Spotter is already running: opening $URL"
+  open_browser "$URL"
+  finish
+fi
+
+echo "Starting Spotter..."
+cd "$ROOT/web" || finish 1
+# The server alone, not bin/dev: its CSS watcher is for editing the code, and it
+# quits when started from a script (no keyboard), taking the server with it.
+bin/rails tailwindcss:build >"$LOG" 2>&1
+set -a; [ -f .env ] && . ./.env; set +a     # web/.env, as bin/dev reads it
+export PORT SPOTTER_LOG_TO_STDOUT=1
+bundle exec puma -C config/puma.rb >>"$LOG" 2>&1 &
+SERVER=$!
+
+# Stop a session still running first (as its Stop button does: a last check for
+# an unscored hole, then the session ends), else its engine would keep the camera.
+stop() {
+  [ "$1" = HUP ] && exec >>"$LOG" 2>&1   # the window is gone: nowhere to print
+  trap '' INT TERM HUP
+  echo
+  echo "Stopping Spotter..."
+  local pids pid
+  pids=$(env -u SPOTTER_LOG_TO_STDOUT bin/rails runner \
+    'PracticeSession.where(ended_at: nil).each { |s| puts s.engine_pid if EngineRunner.stop!(s) }' \
+    2>/dev/null | grep -E '^[0-9]+$')
+  for pid in $pids; do
+    echo "  ending the session in progress..."
+    for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+  done
+  kill -TERM "$SERVER" 2>/dev/null
+  wait "$SERVER" 2>/dev/null
+  echo "Stopped."
+  exit 0
+}
+trap 'stop INT' INT
+trap 'stop TERM' TERM
+trap 'stop HUP' HUP
+
+for _ in $(seq 1 90); do
+  curl -fsS -o /dev/null "$URL/up" 2>/dev/null && break
+  if ! kill -0 "$SERVER" 2>/dev/null; then
+    echo "Spotter didn't start. The last lines it printed:"
+    echo
+    tail -20 "$LOG"
+    finish 1
+  fi
+  sleep 1
+done
+
+open_browser "$URL"
+
+if [ "$(uname -s)" = Darwin ]; then
+  HOST="$(scutil --get LocalHostName 2>/dev/null || hostname -s).local"
+else
+  HOST="$(hostname).local"
+fi
+
+echo
+echo "  Spotter is running:  $URL"
+if grep -qs '^SPOTTER_BIND=0.0.0.0' "$ROOT/web/.env"; then
+  echo "  On a phone or tablet (same Wi-Fi):  http://$HOST:$PORT"
+  HTTPS_PORT=${SPOTTER_HTTPS_PORT:-3443}
+  [ -f "$ROOT/web/storage/tls/server.pem" ] && [ "$HTTPS_PORT" != 0 ] &&
+    echo "  ... with its microphone:            https://$HOST:$HTTPS_PORT"
+fi
+echo
+echo "  Keep this window open while you shoot."
+echo "  To stop Spotter, close this window or press Ctrl+C."
+echo "  (What it's doing: web/log/spotter.log)"
+
+wait "$SERVER"
+echo
+echo "Spotter stopped. The last lines it printed:"
+tail -10 "$LOG"
+finish
