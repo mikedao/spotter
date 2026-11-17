@@ -8,13 +8,20 @@
 #   engine "announce" (a line)    "ready", "card off"...: hers, else standard
 #   engine "shot"                 the score and direction (the standard pieces,
 #                                 always right), then her line: the moment (a
-#                                 streak, a flyer, a tip...) or how good it was;
-#                                 every 10 shots the card total her way
+#                                 streak, a flyer, a tip...) always; how good it
+#                                 was only now and then (PLAIN_RATE); every 10
+#                                 shots the card total her way
 #   session / match end           her summary (chatty mode's is skipped)
 #
 # PersonalityAnnouncer.inline = true runs everything in line (specs).
 class PersonalityAnnouncer
   HOLD_S = 4.0          # how long a shot's standard line waits for the shot event
+  # How often she remarks on a shot with no moment ("how good was that"): she
+  # said one after EVERY shot, ~95% of them plain; the shooter (2026-11-17):
+  # "much too chatty", 5%. Moments (~5% of shots), card totals and the score
+  # itself are unchanged. Never within PLAIN_GAP shots of her last remark.
+  PLAIN_RATE = 0.05
+  PLAIN_GAP = 3
   # Her lines are several short sentences: the standard 0.55 / 0.25 s pauses made a
   # long one 10-15 s, and shots 10 s apart got ahead of her (the demo, 2026-11-14).
   GAPS = { "sentence" => 0.3, "comma" => 0.15 }.freeze
@@ -30,9 +37,10 @@ class PersonalityAnnouncer
 
   class_attribute :inline, default: false
   @held = {}
+  @last_remark = {}     # session id -> shot n of her last remark (in process, like the bank's)
   @lock = Mutex.new
   class << self
-    attr_reader :held, :lock
+    attr_reader :held, :lock, :last_remark
   end
 
   # The announcer for this session, when its shooter chose a personality that can run here.
@@ -108,8 +116,11 @@ class PersonalityAnnouncer
 
     n = commentary.shots.index { it.id == shot.id }&.+(1)
     summary = n && (n % Commentary::SERIES).zero?
-    remark = (moment_line(shot, n) if n) || (@bank.pick(step(shot)) unless summary)
-    out += split(remark) if remark
+    remark = (moment_line(shot, n) if n) || (plain_remark(shot, n) unless summary)
+    if remark
+      self.class.lock.synchronize { self.class.last_remark[@session.id] = n } if n
+      out += split(remark)
+    end
     flag = flag_line(shot)
     out += split(flag) if flag
     out += summary_lines(shot, n) if summary
@@ -122,6 +133,16 @@ class PersonalityAnnouncer
     def number(v) = commentary.whole? ? v.to_i.to_s : format("%.1f", v)
     def words(n) = PersonalityBank.words(n)
     def full_series(shots) = shots.each_slice(Commentary::SERIES).select { it.size == Commentary::SERIES }.map { |s| s.sum { commentary.value(it) } }
+
+    # "How good was that", now and then: PLAIN_RATE, never within PLAIN_GAP shots
+    # of her last remark.
+    def plain_remark(shot, n)
+      last = self.class.lock.synchronize { self.class.last_remark[@session.id] }
+      return if n && last && n > last && n - last <= PLAIN_GAP
+      return unless @random.rand < PLAIN_RATE
+
+      @bank.pick(step(shot))
+    end
 
     # How good it was, in the bank's steps (the decimal, as engine/directions.json).
     def step(shot)

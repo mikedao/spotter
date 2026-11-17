@@ -154,7 +154,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --personality katey --voice af_nicole   # only new pieces render
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 326 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 327 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -701,7 +701,10 @@ goal, no pet names, no time of day.
 - **What she says** (`PersonalityAnnouncer`, `PersonalityBank`): after a shot,
   the SCORE AND DIRECTION as the standard announcer says them (ring only below
   10; always right), then her line: the moment if there is one (Commentary's
-  rules + a bad shot after 5+ in the nine), else one for the shot's step; every
+  rules + a bad shot after 5+ in the nine; ~5% of real shots), else one for the
+  shot's step only 5% of the time and never within 3 shots of her last remark
+  (`PLAIN_RATE` / `PLAIN_GAP`; the shooter, 2026-11-17: she spoke after EVERY
+  shot, "much too chatty"); every
   10 shots the card total her way (+ "new card please" in practice); flags in
   diagnostic mode; penalties say why and "zero". The engine's SHOT announcement
   is HELD until the shot event (else played after HOLD_S 4 s); engine lines hers

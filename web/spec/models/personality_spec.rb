@@ -106,6 +106,7 @@ RSpec.describe PersonalityAnnouncer do
   def from_bank?(text, situation) = bank[situation].any? { text.include?(Commentary.split(it).last.last) }
 
   it "holds the engine's score line and says the score, the direction and her line once the shot arrives" do
+    stub_const("PersonalityAnnouncer::PLAIN_RATE", 1.0)
     announcer = described_class.for(session)
     expect(announcer.announce!(engine_line)).to be true
     expect(@delivered).to be_empty
@@ -137,6 +138,20 @@ RSpec.describe PersonalityAnnouncer do
     expect(text).to start_with("10.2, ")
     expect(from_bank?(text, "tens_streak")).to be true
     expect(text).to include("three")
+  end
+
+  it "remarks on a shot with no moment only now and then, never right after her last remark" do
+    expect(described_class::PLAIN_RATE).to eq 0.05
+    described_class.last_remark.clear
+    shots = 9.times.map { |i| create(:shot, card:, number: i + 1, ring: 8, decimal_score: 8.4, x_mm: (-1)**i * 9.0, y_mm: 0.0, fired_at: Time.current + i) }
+    said = ->(rate) do
+      stub_const("PersonalityAnnouncer::PLAIN_RATE", rate)
+      announcer = described_class.new(session.reload, Personality.find("katey"))
+      shots.map { |s| announcer.shot_sentences(s).size > 1 }
+    end
+    expect(said.(0.0)).to all(be false)                       # just the score
+    described_class.last_remark.clear
+    expect(said.(1.0)).to eq [ true, false, false, false, true, false, false, false, true ]
   end
 
   it "says the card total her way after ten shots, and asks for a new card" do
