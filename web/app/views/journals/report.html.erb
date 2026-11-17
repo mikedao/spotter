@@ -54,6 +54,29 @@
                                            goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"), points: series)) %>
     </section>
   <% end %>
+
+  <section class="mb-6 break-inside-avoid">
+    <h2 class="font-semibold">Where your shots land</h2>
+    <p class="mb-1 text-xs <%= muted %>">Share of shots in each ring (X = inner ten).</p>
+    <%= render(RingSpreadComponent.new(rows: j.landing_rows, paper: true)) %>
+  </section>
+
+  <% if (by_number = j.series_by_number_points).size >= 2 %>
+    <section class="mb-6 break-inside-avoid">
+      <h2 class="font-semibold">Series through a session</h2>
+      <p class="mb-1 text-xs <%= muted %>">Each series number's worst, average and best across these sessions.</p>
+      <%= render(JournalChartComponent.new(kind: :range, label: "Worst, average and best score of each series number", max: 100, paper: true,
+                                           goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"), points: by_number)) %>
+    </section>
+  <% end %>
+
+  <% if j.miss_rows.any? %>
+    <section class="mb-6 break-inside-avoid">
+      <h2 class="font-semibold">Where the misses go</h2>
+      <p class="mb-1 text-xs <%= muted %>">Shots scoring 8 or worse, by direction from the centre.</p>
+      <%= render(MissRoseComponent.new(rows: j.miss_rows, paper: true)) %>
+    </section>
+  <% end %>
 <% end %>
 
 <% if j.summaries.any? %>

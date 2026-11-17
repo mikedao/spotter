@@ -42,6 +42,34 @@ class SessionSummary
   def best_series = series.max
   def mean_series = series.any? ? (series.sum.to_f / series.size).round(1) : nil
 
+  # Where the shots landed, by ring: "X" (inner ten), "10" (the rest of the ten),
+  # "9", "8", "7", "≤6" (a penalized shot scores 0, so it lands there).
+  LANDING = [ "X", "10", "9", "8", "7", "≤6" ].freeze
+
+  def landing
+    shots.zip(rings).each_with_object(LANDING.index_with(0)) do |(shot, ring), counts|
+      key = if ring == 10 then (shot.final_inner_ten? ? "X" : "10")
+      elsif ring >= 7 then ring.to_s
+      else "≤6"
+      end
+      counts[key] += 1
+    end
+  end
+
+  # The MISSES (an 8 or worse; penalized shots left out - their ring isn't where
+  # they went) by direction from the centre, TargetSpec::DIRECTIONS as the
+  # announcer says them.
+  MISS_BELOW = 9
+
+  def misses
+    shots.zip(rings).each_with_object(TargetSpec::DIRECTIONS.index_with(0)) do |(shot, ring), counts|
+      next if shot.penalized? || ring >= MISS_BELOW || !shot.final_x_mm
+
+      dir = TargetSpec.direction(shot.final_x_mm, shot.final_y_mm)
+      counts[dir] += 1 if counts.key?(dir)
+    end
+  end
+
   def tens = rings.count(10)
   def tens_per_60 = charted? ? (tens * 60.0 / count).round(1) : nil
   def inner_tens = shots.count { !it.penalized? && it.final_inner_ten? }

@@ -78,11 +78,35 @@
               points: j.series_points(link))) %>
       <% end %>
     <% end %>
+
+    <% by_number = j.series_by_number_points %>
+    <% if by_number.size >= 2 %>
+      <%= render(CardComponent.new(title: "Series through a session")) do %>
+        <p class="mb-2 text-sm <%= muted %>">Your 1st, 2nd, 3rd... 10-shot series across these sessions: worst to best, the dot the average. A slide to the right is fading over a session; a low first series is a cold start.</p>
+        <%= render(JournalChartComponent.new(
+              kind: :range, label: "Worst, average and best score of each series number", max: 100,
+              goal: j.series_goal, goal_label: (j.goal && "#{j.goal} pace\n#{j.series_goal}"), points: by_number)) %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% if charted.any? %>
+    <%= render(CardComponent.new(title: "Where your shots land")) do %>
+      <p class="mb-2 text-sm <%= muted %>">Share of shots in each ring (X = inner ten; your call wins, a shot out of time counts as 0). Compare the rows: progress is the blue moving left.</p>
+      <%= render(RingSpreadComponent.new(rows: j.landing_rows)) %>
+    <% end %>
+
+    <% if j.miss_rows.any? %>
+      <%= render(CardComponent.new(title: "Where the misses go")) do %>
+        <p class="mb-2 text-sm <%= muted %>">Shots scoring 8 or worse, by direction from the centre (each wedge is its share of the misses). A lean that stays the same way session after session is a habit, not bad luck.</p>
+        <%= render(MissRoseComponent.new(rows: j.miss_rows)) %>
+      <% end %>
+    <% end %>
   <% end %>
 
   <% if j.summaries.any? %>
     <%= render(CardComponent.new(title: "Sessions")) do %>
-      <div class="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
+      <div id="sessions" class="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
         <table class="w-full text-left text-sm tabular-nums">
           <thead class="<%= muted %>">
             <tr class="border-b border-gray-200 dark:border-gray-800">

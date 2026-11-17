@@ -154,7 +154,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --personality katey --voice af_nicole   # only new pieces render
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 327 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 330 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -608,7 +608,12 @@ from there). The user commits; don't commit unless asked.
   progress, not pass/fail): recent pace (last 5), to goal + closing vs the 5
   before, trend per month + forecast date (least squares; only after 8 sessions
   over 2 weeks; no forecast unless climbing), personal best (date first set),
-  worst recent series.
+  worst recent series. Below the charts (2026-11-17, also in the report):
+  "Series through a session" (each series NUMBER's worst/average/best across
+  sessions: fading or a cold start), "Where your shots land" (`RingSpreadComponent`:
+  share in X/10/9/8/7/<=6, last 5 sessions vs the 5 before vs all) and "Where the
+  misses go" (`MissRoseComponent`: shots of 8 or worse by the announcer's 8
+  directions, last 5 filled vs the 5 before dashed).
 - **Shotmetrix QR export** (2026-11-12): `/practice/:id/shotmetrix`, from the
   session page's Export card. Open format (github.com/shotmetrix/Shotmetrix-QRCode,
   Apache-2.0, no API key/registration): `ShotmetrixCode` is a port of their Python

@@ -109,6 +109,47 @@ class Journal
     out << [ "Worst series", worst_recent_series || "–", "last #{RECENT} sessions" ]
   end
 
+  # "Where your shots land" (RingSpreadComponent): the share of shots in each
+  # ring for the last RECENT sessions, the RECENT before them and all of them, so
+  # a shift toward the ten shows. Rows with no sessions are left out.
+  def landing_groups
+    groups = [ [ "Last #{plural([ charted.size, RECENT ].min, 'session')}", charted.last(RECENT) ],
+               [ "The #{RECENT} before", charted[0...-RECENT].to_a.last(RECENT) ] ]
+    groups << [ "All #{plural(charted.size, 'session')}", charted ] if charted.size > 2 * RECENT
+    groups.reject { it.last.empty? }
+  end
+
+  def landing_rows
+    landing_groups.map do |label, list|
+      counts = list.map(&:landing).reduce { |a, b| a.merge(b) { |_, x, y| x + y } }
+      { label:, shots: counts.values.sum, counts: }
+    end
+  end
+
+  # "Where the misses go" (MissRoseComponent): the same groups as landing_rows,
+  # each with its misses (8 or worse) by direction.
+  def miss_rows
+    landing_groups.filter_map do |label, list|
+      counts = list.map(&:misses).reduce { |a, b| a.merge(b) { |_, x, y| x + y } }
+      { label:, misses: counts.values.sum, counts: } if counts.values.sum.positive?
+    end
+  end
+
+  # Series by their number in the session (1st, 2nd...): worst, average and best
+  # across sessions - a match fading over 75 minutes, or a cold start, shows.
+  # Only series numbers that 2 or more sessions reached.
+  def series_by_number_points
+    by_number = charted.flat_map { it.series.each_with_index.map { |total, i| [ i, total ] } }.group_by(&:first)
+    by_number.sort.filter_map do |i, pairs|
+      totals = pairs.map(&:last)
+      next if totals.size < 2
+
+      mean = (totals.sum.to_f / totals.size).round(1)
+      { label: "Series #{i + 1}", y: mean, low: totals.min, high: totals.max,
+        title: "Series #{i + 1}: average #{mean} over #{plural(totals.size, 'session')} (worst #{totals.min}, best #{totals.max})" }
+    end
+  end
+
   # The charts' points (JournalChartComponent), each linking to its session.
   def score_points(href)
     charted.map do |s|

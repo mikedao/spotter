@@ -100,7 +100,7 @@ class JournalChartComponent < ApplicationComponent
       parts << tag.circle(cx:, cy: y(p[:y]), r: 4.5, fill: p[:filled] == false ? "var(--chart-surface)" : "currentColor",
                           stroke: "currentColor", "stroke-width": 2)
       parts << tag.circle(cx:, cy: y(p[:y]), r: 14, fill: "transparent") { tag.title(p[:title]) }
-      link_to(safe_join(parts), p[:href], "aria-label": p[:title])
+      p[:href] ? link_to(safe_join(parts), p[:href], "aria-label": p[:title]) : tag.g(safe_join(parts), "aria-label": p[:title])
     end
 
     # Dates under the axis: the first, the last, and evenly between (at most 6).

@@ -26,6 +26,8 @@ RSpec.describe "Journal" do
     expect(response.body).to include("540", "570", "90 90", "95 95")
     expect(response.body).to include("10 to go", "to 565")   # recent pace 555; nothing earlier to compare with
     expect(response.body).to include("Personal best", "after 6 more sessions")
+    expect(response.body).to include("Where your shots land", "Last 2 sessions", "40 shots", "25%", "75%")
+    expect(response.body).not_to include("Where the misses go")     # no 8 or worse yet
   end
 
   it "filters by kind, gun and exercise" do
@@ -35,7 +37,7 @@ RSpec.describe "Journal" do
     practice.update!(exercises: [ drill ])
     session_with([ 10 ] * 10, at: 1.day.ago, course: "match")
 
-    per_60 = -> { Nokogiri::HTML(response.body).css("tbody tr td:nth-child(3)").map(&:text) }
+    per_60 = -> { Nokogiri::HTML(response.body).css("#sessions tbody tr td:nth-child(3)").map(&:text) }
     get journal_path(kind: "match")
     expect(per_60.()).to eq(%w[ 600 ])
     get journal_path(gun: gun.id)

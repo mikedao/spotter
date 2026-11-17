@@ -46,4 +46,37 @@ RSpec.describe Journal do
     expect(j.trend_per_month).to be < 0
     expect(j.goal_forecast).to be_nil
   end
+
+  it "says where the shots land, last 5 sessions against the 5 before (inner tens as X, a penalty as 0)" do
+    sessions([ 540, 540, 540, 540, 540, 546, 546, 546, 546, 546 ])   # 0 tens, then 1 ten per card
+    Shot.where(ring: 10).first.update!(inner_ten: true)
+    Shot.where(ring: 9).last.update!(penalty: "out of time")
+    rows = described_class.new(user).landing_rows
+    expect(rows.map { it[:label] }).to eq [ "Last 5 sessions", "The 5 before" ]
+    expect(rows.map { it[:shots] }).to eq [ 50, 50 ]
+    expect(rows.first[:counts]).to eq("X" => 1, "10" => 4, "9" => 44, "8" => 0, "7" => 0, "≤6" => 1)
+    expect(rows.last[:counts]).to include("X" => 0, "10" => 0, "9" => 50)
+  end
+
+  it "says where the misses (8 or worse) go, by direction, latest first" do
+    sessions([ 540 ] * 6)                     # every shot a 9: no misses
+    expect(described_class.new(user).miss_rows).to eq []
+    Shot.order(:id).last(3).each { it.update!(ring: 8, x_mm: -9.0, y_mm: -9.0) }   # low left
+    Shot.order(:id).first.update!(ring: 7, x_mm: 0.0, y_mm: 20.0)                 # high, in the session before
+    rows = described_class.new(user).miss_rows
+    expect(rows.map { it[:label] }).to eq [ "Last 5 sessions", "The 5 before" ]
+    expect(rows.first).to include(misses: 3)
+    expect(rows.first[:counts]).to include("low left" => 3, "high" => 0)
+    expect(rows.last[:counts]).to include("high" => 1)
+  end
+
+  it "charts each series number across sessions (only numbers 2 sessions reached)" do
+    sessions([ 540, 546 ])                    # one 10-shot series each: 90, 91
+    s = create(:practice_session, user:, started_at: Time.zone.parse("2026-09-10 18:00"))
+    card = create(:card, practice_session: s)
+    20.times { |i| create(:shot, card:, ring: i < 10 ? 8 : 10, decimal_score: 9.0, fired_at: s.started_at + i.minutes) }
+    points = described_class.new(user).series_by_number_points
+    expect(points.map { it[:label] }).to eq [ "Series 1" ]       # series 2: only one session
+    expect(points.first).to include(y: 87.0, low: 80, high: 91)
+  end
 end
