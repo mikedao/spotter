@@ -154,7 +154,7 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --personality katey --voice af_nicole   # only new pieces render
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 297 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 326 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
@@ -236,8 +236,21 @@ fixed LINE CALL margin). Stages: dataset + baseline (DONE) -> model (DONE) ->
 SHADOW mode (DONE: reported beside the rules, rules still score) -> promote only
 once it beats the rules on held-out SESSIONS, judged on the live shadow numbers.
 
-- **After every session** (the shooter reviews every shot, ~60 labels a batch;
-  a call with NO tap = "accepted", the engine's call was right):
+- **After every session** the shooter calls only the shots WORTH A LOOK (2026-11-17:
+  "going through every single shot is a lot"): the rules' flags (line call, ring
+  uncertain, overlap) and any shot whose live model ring differs from the rules'
+  (the shot page says so WITHOUT naming the model's ring - the call must be the
+  shooter's own). `ShotReview`'s "Save and next" walks only those; the save that
+  finishes them ACCEPTS every other uncalled shot (call = the rules' ring, no tap,
+  i.e. kind "accepted") so the session still exports ~60 labels. Those shots
+  are BLIND calls (`ShotReview#blind?`, until called): no estimate circles on the
+  close-ups, no score / ring / "How it was scored", no ring pre-selected (a ring
+  is required); the save's notice then reveals "You called 8; the engine scored
+  9.4 (ring 9), the model ring 8". Why: 7 of the rules' 9 live "wins" were
+  flagged line calls saved unchanged - an anchored call gives the tie to
+  whatever was shown. Unflagged shots
+  are no longer looked at, so an unflagged wrong ring now becomes a wrong label:
+  watch the model page's "wrong rings it did NOT flag". Then:
   **`cd web && bin/rails ml:update`** - ONE terminal command (the shooter's choice,
   2026-11-13: a web button was built and removed): refuses while a session runs,
   lists sessions with shots not yet called (left out, not wrong), exports, prints
@@ -419,8 +432,8 @@ from there). The user commits; don't commit unless asked.
   events go through `PracticeSession#show_status!`, which never overwrites
   `stopping` (a shot found by the final check would read "Ready"); only
   `session_ended` (or `reconcile!`) ends it. Verified in Chrome.
-- **Reviewing shots walks the whole SESSION** (`ShotReview`): every scored shot,
-  cards in order. "Save and next" = next shot WITHOUT a call after this one,
+- **Reviewing shots walks the whole SESSION** (`ShotReview`): since 2026-11-17 only
+  the flagged / model-disagrees shots (see "Learned scoring model"), cards in order. "Save and next" = next shot WITHOUT a call after this one,
   wrapping to the start (it used to go forward on the same card only, so opening
   shot 5 never visited 1-4 or later cards); the save completing the review goes
   back to the session; if all were already called, it steps on in order.

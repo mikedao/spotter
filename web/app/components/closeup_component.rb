@@ -7,10 +7,12 @@
 class CloseupComponent < ApplicationComponent
   COLOURS = { scored: "#2563eb", centroid: "#ec4899", circle_fit: "#16a34a", call: "#f59e0b" }.freeze
 
-  def initialize(shot:, which: :after, tappable: false)
+  # `estimates: false` draws only the shooter's own call (a blind call, ShotReview#blind?).
+  def initialize(shot:, which: :after, tappable: false, estimates: true)
     @shot = shot
     @which = which
     @tappable = tappable
+    @estimates = estimates
     meta = (shot.estimates || {})["closeup"] || {}
     @cx, @cy = meta["centre"] || [ shot.x_mm.to_f, shot.y_mm.to_f ]
     @ppm = meta["px_per_mm"].to_f
@@ -27,6 +29,8 @@ class CloseupComponent < ApplicationComponent
   def pellet_r_px = TargetSpec::PELLET_MM / 2.0 * @ppm
 
   def marks
+    return [] unless @estimates
+
     est = @shot.estimates || {}
     list = []
     list << [ :centroid, *est["centroid"] ] if est["centroid"]

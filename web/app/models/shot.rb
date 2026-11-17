@@ -40,6 +40,12 @@ class Shot < ApplicationRecord
   def called? = called_at.present?
   def flagged? = line_call || ambiguous || overlap
 
+  # The learned model (in shadow) put this shot in a different ring than the rules.
+  def model_disagrees?
+    model_ring = estimates&.dig("model", "ring")
+    !model_ring.nil? && !ring.nil? && model_ring != ring
+  end
+
   def flags
     [ ("line call" if line_call), ("ring uncertain" if ambiguous), ("overlaps a hole" if overlap) ].compact
   end

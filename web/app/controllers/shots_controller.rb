@@ -9,11 +9,20 @@ class ShotsController < ApplicationController
   end
 
   def update
-    following = ShotReview.new(@shot).after_save   # decided before this call is saved
+    review = ShotReview.new(@shot)
+    blind = review.blind?
+    if blind && call_params[:ring].blank?
+      return redirect_to(shot_path(@shot), alert: "Pick the ring you see first.")
+    end
+
+    following = review.after_save   # decided before this call is saved
     @shot.record_call!(**call_params.to_h.symbolize_keys)
+    accepted = following ? 0 : review.accept_rest!
     LiveBroadcast.new(@shot.practice_session).call
-    redirect_to(following ? shot_path(following) : practice_session_path(@shot.practice_session),
-                notice: "Call saved for card #{@shot.card.number}, shot #{@shot.number}.")
+    notice = "Call saved for card #{@shot.card.number}, shot #{@shot.number}."
+    notice += " #{reveal(@shot)}" if blind
+    notice += " #{accepted} unflagged #{'shot'.pluralize(accepted)} accepted as scored." if accepted.positive?
+    redirect_to(following ? shot_path(following) : practice_session_path(@shot.practice_session), notice:)
   rescue ActiveRecord::RecordInvalid => e
     redirect_to shot_path(@shot), alert: e.record.errors.full_messages.to_sentence
   end
@@ -68,6 +77,14 @@ class ShotsController < ApplicationController
       @shot = Shot.joins(card: :practice_session)
                   .where(practice_sessions: { user_id: Current.user.id })
                   .includes(card: :practice_session).find(params[:id])
+    end
+
+    # After a blind call: what the engine (and the model) made of it.
+    def reveal(shot)
+      text = "You called #{shot.call_ring}; the engine scored #{format('%.1f', shot.decimal_score)} (ring #{shot.ring})"
+      model_ring = shot.estimates&.dig("model", "ring")
+      text += model_ring ? ", the model ring #{model_ring}." : "."
+      text
     end
 
     def call_params

@@ -26,7 +26,7 @@
     <% end %>
     <span class="text-gray-600 dark:text-gray-300">
       Shot <%= @review.position %> of <%= @review.count %> this session ·
-      <%= @review.left.zero? ? "every other shot has a call" : "#{pluralize(@review.left, 'other shot')} still without a call" %>
+      <%= @review.left.zero? ? "no other flagged shot left to call" : "#{pluralize(@review.left, 'other flagged shot')} still to call" %>
     </span>
     <% if (nxt = @review.following) %>
       <%= link_to "Card #{nxt.card.number}, shot #{nxt.number} →", shot_path(nxt), class: "#{link} ml-auto" %>
@@ -57,25 +57,37 @@
       <% end %>
     <% end %>
   <% else %>
+    <% blind = @review.blind? %>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <%= render(CardComponent.new(title: "Close-ups")) do %>
+        <% if blind %>
+        <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+          Tap where the pellet went through (then drag or use the arrow keys). <strong>A blind call:</strong> what the engine
+          and the model made of it shows once you've saved yours.
+        </p>
+        <% else %>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
           Drag the amber circle (or tap) to where the pellet went through; arrow keys nudge it. <span style="color:#2563eb">Blue</span> was scored,
           <span style="color:#ec4899">pink</span> is the region's center, <span style="color:#16a34a">green</span> the circle fit,
           <span style="color:#b45309">amber</span> your call.
         </p>
+        <% end %>
         <div class="grid gap-3 sm:grid-cols-2">
-          <%= render(CloseupComponent.new(shot: @shot, which: :before)) %>
-          <%= render(CloseupComponent.new(shot: @shot, which: :after, tappable: true)) %>
+          <%= render(CloseupComponent.new(shot: @shot, which: :before, estimates: !blind)) %>
+          <%= render(CloseupComponent.new(shot: @shot, which: :after, tappable: true, estimates: !blind)) %>
         </div>
       <% end %>
 
       <div class="space-y-4">
         <%= render(CardComponent.new(title: "Your call")) do %>
           <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+            <% unless blind %>
             Scored <strong class="text-base text-gray-900 tabular-nums dark:text-gray-100"><%= format("%.1f", @shot.decimal_score) %></strong>
             · ring <%= @shot.ring %> · <%= @shot.direction %>
+            <% end %>
             <% if @shot.flags.any? %><span class="block font-medium text-red-700 dark:text-red-300">Flagged: <%= @shot.flags.to_sentence %></span><% end %>
+            <%# The model's ring is NOT shown: the call must be the shooter's own, it decides engine vs model. %>
+            <% if @shot.model_disagrees? && !@shot.flagged? %><span class="block font-medium text-red-700 dark:text-red-300">Flagged: the engine and the scoring model read different rings.</span><% end %>
           </p>
           <%= form_with model: @shot, url: shot_path(@shot), method: :patch, class: "space-y-4" do |f| %>
             <fieldset>
@@ -83,7 +95,7 @@
               <div class="flex flex-wrap gap-2">
                 <% 10.downto(0) do |n| %>
                   <label class="cursor-pointer">
-                    <%= f.radio_button :ring, n, checked: (@shot.call_ring || @shot.ring) == n, class: "peer sr-only", data: { shot_call_target: "ring" } %>
+                    <%= f.radio_button :ring, n, checked: !blind && (@shot.call_ring || @shot.ring) == n, required: blind, class: "peer sr-only", data: { shot_call_target: "ring" } %>
                     <span class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-300 px-3 font-semibold peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white dark:border-gray-700"><%= n %></span>
                   </label>
                 <% end %>
@@ -111,6 +123,7 @@
           <% end %>
         <% end %>
 
+        <% unless blind %>
         <%= render(CardComponent.new(title: "How it was scored")) do %>
           <dl class="grid grid-cols-2 gap-2 text-sm">
             <dt class="text-gray-600 dark:text-gray-300">Score</dt><dd class="tabular-nums"><%= format("%.1f", @shot.decimal_score) %> · ring <%= @shot.ring %> · <%= @shot.rule %> rule</dd>
@@ -124,6 +137,7 @@
               <dt class="text-gray-600 dark:text-gray-300">Ring fit</dt><dd class="tabular-nums"><%= (@shot.geometry || {})["ring_rms_mm"]&.round(3) %> mm</dd>
             <% end %>
           </dl>
+        <% end %>
         <% end %>
       </div>
     </div>
