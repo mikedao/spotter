@@ -46,13 +46,30 @@ class SessionSummary
   # "9", "8", "7", "≤6" (a penalized shot scores 0, so it lands there).
   LANDING = [ "X", "10", "9", "8", "7", "≤6" ].freeze
 
+  def self.landing_key(shot, ring)
+    if ring == 10 then (shot.final_inner_ten? ? "X" : "10")
+    elsif ring >= 7 then ring.to_s
+    else "≤6"
+    end
+  end
+
   def landing
-    shots.zip(rings).each_with_object(LANDING.index_with(0)) do |(shot, ring), counts|
-      key = if ring == 10 then (shot.final_inner_ten? ? "X" : "10")
-      elsif ring >= 7 then ring.to_s
-      else "≤6"
-      end
-      counts[key] += 1
+    shots.zip(rings).each_with_object(LANDING.index_with(0)) { |(shot, ring), counts| counts[self.class.landing_key(shot, ring)] += 1 }
+  end
+
+  # Seconds since the shot before, with where it landed: [ [ 22.4, "9" ], ... ].
+  # Only between two shots on the SAME card (a card change is 96 s or more), and
+  # only up to MAX_GAP_S (a pause or a break); penalized shots left out (their
+  # time is the range officer's). A shot found by the camera is timed when SEEN,
+  # ~1-2 s late, so a gap is good to a couple of seconds.
+  MAX_GAP_S = 90
+
+  def rhythm
+    shots.each_cons(2).filter_map do |before, shot|
+      next if shot.penalized? || before.card_id != shot.card_id
+
+      gap = shot.fired_at - before.fired_at
+      [ gap.round(1), self.class.landing_key(shot, shot.final_ring.to_i) ] if gap.between?(0, MAX_GAP_S)
     end
   end
 
@@ -79,6 +96,16 @@ class SessionSummary
   def group_mm
     sizes = session.cards.filter_map { |card| CardStats.new(card.shots.select { it.scored? && !it.sighter? }, session.target_spec).group_size_mm }
     sizes.any? ? (sizes.sum / sizes.size).round(1) : nil
+  end
+
+  # Where the group sits: the mean of every shot's position (mm, y up), and in
+  # words ("4.2 mm low left"), for the group chart's hover.
+  def group_centre
+    pts = shots.filter_map { [ it.final_x_mm, it.final_y_mm ] if it.final_x_mm && it.final_y_mm }
+    return if pts.empty?
+
+    x, y = pts.sum(&:first) / pts.size, pts.sum(&:last) / pts.size
+    "#{Math.hypot(x, y).round(1)} mm #{TargetSpec.direction(x, y)}".sub(" mm center", " mm, centred")
   end
 
   def decimal_average = count.positive? ? (shots.sum { it.penalized? ? 0 : it.final_decimal.to_f } / count).round(2) : nil

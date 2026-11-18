@@ -150,6 +150,37 @@ class Journal
     end
   end
 
+  # "Your rhythm" (RingSpreadComponent, a row per speed): where shots landed by
+  # the time since the shot before (SessionSummary#rhythm), across these sessions.
+  RHYTHM = [ [ "Under 20 s", 0...20 ], [ "20–25 s", 20...25 ], [ "25–30 s", 25...30 ],
+             [ "30–45 s", 30...45 ], [ "45–90 s", 45..SessionSummary::MAX_GAP_S ] ].freeze
+
+  def rhythm = @rhythm ||= charted.flat_map(&:rhythm)
+
+  def rhythm_median
+    gaps = rhythm.map(&:first).sort
+    gaps.any? ? gaps[gaps.size / 2].round : nil
+  end
+
+  def rhythm_rows
+    RHYTHM.filter_map do |label, range|
+      keys = rhythm.select { range.cover?(it.first) }.map(&:last)
+      next if keys.empty?
+
+      { label:, shots: keys.size, counts: SessionSummary::LANDING.index_with { |k| keys.count(k) } }
+    end
+  end
+
+  # "Group size" (JournalChartComponent :line): each session's mean card group.
+  def group_points(href)
+    charted.filter_map do |s|
+      next unless (mm = s.group_mm)
+
+      { label: s.started_at.strftime("%b %-d"), y: mm, filled: s.kind != "practice", href: href.(s.session),
+        title: "#{s.started_at.strftime('%b %-d')} · #{KINDS[s.kind]} · group #{mm} mm, its centre #{s.group_centre} · #{s.per_60} per 60" }
+    end
+  end
+
   # The charts' points (JournalChartComponent), each linking to its session.
   def score_points(href)
     charted.map do |s|

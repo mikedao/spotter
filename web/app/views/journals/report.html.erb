@@ -70,6 +70,22 @@
     </section>
   <% end %>
 
+  <% if (groups = j.group_points(link)).size >= 2 %>
+    <section class="mb-6 break-inside-avoid">
+      <h2 class="font-semibold">Group size</h2>
+      <p class="mb-1 text-xs <%= muted %>">Each session's group in mm, centre to centre (the mean of its cards); lower is tighter.</p>
+      <%= render(JournalChartComponent.new(kind: :line, label: "Group size by session, in millimetres", max: 200, paper: true, points: groups)) %>
+    </section>
+  <% end %>
+
+  <% if j.rhythm_rows.size >= 2 %>
+    <section class="mb-6 break-inside-avoid">
+      <h2 class="font-semibold">Your rhythm</h2>
+      <p class="mb-1 text-xs <%= muted %>">Where shots landed by the time since the shot before (same card, up to <%= SessionSummary::MAX_GAP_S %> s); usually <%= j.rhythm_median %> s.</p>
+      <%= render(RingSpreadComponent.new(rows: j.rhythm_rows, paper: true)) %>
+    </section>
+  <% end %>
+
   <% if j.miss_rows.any? %>
     <section class="mb-6 break-inside-avoid">
       <h2 class="font-semibold">Where the misses go</h2>

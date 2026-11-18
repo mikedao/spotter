@@ -79,4 +79,30 @@ RSpec.describe Journal do
     expect(points.map { it[:label] }).to eq [ "Series 1" ]       # series 2: only one session
     expect(points.first).to include(y: 87.0, low: 80, high: 91)
   end
+
+  it "times each shot from the one before on the same card, leaving out card changes and pauses" do
+    s = create(:practice_session, user:, started_at: Time.zone.parse("2026-09-10 18:00"))
+    card1, card2 = create(:card, practice_session: s, number: 1), create(:card, practice_session: s, number: 2)
+    t = s.started_at
+    # card 1: 10 shots 22 s apart, then a 5-minute pause, one more
+    10.times { |i| create(:shot, card: card1, ring: 9, decimal_score: 9.2, fired_at: t + (i * 22).seconds) }
+    create(:shot, card: card1, ring: 6, decimal_score: 6.1, fired_at: t + 198.seconds + 5.minutes)
+    # card 2: two minutes later (the card change), then 15 s
+    create(:shot, card: card2, ring: 10, decimal_score: 10.1, fired_at: t + 198.seconds + 7.minutes)
+    create(:shot, card: card2, ring: 7, decimal_score: 7.1, fired_at: t + 213.seconds + 7.minutes)
+    j = described_class.new(user)
+    expect(j.rhythm.map(&:first)).to eq([ 22.0 ] * 9 + [ 15.0 ])
+    expect(j.rhythm_median).to eq 22
+    expect(j.rhythm_rows.map { [ it[:label], it[:shots] ] }).to eq [ [ "Under 20 s", 1 ], [ "20–25 s", 9 ] ]
+    expect(j.rhythm_rows.first[:counts]).to include("7" => 1)
+  end
+
+  it "charts each session's group size, with where its centre was" do
+    sessions([ 540, 540 ])
+    Shot.order(:id).each_with_index { |shot, i| shot.update!(x_mm: (i % 2) * 10.0 - 5.0, y_mm: -3.0) }   # 10 mm wide, 3 mm low
+    points = described_class.new(user).group_points(->(_) { "/x" })
+    expect(points.size).to eq 2
+    expect(points.first[:y]).to eq 10.0
+    expect(points.first[:title]).to include("group 10.0 mm, its centre 3.0 mm low")
+  end
 end
