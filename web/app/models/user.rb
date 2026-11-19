@@ -10,6 +10,7 @@ class User < ApplicationRecord
   has_many :guns, dependent: :destroy        # after the sessions that point at them
   has_many :pellets, dependent: :destroy
   has_many :exercises, dependent: :destroy
+  has_one :plan_enrollment, dependent: :destroy   # the training plan, once started
 
   normalizes :username, with: ->(u) { u.strip.downcase }
   normalizes :email_address, with: ->(e) { e.strip.downcase }

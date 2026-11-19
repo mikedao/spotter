@@ -122,6 +122,8 @@ Settings. Every phrase is pre-rendered and in git, so it works with no setup.
 - **Journal** (`/journal`): score per 60 shots against a goal (default 565, the
   air pistol trials benchmark), 10-shot series, trend and forecast, personal
   bests, filtered by gun, pellets, exercise or period.
+- **Training plan** (`/plan`): a 12-week air pistol + Bullseye cross-training programme.
+  Today's workout, a page per day, and a Start button that tags the session for your journal.
 - **Gear and diary:** guns, pellets per lot, what you changed on the gun that
   day, exercises, problems, fixes and lessons per session.
 - **Reports:** session and journal reports, ready to save as PDF from the

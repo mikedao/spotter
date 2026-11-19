@@ -6,6 +6,7 @@ class PracticeSession < ApplicationRecord
   belongs_to :pellet, optional: true
   has_many :session_exercises, dependent: :destroy   # the diary's exercise tags
   has_many :exercises, through: :session_exercises
+  has_many :plan_workouts, dependent: :nullify   # the training plan day it was started for
   has_secure_token :run_token   # the engine's events must present it (Api::EventsController)
   has_many :cards, -> { order(:number) }, dependent: :destroy, inverse_of: :practice_session
   has_many :shots, through: :cards

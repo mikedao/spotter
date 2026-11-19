@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_14_200320) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -80,6 +80,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_200320) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_pellets_on_user_id"
+  end
+
+  create_table "plan_enrollments", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.date "started_on", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_plan_enrollments_on_user_id", unique: true
+  end
+
+  create_table "plan_workouts", force: :cascade do |t|
+    t.integer "plan_enrollment_id", null: false
+    t.integer "week", null: false
+    t.integer "day", null: false
+    t.integer "practice_session_id"
+    t.datetime "completed_at"
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["plan_enrollment_id", "week", "day"], name: "index_plan_workouts_on_plan_enrollment_id_and_week_and_day", unique: true
+    t.index ["plan_enrollment_id"], name: "index_plan_workouts_on_plan_enrollment_id"
+    t.index ["practice_session_id"], name: "index_plan_workouts_on_practice_session_id"
   end
 
   create_table "practice_sessions", force: :cascade do |t|
@@ -205,6 +227,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_200320) do
   add_foreign_key "exercises", "users"
   add_foreign_key "guns", "users"
   add_foreign_key "pellets", "users"
+  add_foreign_key "plan_enrollments", "users"
+  add_foreign_key "plan_workouts", "plan_enrollments"
+  add_foreign_key "plan_workouts", "practice_sessions"
   add_foreign_key "practice_sessions", "guns"
   add_foreign_key "practice_sessions", "pellets"
   add_foreign_key "practice_sessions", "users"

@@ -682,6 +682,24 @@ from there). The user commits; don't commit unless asked.
   penalized = grey struck 0. Mic check: verdict + Next above the sounds, newest 5
   shown, the rest in a `<details>`.
 
+- **Training plan** (2026-11-19, the shooter's ask: cross-train the Pardini SP, Bullseye, with the FWB 65
+  air pistol, an hour a day, followed from inside the app). `/plan`, menu "Training plan". The plan is
+  DATA: `web/config/training_plan.yml` (4 phases x 7 day templates, per-week focus + `volume`, `overrides`
+  per "WEEK-DAY"), loaded by `TrainingPlan` (12 weeks x 7 days: six workouts + a rest-or-range day). Shot
+  counts scale with the week's volume, in fives. Kinds: `air` (a Spotter session), `dry` (Pardini dry
+  fire - the FWB 65 is NEVER dry-fired, a spring piston slams without a pellet; a spec checks the dry-fire
+  text never mentions it), `rest`. Per user: `PlanEnrollment` (the start date; the plan day follows from
+  it, so a missed day stays undone - nothing is rescheduled) and `PlanWorkout` (made on first touch:
+  linked session, note, `completed_at`). Progress counts workout days, not rest days. "Start the
+  session" on an air day POSTs `setup_path` with `plan_day=W-D`; `SessionSetupController#create` keeps it
+  in the cookie session (and CLEARS it when the wizard is started from Practice), and
+  `PracticeSessionsController#create` calls `PlanEnrollment#link_session!` after the engine starts: the
+  session is linked to the day and tagged with the day's exercises (`Exercise` found by name, case-
+  insensitive, so the Journal's exercise filter works on them). Today's day also shows on Practice
+  (`PlanTodayComponent`). Not built: a block timer, auto-ticking a day when its session ends, plan
+  targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
+  requests/training_plan, system/training_plan.
+
 Not built yet: see "Where we left off" for the agreed order.
 
 ## Announcer personalities: Katey (2026-11-14)

@@ -45,6 +45,11 @@ Rails.application.routes.draw do
     get :plot, on: :member        # ...in a panel over the live range screen
   end
 
+  # The training plan: a 12-week programme (TrainingPlan), one page per day.
+  resource :training_plan, only: %i[ show create destroy ], path: "plan"
+  get "plan/:week/:day", to: "plan_workouts#show", as: :plan_workout, constraints: { week: /\d+/, day: /\d+/ }
+  patch "plan/:week/:day", to: "plan_workouts#update", constraints: { week: /\d+/, day: /\d+/ }
+
   # The learned scoring model: how its training is going (ModelProgress).
   resource :scoring_model, only: :show, path: "model"
 

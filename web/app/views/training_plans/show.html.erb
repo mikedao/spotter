@@ -1,0 +1,113 @@
+<% content_for :title, "Training plan" %>
+
+<h1 class="mb-4 text-2xl font-semibold">Training plan</h1>
+
+<% if @enrollment.nil? %>
+  <div class="space-y-4">
+    <%= render(CardComponent.new(title: TrainingPlan.name)) do %>
+      <p class="text-gray-700 dark:text-gray-200"><%= TrainingPlan.summary %></p>
+      <ul class="mt-3 space-y-2">
+        <% TrainingPlan.weeks.map(&:phase).uniq.each do |phase| %>
+          <li>
+            <span class="font-medium"><%= phase.name %></span>
+            <span class="text-sm text-gray-600 dark:text-gray-300">· weeks <%= phase.weeks.begin %>-<%= phase.weeks.end %></span>
+            <span class="block text-gray-600 dark:text-gray-300"><%= phase.summary %></span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <%= render(CardComponent.new(title: "Start the plan")) do %>
+      <%= form_with url: training_plan_path, method: :post, class: "flex flex-wrap items-end gap-4" do %>
+        <div class="space-y-1">
+          <%= label_tag :started_on, "First day", class: "block text-sm font-medium" %>
+          <%= date_field_tag :started_on, Time.zone.today, class: "#{TextFieldComponent::INPUT} w-auto" %>
+        </div>
+        <%= render(ButtonComponent.new(type: :submit, size: :lg)) { "Start the plan" } %>
+      <% end %>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        Day 1 is the first day, and each week is seven days. A day you miss stays on the list to catch up.
+      </p>
+    <% end %>
+  </div>
+<% else %>
+  <% week_now, = @enrollment.position %>
+  <% missed = @enrollment.missed %>
+  <div class="space-y-4">
+    <%= render(PlanTodayComponent.new(enrollment: @enrollment)) %>
+
+    <%= render(CardComponent.new(title: "Progress")) do %>
+      <p class="tabular-nums">
+        <strong><%= @enrollment.done_count %></strong> of <%= @enrollment.workout_count %> workouts done
+        <span class="text-sm text-gray-600 dark:text-gray-300">· started <%= plan_date(@enrollment.started_on) %></span>
+      </p>
+      <div class="mt-2 h-2 overflow-hidden rounded bg-gray-200 dark:bg-gray-800" role="progressbar" aria-label="Workouts done"
+           aria-valuemin="0" aria-valuemax="<%= @enrollment.workout_count %>" aria-valuenow="<%= @enrollment.done_count %>">
+        <div class="h-full bg-blue-600" style="width: <%= (100.0 * @enrollment.done_count / @enrollment.workout_count).round %>%"></div>
+      </div>
+      <% if missed.any? %>
+        <details class="mt-3">
+          <summary class="cursor-pointer text-sm text-amber-800 dark:text-amber-300"><%= pluralize(missed.size, "earlier workout") %> not done yet</summary>
+          <ul class="mt-2 space-y-1">
+            <% missed.each do |day| %>
+              <li>
+                <%= link_to plan_workout_path(day.week, day.day), class: "text-blue-700 underline dark:text-blue-300" do %>
+                  Week <%= day.week %> · <%= plan_date(@enrollment.scheduled_on(day.week, day.day)) %> · <%= day.title %>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </details>
+      <% end %>
+    <% end %>
+
+    <% TrainingPlan.weeks.each do |week| %>
+      <% done = week.days.count { !it.rest? && @enrollment.done?(it.week, it.day) } %>
+      <% total = week.days.count { !it.rest? } %>
+      <%= render(CardComponent.new(padding: :none)) do %>
+        <details <%= "open" if week.number == week_now %>>
+          <summary class="flex min-h-11 cursor-pointer flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+            <span class="font-medium">
+              Week <%= week.number %> · <%= week.phase.name %>
+              <% if week.light? %><span class="ml-1 rounded bg-gray-100 px-2 py-0.5 text-sm font-normal text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter</span><% end %>
+              <span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= week.focus %></span>
+            </span>
+            <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300"><%= done %> / <%= total %></span>
+          </summary>
+          <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+            <% week.days.each do |day| %>
+              <% date = @enrollment.scheduled_on(day.week, day.day) %>
+              <% finished = @enrollment.done?(day.week, day.day) %>
+              <li>
+                <%= link_to plan_workout_path(day.week, day.day),
+                      class: class_names("flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800",
+                                         "bg-blue-50 dark:bg-blue-950/40" => date == Time.zone.today) do %>
+                  <span>
+                    <span class="inline-block w-24 text-sm text-gray-600 dark:text-gray-300"><%= plan_date(date) %></span>
+                    <%= day.title %>
+                  </span>
+                  <span class="flex items-center gap-2">
+                    <%= plan_kind_badge(day) %>
+                    <% if finished %>
+                      <span class="text-sm text-green-800 dark:text-green-300">✓ done</span>
+                    <% elsif date == Time.zone.today %>
+                      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">today</span>
+                    <% elsif date < Time.zone.today && !day.rest? %>
+                      <span class="text-sm text-amber-800 dark:text-amber-300">not done</span>
+                    <% end %>
+                  </span>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </details>
+      <% end %>
+    <% end %>
+
+    <div>
+      <%= button_to "Leave the plan", training_plan_path, method: :delete,
+            form: { data: { turbo_confirm: "Leave the plan? The days you ticked off are forgotten; your sessions stay." } },
+            class: "min-h-11 cursor-pointer rounded-md px-3 text-sm text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-300" %>
+    </div>
+  </div>
+<% end %>

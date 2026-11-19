@@ -20,6 +20,7 @@ class SessionSetupController < ApplicationController
 
   # New session: look for cameras and microphones, then step 1.
   def create
+    remember_plan_day
     RigCheck.stop_for!(Current.user)
     CameraProbe.run!
     redirect_to setup_camera_path
@@ -158,6 +159,15 @@ class SessionSetupController < ApplicationController
   end
 
   private
+    # Started from a day of the training plan: Start links the session to it.
+    def remember_plan_day
+      if Current.user.plan_enrollment && TrainingPlan.parse(params[:plan_day])
+        session[:plan_day] = params[:plan_day]
+      else
+        session.delete(:plan_day)
+      end
+    end
+
     def target = session[:setup_target].presence_in(TargetSpec::SPECS.keys) || "pistol"
 
     # A sound check that heard a shot that would trigger: kept for next time.

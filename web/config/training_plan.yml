@@ -1,0 +1,291 @@
+# The 12-week cross-training plan: 10 m air pistol (FWB 65) and Bullseye (Pardini SP).
+# Read by TrainingPlan; edit freely - spec/models/training_plan_spec.rb checks the shape.
+#
+#   phases[].days    seven day templates, shared by every week of that phase
+#   weeks            a focus line and a volume (1.0 = as written; shot counts scale with it)
+#   overrides        "WEEK-DAY" => fields that replace the template for that one day
+#   kind             air = a Spotter session (tagged with `tags`), dry = Pardini dry fire, rest
+#   block shots      the base count at volume 1.0 (rounded to 5)
+#
+# Rules of thumb behind it: one pre-shot routine for every shot; call every shot before you
+# see it; never dry-fire the FWB 65 (a spring piston slams without a pellet) - dry fire is
+# the Pardini's job, magazine out, chamber checked, snap cap in.
+
+name: "Air pistol + Bullseye, 12 weeks"
+summary: >-
+  Six training days and one rest-or-range day a week, about an hour each. Air pistol days
+  run in Spotter and are tagged for your journal; dry-fire days train the Pardini.
+
+weeks:
+  1: { focus: "Learn the routine and shoot a baseline", volume: 0.8 }
+  2: { focus: "Same routine, steadier holds", volume: 1.0 }
+  3: { focus: "Trigger and follow-through", volume: 1.0 }
+  4: { focus: "Lighter week: let the routine settle", volume: 0.7 }
+  5: { focus: "Hold time and let-downs", volume: 1.0 }
+  6: { focus: "Match pace, tighter groups", volume: 1.1 }
+  7: { focus: "Find and fix your biggest miss", volume: 1.1 }
+  8: { focus: "Lighter week: consolidate", volume: 0.7 }
+  9: { focus: "Pressure and cold starts", volume: 1.0 }
+  10: { focus: "First full matches", volume: 1.1 }
+  11: { focus: "Sharpen, trim the volume", volume: 0.8 }
+  12: { focus: "Taper and test", volume: 0.6 }
+
+phases:
+  - key: foundation
+    name: Foundation
+    weeks: [1, 3]
+    summary: One routine, one baseline. Judge groups and calls, not scores.
+    days:
+      - title: "Routine and groups"
+        kind: air
+        focus: "Build the pre-shot routine and watch the group, not the score."
+        tags: ["Pre-shot routine", "Groups"]
+        blocks:
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet." }
+          - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Judge the group size and where it sits." }
+          - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right." }
+          - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
+      - title: "Hold and trigger (Pardini)"
+        kind: dry
+        focus: "See the sights at the break. Teach the trigger finger to work alone."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Dry-fire the Pardini only." }
+          - { name: "Hold drills", minutes: 10, detail: "Ten holds of 8 seconds, no trigger press. Lower if it falls apart." }
+          - { name: "Slow dry fire", minutes: 25, shots: 30, detail: "Raise, settle, press. Call where the sights were at the break. In 10-shot strings, resting between." }
+          - { name: "Timed sequence", minutes: 15, detail: "From low ready, 5 shots in 20 seconds. Four strings, smooth not fast." }
+          - { name: "Notes", minutes: 5, detail: "Which shots felt good? What was the common thread?" }
+      - title: "Trigger and follow-through"
+        kind: air
+        focus: "Press straight back and nothing else moves. Keep the picture after the break."
+        tags: ["Trigger control", "Follow-through"]
+        blocks:
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups. Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise." }
+          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first." }
+          - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
+      - title: "Calling shots"
+        kind: air
+        focus: "Know where every shot went before you look."
+        tags: ["Calling shots"]
+        blocks:
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Called series", minutes: 40, shots: 40, detail: "In 10-shot series. Say ring and direction before the screen shows it. The stat that matters is how often you were right, not the score." }
+          - { name: "Blind review", minutes: 10, detail: "Review the flagged shots and make your calls blind. Your call is the training data." }
+      - title: "Timed and rapid (Pardini)"
+        kind: dry
+        focus: "Rhythm for the 25 yard stages: sights back on target, same press every time."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds." }
+          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds, from low ready on a beep." }
+          - { name: "Rapid fire", minutes: 15, detail: "Six strings of 5 shots in 10 seconds. Sights must be back on target for every shot, even when it is fast." }
+          - { name: "Slow dry fire", minutes: 10, shots: 10, detail: "Finish with ten unhurried shots." }
+          - { name: "Notes", minutes: 5, detail: "Where did the rhythm break down?" }
+      - title: "Baseline: 40-shot session"
+        kind: air
+        focus: "A baseline to measure the plan against. Change nothing mid-way."
+        tags: ["Match simulation"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, then five sighters." }
+          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings. Shoot as you would in a match." }
+          - { name: "Diary", minutes: 10, detail: "Write the score, your worst series and the first thing that went wrong." }
+      - title: "Range day or rest"
+        kind: rest
+        focus: "A free day. If you shoot Bullseye, use it to see what carries over."
+        blocks:
+          - { name: "At the range", minutes: 0, detail: "Shoot Bullseye as you normally do and call every shot before you score it. Note where your routine slipped." }
+          - { name: "Otherwise", minutes: 0, detail: "Rest. Five minutes in the journal: is the trend moving the right way?" }
+
+  - key: consistency
+    name: Consistency
+    weeks: [4, 7]
+    summary: Shrink the group and tighten the timing.
+    days:
+      - title: "Let-down discipline"
+        kind: air
+        focus: "If the shot has not broken in 8 seconds, lower the arm and start again."
+        tags: ["Hold time", "Let-downs"]
+        blocks:
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Eight-second strings", minutes: 40, shots: 40, detail: "10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds." }
+          - { name: "Diary", minutes: 10, detail: "Write how many let-downs you needed and when the hold was best." }
+      - title: "Hold and trigger (Pardini)"
+        kind: dry
+        focus: "Only shots that pass the test count: settled, straight press, sights still on at the break."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Long holds", minutes: 10, detail: "Ten holds of 10 seconds, no trigger press." }
+          - { name: "Pass or let down", minutes: 35, shots: 40, detail: "10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count." }
+          - { name: "Timed fire", minutes: 10, detail: "Four strings of 5 shots in 20 seconds." }
+      - title: "Series at match pace"
+        kind: air
+        focus: "One shot every 75 seconds, the same routine from the first to the last."
+        tags: ["Match pace", "Series"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
+          - { name: "Match-pace series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each, on a clock. Score every series. Aim for the worst series within 3 points of your best." }
+          - { name: "Diary", minutes: 10, detail: "Which series was worst, and what was different?" }
+      - title: "Fix your biggest miss"
+        kind: air
+        focus: "Pick the one direction that costs you most and work on its cause."
+        tags: ["Fault finding"]
+        blocks:
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Find it", minutes: 5, detail: "Journal, Where the misses go: pick the direction with the most misses. For a right-hander low often means anticipation or dropping the head, left or right means finger position or grip pressure, high means rushing or the heel of the hand pushing. Left-handers mirror." }
+          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it." }
+          - { name: "Diary", minutes: 10, detail: "Write what you changed and whether the group moved." }
+      - title: "Timed, rapid, transitions (Pardini)"
+        kind: dry
+        focus: "Bring the air pistol's calm to the 25 yard stages."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds." }
+          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds. Call each shot." }
+          - { name: "Rapid fire", minutes: 20, detail: "Eight strings of 5 shots in 10 seconds." }
+          - { name: "Slow dry fire", minutes: 5, shots: 10, detail: "Ten unhurried shots to finish." }
+          - { name: "Notes", minutes: 5, detail: "Which string was best, and what was different about it?" }
+      - title: "Half match and series review"
+        kind: air
+        focus: "A scored half match, then find where it fades."
+        tags: ["Match simulation", "Series"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, five sighters." }
+          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings." }
+          - { name: "Series review", minutes: 10, detail: "Journal, Series through a session: does one series number fade or start cold?" }
+      - title: "Range day or rest"
+        kind: rest
+        focus: "A free day."
+        blocks:
+          - { name: "At the range", minutes: 0, detail: "Shoot Bullseye and call every shot first. Slow fire is where the air pistol work shows." }
+          - { name: "Otherwise", minutes: 0, detail: "Rest, or ten minutes with the journal's trend and group size." }
+
+  - key: pressure
+    name: Pressure
+    weeks: [8, 10]
+    summary: Practice the match, not just the shots.
+    days:
+      - title: "Match pace, strict"
+        kind: air
+        focus: "The clock is real. Shots out of time do not count."
+        tags: ["Match pace", "Series"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
+          - { name: "Strict series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each by the clock. Out of time scores zero." }
+          - { name: "Diary", minutes: 10, detail: "Write what happened when the clock got short." }
+      - title: "Bullseye stage run (Pardini)"
+        kind: dry
+        focus: "A full Bullseye run, dry: slow, timed and rapid in order."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds." }
+          - { name: "Full run, twice", minutes: 40, detail: "Each run: 10 slow shots, 10 timed (2 x 5 in 20 seconds), 10 rapid (2 x 5 in 10 seconds). Call every shot good or bad. A run with a bad call you could have prevented gets repeated." }
+          - { name: "Notes", minutes: 10, detail: "Which stage held up? Which broke?" }
+      - title: "Make-it series"
+        kind: air
+        focus: "A target you have to hit. A miss means starting the series again."
+        tags: ["Pressure"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
+          - { name: "Make-it", minutes: 40, shots: 40, detail: "5-shot series. Set the target to your recent 5-shot average plus one ring. Miss it and the series starts again. Stop after 40 minutes and count your attempts." }
+          - { name: "Diary", minutes: 10, detail: "How did your routine change when it counted?" }
+      - title: "Cold starts"
+        kind: air
+        focus: "The first shot has to be as good as the sixtieth."
+        tags: ["Cold starts"]
+        blocks:
+          - { name: "Rest between", minutes: 10, detail: "No warm-up and no sighters: this is the point." }
+          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts." }
+          - { name: "Diary", minutes: 10, detail: "How much worse was shot one than shot five?" }
+      - title: "Rhythm and stakes (Pardini)"
+        kind: dry
+        focus: "Keep the routine with something at stake."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds." }
+          - { name: "Clean runs", minutes: 40, detail: "Dry Bullseye stages: 10 slow, 10 timed, 10 rapid. Every shot must be called good, or the run starts over. Add a distraction: a ticking metronome or a person walking by." }
+          - { name: "Notes", minutes: 10, detail: "How many tries did a clean run take?" }
+      - title: "Full match"
+        kind: air
+        focus: "60 shots against the range officer. This is the long day."
+        tags: ["Match simulation", "Full match"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills. The 15-minute sighting is in the match." }
+          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match in Spotter: sighting 15 minutes, then 60 shots in 75 minutes. Do not stop to fix anything." }
+          - { name: "Diary", minutes: 10, detail: "Score, worst series, how the last 10 shots went." }
+      - title: "Range day or rest"
+        kind: rest
+        focus: "A free day."
+        blocks:
+          - { name: "At the range", minutes: 0, detail: "Shoot Bullseye. Use the same routine as the air pistol and call each shot." }
+          - { name: "Otherwise", minutes: 0, detail: "Rest." }
+
+  - key: test
+    name: Test and taper
+    weeks: [11, 12]
+    summary: Trim volume, sharpen, and measure what changed.
+    days:
+      - title: "Sharpen: groups at match pace"
+        kind: air
+        focus: "Short and crisp. Quality over volume."
+        tags: ["Groups", "Match pace"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
+          - { name: "Groups", minutes: 35, shots: 30, detail: "5-shot groups at match pace, each shot called." }
+          - { name: "Diary", minutes: 10, detail: "One thing to keep for the test." }
+      - title: "Slow fire (Pardini)"
+        kind: dry
+        focus: "Light slow-fire work with the routine you have built."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Slow dry fire", minutes: 30, shots: 30, detail: "Ten-shot strings, resting between. Raise, settle, press, call." }
+          - { name: "Notes", minutes: 5, detail: "How does the hold feel compared with week 1?" }
+      - title: "Make-it series"
+        kind: air
+        focus: "One last round of pressure, kept short."
+        tags: ["Pressure"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
+          - { name: "Make-it", minutes: 30, shots: 30, detail: "5-shot series. Hit your target or restart. Stop after 30 minutes." }
+          - { name: "Diary", minutes: 10, detail: "What did you do when the pressure came?" }
+      - title: "Cold starts"
+        kind: air
+        focus: "Practice the first shot again, lighter."
+        tags: ["Cold starts"]
+        blocks:
+          - { name: "Rest between", minutes: 5, detail: "No warm-up." }
+          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold." }
+          - { name: "Diary", minutes: 5, detail: "Shot one against shot five." }
+      - title: "Timed and rapid (Pardini)"
+        kind: dry
+        focus: "Light and smooth."
+        blocks:
+          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
+          - { name: "Timed and rapid", minutes: 30, detail: "Four strings of 5 in 20 seconds, then four of 5 in 10 seconds. Call each." }
+          - { name: "Notes", minutes: 5, detail: "Anything to carry into Bullseye." }
+      - title: "Full match"
+        kind: air
+        focus: "Another full match in Spotter."
+        tags: ["Match simulation", "Full match"]
+        blocks:
+          - { name: "Warm-up", minutes: 10, detail: "Hold drills." }
+          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match: 15 minutes sighting, 60 shots in 75 minutes." }
+          - { name: "Diary", minutes: 10, detail: "Score, worst series, how it compares with last week." }
+      - title: "Rest"
+        kind: rest
+        focus: "A free day before the final week."
+        blocks:
+          - { name: "Rest", minutes: 0, detail: "Keep the gun in its case." }
+
+overrides:
+  "12-6":
+    title: "Test match"
+    focus: "The test. Compare it with the week 1 baseline, series by series."
+    blocks:
+      - { name: "Warm-up", minutes: 10, detail: "Hold drills, sighters in the match." }
+      - { name: "Match", minutes: 90, shots: 60, detail: "Match in Spotter: 15 minutes sighting, 60 shots in 75 minutes. Give yourself the same conditions as the baseline." }
+      - { name: "Compare", minutes: 10, detail: "Journal: this match against week 1, and the worst series then and now." }
+  "12-7":
+    title: "Bullseye benchmark"
+    focus: "See what the plan did for the Pardini."
+    blocks:
+      - { name: "At the range", minutes: 0, detail: "Shoot the Bullseye you shot before week 1 and compare the score. If you can't get to the range, rest: the plan is done." }

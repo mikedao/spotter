@@ -2,6 +2,10 @@
 
 <h1 class="mb-4 text-2xl font-semibold">Practice</h1>
 
+<% if Current.user.plan_enrollment %>
+  <div class="mb-4"><%= render(PlanTodayComponent.new(enrollment: Current.user.plan_enrollment)) %></div>
+<% end %>
+
 <div class="mb-4"><%= render(StartSessionComponent.new(running: @running, user: Current.user)) %></div>
 
 <% if @sessions.empty? %>

@@ -1,0 +1,80 @@
+<% content_for :title, "Week #{@day.week} · #{@day.title}" %>
+<% date = @enrollment.scheduled_on(@day.week, @day.day) %>
+<% done = @workout&.done? %>
+
+<p class="mb-1 text-sm"><%= link_to "← Training plan", training_plan_path, class: "text-blue-700 underline dark:text-blue-300" %></p>
+<h1 class="text-2xl font-semibold"><%= @day.title %></h1>
+<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+  <%= plan_kind_badge(@day) %>
+  Week <%= @day.week %> · Day <%= @day.day %> · <%= plan_date(date) %> · <%= @day.phase.name %><% if plan_minutes(@day) %> · <%= plan_minutes(@day) %><% end %>
+  <% if @day.light %><span class="rounded bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter week</span><% end %>
+  <% if done %><span class="rounded bg-green-100 px-2 py-0.5 text-green-900 dark:bg-green-950 dark:text-green-200">done</span><% end %>
+</p>
+
+<div class="mt-4 space-y-4">
+  <%= render(CardComponent.new) do %>
+    <p class="text-lg"><%= @day.focus %></p>
+  <% end %>
+
+  <%= render(CardComponent.new(title: "The workout")) do %>
+    <ol class="space-y-4">
+      <% @day.blocks.each do |block| %>
+        <li>
+          <p class="flex flex-wrap items-baseline gap-x-3">
+            <span class="font-medium"><%= block.name %></span>
+            <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300">
+              <%= [ ("#{block.minutes} min" if block.minutes.positive?), ("#{block.shots} shots" if block.shots) ].compact.join(" · ") %>
+            </span>
+          </p>
+          <p class="text-gray-700 dark:text-gray-200"><%= block.detail %></p>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+
+  <% if @day.air? %>
+    <%= render(CardComponent.new(title: "Shoot it in Spotter")) do %>
+      <% if @running %>
+        <p class="text-gray-700 dark:text-gray-200">
+          <% if @running.user == current_user %>
+            Your session is running. <%= link_to "Go to the range screen", practice_session_path(@running), class: "text-blue-700 underline dark:text-blue-300" %>
+          <% else %>
+            <%= @running.user.name %> is shooting. One session at a time on this rig.
+          <% end %>
+        </p>
+      <% else %>
+        <div class="flex flex-wrap items-center gap-4">
+          <%= render(ButtonComponent.new(href: setup_path, method: :post, size: :lg, params: { plan_day: @day.ref },
+                                         form: { data: { turbo_submits_with: "Looking for cameras…" } })) { "Start the session" } %>
+          <span class="text-sm text-gray-600 dark:text-gray-300">
+            Opens the usual setup, then tags the session
+            <%= @day.tags.to_sentence %><% if @day.tags.empty? %>with nothing<% end %>.
+          </span>
+        </div>
+      <% end %>
+      <% if @workout&.practice_session %>
+        <p class="mt-3 text-sm text-gray-700 dark:text-gray-200">
+          Session for this day:
+          <%= link_to @workout.practice_session.title, practice_session_path(@workout.practice_session), class: "text-blue-700 underline dark:text-blue-300" %>
+        </p>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <%= render(CardComponent.new(title: done ? "Done" : "How did it go?")) do %>
+    <%= form_with url: plan_workout_path(@day.week, @day.day), method: :patch, class: "space-y-3" do %>
+      <%= label_tag :note, "Note", class: "sr-only" %>
+      <%= text_area_tag :note, @workout&.note, rows: 3, class: TextFieldComponent::INPUT,
+            placeholder: "A line for yourself: what worked, what didn't" %>
+      <div class="flex flex-wrap gap-3">
+        <% if done %>
+          <%= render(ButtonComponent.new(type: :submit, name: "done", value: "1")) { "Save the note" } %>
+          <%= render(ButtonComponent.new(type: :submit, name: "done", value: "0", variant: :secondary)) { "Not done after all" } %>
+          <span class="self-center text-sm text-gray-600 dark:text-gray-300">Finished <%= @workout.completed_at.strftime("%b %-d, %H:%M") %></span>
+        <% else %>
+          <%= render(ButtonComponent.new(type: :submit, name: "done", value: "1")) { "Mark done" } %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
