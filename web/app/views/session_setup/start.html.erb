@@ -3,6 +3,19 @@
 <h1 class="mb-1 text-2xl font-semibold">New session</h1>
 <%= render(WizardStepsComponent.new(current: :start)) %>
 
+<% if @plan %>
+  <% spec = @plan.block.session %>
+  <div class="mb-4"><%= render(CardComponent.new(title: "From your plan")) do %>
+    <p class="font-medium"><%= @plan.title %><% if @plan.block.shots %> <span class="font-normal text-gray-600 dark:text-gray-300">· <%= @plan.block.shots %> shots</span><% end %></p>
+    <p class="mt-1 text-gray-700 dark:text-gray-200"><%= @plan.block.detail %></p>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      Set below: <%= spec.course == "match" ? "a match" : "practice" %>, <%= spec.per_card %> shots a card.
+      <% if spec.tags.any? %>The session is tagged <%= spec.tags.to_sentence %>.<% end %>
+      Change anything you like.
+    </p>
+  <% end %></div>
+<% end %>
+
 <%= render(CardComponent.new(title: "Ready")) do %>
   <% passed = "text-green-700 dark:text-green-300" %>
   <% skipped = "text-amber-700 dark:text-amber-300" %>
@@ -50,7 +63,7 @@
         <% ([ [ "", "Practice", "No clock; every shot counts. Change cards whenever you like." ] ] +
             Course::ALL.values.map { [ it.key, it.name, it.description ] }).each do |key, name, about| %>
           <label class="flex cursor-pointer gap-3 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
-            <%= f.radio_button :course, key, checked: key == "", class: "mt-1 accent-blue-600" %>
+            <%= f.radio_button :course, key, checked: key == (@plan&.block&.session&.course.to_s), class: "mt-1 accent-blue-600" %>
             <span><span class="block font-medium"><%= name %></span><span class="text-sm text-gray-600 dark:text-gray-300"><%= about %></span></span>
           </label>
         <% end %>
@@ -61,7 +74,7 @@
     </fieldset>
     <div>
       <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
-      <%= f.number_field :per_card, value: 10, min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+      <%= f.number_field :per_card, value: (@plan&.block&.session&.per_card || 10), min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
     </div>
   <% end %>
 

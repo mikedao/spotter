@@ -26,6 +26,9 @@
     <%= render(SessionStatusComponent.new(session: @session, part: :error)) %>
   </div>
 
+  <%# What the training plan set for this session, if it was started from a plan block. %>
+  <%= render(PlanBlockComponent.new(session: @session)) %>
+
   <%# Target (sized by the window's height) and a right column capped at 32rem,
       centred together: on a wide screen the spare width becomes even margins
       rather than a stretched column. %>

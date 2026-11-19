@@ -4,9 +4,12 @@
 #   phases[].days    seven day templates, shared by every week of that phase
 #   weeks            a focus line and a volume (1.0 = as written; shot counts scale with it)
 #   overrides        "WEEK-DAY" => fields that replace the template for that one day
-#   kind             air = a Spotter session (tagged with `tags`), dry = Pardini dry fire, rest
+#   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire, rest
 #   block shots      the base count at volume 1.0 (rounded to 5)
 #   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
+#   block session    { per_card, course?, tags } on an air pistol shooting block (one with shots): the day page
+#                    starts its OWN Spotter session, preloaded with these and the block's instructions;
+#                    a day's tags are its blocks' tags together
 #
 # Rules of thumb behind it: one pre-shot routine for every shot; call every shot before you
 # see it; never dry-fire the FWB 65 (a spring piston slams without a pellet) - dry fire is
@@ -40,11 +43,10 @@ phases:
       - title: "Routine and groups"
         kind: air
         focus: "Build the pre-shot routine and watch the group, not the score."
-        tags: ["Pre-shot routine", "Groups"]
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet.", drill: { reps: 10, hold: 8 } }
-          - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Judge the group size and where it sits." }
-          - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right." }
+          - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Judge the group size and where it sits.", session: { per_card: 5, tags: ["Groups"] } }
+          - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right.", session: { per_card: 10, tags: ["Calling shots"] } }
           - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
       - title: "Hold and trigger (Pardini)"
         kind: dry
@@ -58,19 +60,17 @@ phases:
       - title: "Trigger and follow-through"
         kind: air
         focus: "Press straight back and nothing else moves. Keep the picture after the break."
-        tags: ["Trigger control", "Follow-through"]
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups. Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise." }
-          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first." }
+          - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups. Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 5, tags: ["Trigger control", "Follow-through"] } }
+          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 5, tags: ["Follow-through"] } }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
       - title: "Calling shots"
         kind: air
         focus: "Know where every shot went before you look."
-        tags: ["Calling shots"]
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Called series", minutes: 40, shots: 40, detail: "In 10-shot series. Say ring and direction before the screen shows it. The stat that matters is how often you were right, not the score." }
+          - { name: "Called series", minutes: 40, shots: 40, detail: "In 10-shot series. Say ring and direction before the screen shows it. The stat that matters is how often you were right, not the score.", session: { per_card: 10, tags: ["Calling shots"] } }
           - { name: "Blind review", minutes: 10, detail: "Review the flagged shots and make your calls blind. Your call is the training data." }
       - title: "Timed and rapid (Pardini)"
         kind: dry
@@ -85,10 +85,9 @@ phases:
       - title: "Baseline: 40-shot session"
         kind: air
         focus: "A baseline to measure the plan against. Change nothing mid-way."
-        tags: ["Match simulation"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, then five sighters." }
-          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings. Shoot as you would in a match." }
+          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings. Shoot as you would in a match.", session: { per_card: 10, tags: ["Match simulation"] } }
           - { name: "Diary", minutes: 10, detail: "Write the score, your worst series and the first thing that went wrong." }
       - title: "Range day or rest"
         kind: rest
@@ -105,10 +104,9 @@ phases:
       - title: "Let-down discipline"
         kind: air
         focus: "If the shot has not broken in 8 seconds, lower the arm and start again."
-        tags: ["Hold time", "Let-downs"]
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Eight-second strings", minutes: 40, shots: 40, detail: "10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds." }
+          - { name: "Eight-second strings", minutes: 40, shots: 40, detail: "10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds.", session: { per_card: 10, tags: ["Hold time", "Let-downs"] } }
           - { name: "Diary", minutes: 10, detail: "Write how many let-downs you needed and when the hold was best." }
       - title: "Hold and trigger (Pardini)"
         kind: dry
@@ -121,19 +119,17 @@ phases:
       - title: "Series at match pace"
         kind: air
         focus: "One shot every 75 seconds, the same routine from the first to the last."
-        tags: ["Match pace", "Series"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Match-pace series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each, on a clock. Score every series. Aim for the worst series within 3 points of your best." }
+          - { name: "Match-pace series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each, on a clock. Score every series. Aim for the worst series within 3 points of your best.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
           - { name: "Diary", minutes: 10, detail: "Which series was worst, and what was different?" }
       - title: "Fix your biggest miss"
         kind: air
         focus: "Pick the one direction that costs you most and work on its cause."
-        tags: ["Fault finding"]
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Find it", minutes: 5, detail: "Journal, Where the misses go: pick the direction with the most misses. For a right-hander low often means anticipation or dropping the head, left or right means finger position or grip pressure, high means rushing or the heel of the hand pushing. Left-handers mirror." }
-          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it." }
+          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it.", session: { per_card: 5, tags: ["Fault finding"] } }
           - { name: "Diary", minutes: 10, detail: "Write what you changed and whether the group moved." }
       - title: "Timed, rapid, transitions (Pardini)"
         kind: dry
@@ -148,10 +144,9 @@ phases:
       - title: "Half match and series review"
         kind: air
         focus: "A scored half match, then find where it fades."
-        tags: ["Match simulation", "Series"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, five sighters." }
-          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings." }
+          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings.", session: { per_card: 10, tags: ["Match simulation"] } }
           - { name: "Series review", minutes: 10, detail: "Journal, Series through a session: does one series number fade or start cold?" }
       - title: "Range day or rest"
         kind: rest
@@ -168,10 +163,9 @@ phases:
       - title: "Match pace, strict"
         kind: air
         focus: "The clock is real. Shots out of time do not count."
-        tags: ["Match pace", "Series"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Strict series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each by the clock. Out of time scores zero." }
+          - { name: "Strict series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each by the clock. Out of time scores zero.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
           - { name: "Diary", minutes: 10, detail: "Write what happened when the clock got short." }
       - title: "Bullseye stage run (Pardini)"
         kind: dry
@@ -184,18 +178,16 @@ phases:
       - title: "Make-it series"
         kind: air
         focus: "A target you have to hit. A miss means starting the series again."
-        tags: ["Pressure"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Make-it", minutes: 40, shots: 40, detail: "5-shot series. Set the target to your recent 5-shot average plus one ring. Miss it and the series starts again. Stop after 40 minutes and count your attempts." }
+          - { name: "Make-it", minutes: 40, shots: 40, detail: "5-shot series. Set the target to your recent 5-shot average plus one ring. Miss it and the series starts again. Stop after 40 minutes and count your attempts.", session: { per_card: 5, tags: ["Pressure"] } }
           - { name: "Diary", minutes: 10, detail: "How did your routine change when it counted?" }
       - title: "Cold starts"
         kind: air
         focus: "The first shot has to be as good as the sixtieth."
-        tags: ["Cold starts"]
         blocks:
           - { name: "Rest between", minutes: 10, detail: "No warm-up and no sighters: this is the point." }
-          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts." }
+          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts.", session: { per_card: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 10, detail: "How much worse was shot one than shot five?" }
       - title: "Rhythm and stakes (Pardini)"
         kind: dry
@@ -208,10 +200,9 @@ phases:
       - title: "Full match"
         kind: air
         focus: "60 shots against the range officer. This is the long day."
-        tags: ["Match simulation", "Full match"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills. The 15-minute sighting is in the match." }
-          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match in Spotter: sighting 15 minutes, then 60 shots in 75 minutes. Do not stop to fix anything." }
+          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match in Spotter: sighting 15 minutes, then 60 shots in 75 minutes. Do not stop to fix anything.", session: { per_card: 10, course: match, tags: ["Match simulation", "Full match"] } }
           - { name: "Diary", minutes: 10, detail: "Score, worst series, how the last 10 shots went." }
       - title: "Range day or rest"
         kind: rest
@@ -228,10 +219,9 @@ phases:
       - title: "Sharpen: groups at match pace"
         kind: air
         focus: "Short and crisp. Quality over volume."
-        tags: ["Groups", "Match pace"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Groups", minutes: 35, shots: 30, detail: "5-shot groups at match pace, each shot called." }
+          - { name: "Groups", minutes: 35, shots: 30, detail: "5-shot groups at match pace, each shot called.", session: { per_card: 5, tags: ["Groups", "Match pace"] } }
           - { name: "Diary", minutes: 10, detail: "One thing to keep for the test." }
       - title: "Slow fire (Pardini)"
         kind: dry
@@ -243,18 +233,16 @@ phases:
       - title: "Make-it series"
         kind: air
         focus: "One last round of pressure, kept short."
-        tags: ["Pressure"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Make-it", minutes: 30, shots: 30, detail: "5-shot series. Hit your target or restart. Stop after 30 minutes." }
+          - { name: "Make-it", minutes: 30, shots: 30, detail: "5-shot series. Hit your target or restart. Stop after 30 minutes.", session: { per_card: 5, tags: ["Pressure"] } }
           - { name: "Diary", minutes: 10, detail: "What did you do when the pressure came?" }
       - title: "Cold starts"
         kind: air
         focus: "Practice the first shot again, lighter."
-        tags: ["Cold starts"]
         blocks:
           - { name: "Rest between", minutes: 5, detail: "No warm-up." }
-          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold." }
+          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold.", session: { per_card: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 5, detail: "Shot one against shot five." }
       - title: "Timed and rapid (Pardini)"
         kind: dry
@@ -266,10 +254,9 @@ phases:
       - title: "Full match"
         kind: air
         focus: "Another full match in Spotter."
-        tags: ["Match simulation", "Full match"]
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills." }
-          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match: 15 minutes sighting, 60 shots in 75 minutes." }
+          - { name: "Match", minutes: 90, shots: 60, detail: "Start a Match: 15 minutes sighting, 60 shots in 75 minutes.", session: { per_card: 10, course: match, tags: ["Match simulation", "Full match"] } }
           - { name: "Diary", minutes: 10, detail: "Score, worst series, how it compares with last week." }
       - title: "Rest"
         kind: rest
@@ -283,7 +270,7 @@ overrides:
     focus: "The test. Compare it with the week 1 baseline, series by series."
     blocks:
       - { name: "Warm-up", minutes: 10, detail: "Hold drills, sighters in the match." }
-      - { name: "Match", minutes: 90, shots: 60, detail: "Match in Spotter: 15 minutes sighting, 60 shots in 75 minutes. Give yourself the same conditions as the baseline." }
+      - { name: "Match", minutes: 90, shots: 60, detail: "Match in Spotter: 15 minutes sighting, 60 shots in 75 minutes. Give yourself the same conditions as the baseline.", session: { per_card: 10, course: match, tags: ["Match simulation", "Full match"] } }
       - { name: "Compare", minutes: 10, detail: "Journal: this match against week 1, and the worst series then and now." }
   "12-7":
     title: "Bullseye benchmark"

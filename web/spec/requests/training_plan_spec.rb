@@ -35,10 +35,13 @@ RSpec.describe "Training plan" do
     expect(response.body).to include("in 3 days")
   end
 
-  it "shows a day with its blocks, and the way into a session for an air pistol day" do
+  it "shows a day with its blocks, and a way into a session for each shooting block" do
     enroll
     get plan_workout_path(1, 1)
-    expect(response.body).to include("Hold drills", "Slow groups", "Start the session", "Pre-shot routine")
+    body = CGI.unescapeHTML(response.body)
+    expect(body).to include("Hold drills", "Slow groups", "Called shots")
+    expect(body).to include("Start the session: Slow groups", "Start the session: Called shots")
+    expect(body).to include('value="1-1-2"', 'value="1-1-3"')   # each starts its own block
   end
 
   it "does not offer a session for a dry-fire day" do
@@ -86,55 +89,89 @@ RSpec.describe "Training plan" do
     expect(response.body).to include("0</strong> of 72")
   end
 
-  describe "starting a session from a day" do
+  describe "starting a session from a block" do
     let(:enrollment) { enroll }
+    let(:started) { create(:practice_session, user:) }
+    let(:start) { { practice_session: { target: "pistol", per_card: "5", camera: "0", mic: "none" } } }
 
     before do
       enrollment
       allow(CameraProbe).to receive(:run!)
-    end
-
-    it "links the session Start creates to that day and tags it" do
-      post setup_path, params: { plan_day: "1-3" }
-      started = create(:practice_session, user:)
       allow(EngineRunner).to receive(:start!).and_return(started)
       allow(RigCheck).to receive(:stop_for!)
-
-      post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: "10", camera: "0", mic: "none" } }
-
-      expect(enrollment.workout_for(1, 3).practice_session).to eq(started)
-      expect(started.reload.exercises.map(&:name)).to contain_exactly("Trigger control", "Follow-through")
     end
 
-    it "forgets the day when the wizard is started from Practice instead" do
-      post setup_path, params: { plan_day: "1-3" }
+    it "links the session Start creates to that block and tags it" do
+      post setup_path, params: { plan_block: "1-3-2" }   # Trigger groups
+      post practice_sessions_path, params: start
+
+      expect(started.reload).to have_attributes(plan_week: 1, plan_day: 3, plan_block: 2)
+      expect(started.exercises.map(&:name)).to contain_exactly("Trigger control", "Follow-through")
+    end
+
+    it "preloads the Start step: the block's instructions, cards and tags" do
+      post setup_path, params: { plan_block: "1-3-2" }
+      user.update!(last_camera: "0", last_mic: "none")
+      get setup_start_path
+      body = CGI.unescapeHTML(response.body)
+      expect(body).to include("From your plan", "Week 1 · Day 3 · Trigger groups", "#{TrainingPlan.find_block('1-3-2').block.shots} shots")
+      expect(body).to include("5 shots a card", "Trigger control and Follow-through")
+      expect(body).to match(/name="practice_session\[per_card\]"[^>]*value="5"|value="5"[^>]*name="practice_session\[per_card\]"/)
+    end
+
+    it "preloads a match for a match block" do
+      post setup_path, params: { plan_block: "9-6-2" }
+      user.update!(last_camera: "0", last_mic: "none")
+      get setup_start_path
+      expect(response.body).to match(/value="match" checked|checked="checked"[^>]*value="match"|value="match"[^>]*checked/)
+      expect(CGI.unescapeHTML(response.body)).to include("a match, 10 shots a card")
+    end
+
+    it "forgets the block when the wizard is started from Practice instead" do
+      post setup_path, params: { plan_block: "1-3-2" }
       post setup_path
-      started = create(:practice_session, user:)
-      allow(EngineRunner).to receive(:start!).and_return(started)
-      allow(RigCheck).to receive(:stop_for!)
-
-      post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: "10", camera: "0", mic: "none" } }
-
-      expect(enrollment.workouts).to be_empty
-      expect(started.reload.exercises).to be_empty
+      post practice_sessions_path, params: start
+      expect(started.reload.plan_week).to be_nil
+      expect(started.exercises).to be_empty
     end
 
-    it "ignores a plan day that is not in the plan" do
-      post setup_path, params: { plan_day: "99-1" }
-      started = create(:practice_session, user:)
-      allow(EngineRunner).to receive(:start!).and_return(started)
-      allow(RigCheck).to receive(:stop_for!)
+    it "ignores a block that is not in the plan, or has no session of its own" do
+      [ "99-1-1", "1-1-1", "1-1" ].each do |ref|
+        post setup_path, params: { plan_block: ref }
+        post practice_sessions_path, params: start
+        expect(started.reload.plan_week).to be_nil
+      end
+    end
 
-      post practice_sessions_path, params: { practice_session: { target: "pistol", per_card: "10", camera: "0", mic: "none" } }
-      expect(enrollment.workouts).to be_empty
+    it "lists the sessions shot for a block on the day, and offers another" do
+      get plan_workout_path(1, 1)
+      expect(CGI.unescapeHTML(response.body)).to include("Start the session: Slow groups")
+
+      enrollment.link_session!(started, week: 1, day: 1, block: 2)
+      get plan_workout_path(1, 1)
+      body = CGI.unescapeHTML(response.body)
+      expect(body).to include("Another session: Slow groups", "Start the session: Called shots", practice_session_path(started))
+    end
+
+    it "shows the plan block on the session's own page" do
+      enrollment.link_session!(started, week: 1, day: 1, block: 2)
+      get practice_session_path(started)
+      body = CGI.unescapeHTML(response.body)
+      expect(body).to include("Week 1 · Day 1 · Slow groups", "5-shot groups. Same routine every shot", "Cards of 5")
+    end
+
+    it "shows nothing extra on a session that was not started from the plan" do
+      get practice_session_path(started)
+      expect(response.body).not_to include("instructions ▾")
     end
   end
 
-  it "unlinks a deleted session from its day instead of failing" do
+  it "keeps the day's note when a session shot for it is deleted" do
     session = create(:practice_session, user:, status: "ended", ended_at: Time.current)
-    enroll.link_session!(session, week: 1, day: 1)
+    enroll.link_session!(session, week: 1, day: 1, block: 2)
+    user.plan_enrollment.workouts.create!(week: 1, day: 1, note: "good day")
     delete practice_session_path(session)
     expect(PracticeSession.exists?(session.id)).to be(false)
-    expect(user.plan_enrollment.workout_for(1, 1)).to be_present
+    expect(user.plan_enrollment.workout_for(1, 1).note).to eq("good day")
   end
 end

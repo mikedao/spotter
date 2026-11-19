@@ -15,13 +15,13 @@ class PracticeSessionsController < ApplicationController
   # engine for it, once this user's checks have let go of the camera and mic.
   def create
     params = start_params
-    plan_day = session[:plan_day]   # read before `session` below becomes the new practice session
+    plan_ref = session[:plan_block]   # read before `session` below becomes the new practice session
     RigCheck.stop_for!(Current.user)
     gear = GearParams.new(Current.user, gear_params).attributes
     session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card],
                                   camera: params[:camera], mic: params[:mic], course: params[:course], gear:)
-    link_to_plan(session, plan_day)
-    self.session.delete(:plan_day)
+    link_to_plan(session, plan_ref)
+    self.session.delete(:plan_block)
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
     redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
@@ -131,10 +131,10 @@ class PracticeSessionsController < ApplicationController
   end
 
   private
-    # A session started from a training plan day belongs to that day, and carries its exercise tags.
-    def link_to_plan(practice_session, plan_day)
-      week, day = TrainingPlan.parse(plan_day)
-      Current.user.plan_enrollment&.link_session!(practice_session, week:, day:) if week
+    # A session started from a training plan block belongs to it, and carries its exercise tags.
+    def link_to_plan(practice_session, plan_ref)
+      week, day, block = plan_ref.to_s.split("-").map(&:to_i)
+      Current.user.plan_enrollment&.link_session!(practice_session, week:, day:, block:) if TrainingPlan.find_block(plan_ref)
     end
 
     def set_session

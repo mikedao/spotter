@@ -36,13 +36,16 @@ class PlanEnrollment < ApplicationRecord
     TrainingPlan.workout_days.select { scheduled_on(it.week, it.day) < Time.zone.today && !done?(it.week, it.day) }
   end
 
-  # A session started for a day of the plan: remembered on the day, and tagged
-  # with the day's exercises (found or made, by name) so the journal can filter on them.
-  def link_session!(practice_session, week:, day:)
-    plan_day = TrainingPlan.day(week, day) or return
+  # A session started for one shooting block of the plan: remembered on the session
+  # (plan_week / plan_day / plan_block), and tagged with the block's exercises (found or
+  # made, by name) so the journal can filter on them.
+  def link_session!(practice_session, week:, day:, block:)
+    raise ArgumentError, "not this user's session" unless practice_session.user_id == user_id
+
+    found = TrainingPlan.find_block("#{week}-#{day}-#{block}") or return
     transaction do
-      workouts.find_or_initialize_by(week:, day:).update!(practice_session:)
-      tags = plan_day.tags.filter_map { |name| find_or_create_exercise(name) }
+      practice_session.update!(plan_week: week, plan_day: day, plan_block: block)
+      tags = found.block.session.tags.filter_map { find_or_create_exercise(it) }
       practice_session.update!(exercises: practice_session.exercises | tags) if tags.any?
     end
   end

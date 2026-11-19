@@ -20,7 +20,7 @@ class SessionSetupController < ApplicationController
 
   # New session: look for cameras and microphones, then step 1.
   def create
-    remember_plan_day
+    remember_plan_block
     RigCheck.stop_for!(Current.user)
     CameraProbe.run!
     redirect_to setup_camera_path
@@ -156,15 +156,17 @@ class SessionSetupController < ApplicationController
     @mic_ok = Current.user.sound_checked?(@mic)
     @mic_checked_at = Current.user.sound_checked_at if @mic_ok
     @gear = GearChoice.new(user: Current.user, target: @target.key)
+    @plan = (TrainingPlan.find_block(session[:plan_block]) if Current.user.plan_enrollment)   # what the plan has set for this session
   end
 
   private
-    # Started from a day of the training plan: Start links the session to it.
-    def remember_plan_day
-      if Current.user.plan_enrollment && TrainingPlan.parse(params[:plan_day])
-        session[:plan_day] = params[:plan_day]
+    # Started from a shooting block of the training plan ("3-1-2"): the Start step is
+    # preloaded with it, and Start links the session to it.
+    def remember_plan_block
+      if Current.user.plan_enrollment && TrainingPlan.find_block(params[:plan_block])
+        session[:plan_block] = params[:plan_block]
       else
-        session.delete(:plan_day)
+        session.delete(:plan_block)
       end
     end
 

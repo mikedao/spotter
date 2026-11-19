@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_170000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -111,14 +111,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_150000) do
     t.integer "plan_enrollment_id", null: false
     t.integer "week", null: false
     t.integer "day", null: false
-    t.integer "practice_session_id"
     t.datetime "completed_at"
     t.text "note"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["plan_enrollment_id", "week", "day"], name: "index_plan_workouts_on_plan_enrollment_id_and_week_and_day", unique: true
     t.index ["plan_enrollment_id"], name: "index_plan_workouts_on_plan_enrollment_id"
-    t.index ["practice_session_id"], name: "index_plan_workouts_on_practice_session_id"
   end
 
   create_table "practice_sessions", force: :cascade do |t|
@@ -150,9 +148,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_150000) do
     t.text "learned"
     t.integer "break_seconds", default: 0, null: false
     t.float "trigger_db"
+    t.integer "plan_week"
+    t.integer "plan_day"
+    t.integer "plan_block"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["gun_id"], name: "index_practice_sessions_on_gun_id"
     t.index ["pellet_id"], name: "index_practice_sessions_on_pellet_id"
+    t.index ["plan_week", "plan_day"], name: "index_practice_sessions_on_plan_week_and_plan_day"
     t.index ["run_token"], name: "index_practice_sessions_on_run_token", unique: true
     t.index ["user_id"], name: "index_practice_sessions_on_user_id"
   end
@@ -247,7 +249,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_150000) do
   add_foreign_key "pellets", "users"
   add_foreign_key "plan_enrollments", "users"
   add_foreign_key "plan_workouts", "plan_enrollments"
-  add_foreign_key "plan_workouts", "practice_sessions"
   add_foreign_key "practice_sessions", "guns"
   add_foreign_key "practice_sessions", "pellets"
   add_foreign_key "practice_sessions", "users"

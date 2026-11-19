@@ -43,29 +43,44 @@ RSpec.describe PlanEnrollment do
   end
 
   describe "#link_session!" do
-    it "ties the session to the day and tags it, reusing tags typed in another case" do
+    it "ties the session to the block and tags it, reusing tags typed in another case" do
       user.exercises.create!(name: "calling shots")
       session = create(:practice_session, user:)
 
-      enrollment.link_session!(session, week: 1, day: 4)
+      enrollment.link_session!(session, week: 1, day: 1, block: 3)   # Called shots
 
-      expect(enrollment.workout_for(1, 4).practice_session).to eq(session)
-      expect(session.reload.exercises.map(&:name)).to eq([ "calling shots" ])
+      expect(session.reload).to have_attributes(plan_week: 1, plan_day: 1, plan_block: 3)
+      expect(session.plan_found.block.name).to eq("Called shots")
+      expect(session.exercises.map(&:name)).to eq([ "calling shots" ])
       expect(user.exercises.count).to eq(1)
     end
 
-    it "keeps a session's own tags and adds the day's" do
+    it "keeps a session's own tags and adds the block's" do
       own = user.exercises.create!(name: "Something else")
       session = create(:practice_session, user:, exercises: [ own ])
 
-      enrollment.link_session!(session, week: 1, day: 3)
+      enrollment.link_session!(session, week: 1, day: 3, block: 2)   # Trigger groups
 
       expect(session.reload.exercises.map(&:name)).to contain_exactly("Something else", "Trigger control", "Follow-through")
+    end
+
+    it "leaves a session alone for a block that has no session of its own" do
+      session = create(:practice_session, user:)
+      enrollment.link_session!(session, week: 1, day: 1, block: 1)   # Hold drills: the timer
+      expect(session.reload.plan_week).to be_nil
+    end
+
+    it "can give one day several sessions, one per block" do
+      first = create(:practice_session, user:)
+      second = create(:practice_session, user:)
+      enrollment.link_session!(first, week: 1, day: 1, block: 2)
+      enrollment.link_session!(second, week: 1, day: 1, block: 3)
+      expect(user.practice_sessions.for_plan_day(1, 1).map(&:plan_block)).to contain_exactly(2, 3)
     end
   end
 
   it "does not link another user's session" do
     stranger = create(:practice_session)
-    expect { enrollment.link_session!(stranger, week: 1, day: 1) }.to raise_error(ActiveRecord::RecordInvalid)
+    expect { enrollment.link_session!(stranger, week: 1, day: 1, block: 2) }.to raise_error(ArgumentError)
   end
 end

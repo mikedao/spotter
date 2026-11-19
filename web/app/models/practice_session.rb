@@ -6,7 +6,6 @@ class PracticeSession < ApplicationRecord
   belongs_to :pellet, optional: true
   has_many :session_exercises, dependent: :destroy   # the diary's exercise tags
   has_many :exercises, through: :session_exercises
-  has_many :plan_workouts, dependent: :nullify   # the training plan day it was started for
   has_secure_token :run_token   # the engine's events must present it (Api::EventsController)
   has_many :cards, -> { order(:number) }, dependent: :destroy, inverse_of: :practice_session
   has_many :shots, through: :cards
@@ -23,8 +22,10 @@ class PracticeSession < ApplicationRecord
   validates :course, inclusion: { in: Course::ALL.keys }, allow_nil: true
   validates :gun_adjustments, :problems, :fixes, :learned, length: { maximum: 4000 }
   validate :gear_is_the_users_own
+  validate :plan_block_is_in_the_plan
 
   scope :newest_first, -> { order(started_at: :desc) }
+  scope :for_plan_day, ->(week, day) { where(plan_week: week, plan_day: day) }
 
   # Deleting a session takes its cards, shots, their pictures and the engine's
   # log with it. Never while its engine runs: stop it first.
@@ -65,6 +66,11 @@ class PracticeSession < ApplicationRecord
   def whole_rings? = course_info ? course_info.whole_rings?(target) : target == "pistol"
   def gear_label = [ gun&.name, pellet&.label ].compact.join(" · ").presence   # "LP10 · RWS R10 Match · 4.49 mm"
 
+  # The training plan block this session was started for (TrainingPlan::Found), if any: what the
+  # shooter set out to do in it. Nil for a day started as a whole (before blocks had sessions).
+  def plan_found = plan_block && TrainingPlan.find_block(plan_ref)
+  def plan_ref = ([ plan_week, plan_day, plan_block ].compact.join("-") if plan_week)
+
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")
 
   private
@@ -72,6 +78,13 @@ class PracticeSession < ApplicationRecord
       errors.add(:gun, "isn't one of yours") if gun && gun.user_id != user_id
       errors.add(:pellet, "isn't one of yours") if pellet && pellet.user_id != user_id
       errors.add(:gun, "is #{gun.kind_name.downcase.sub('air ', 'an air ')}, not for this target") if gun && gun.kind != target
+    end
+
+    def plan_block_is_in_the_plan
+      return if plan_week.nil? && plan_day.nil? && plan_block.nil?
+
+      ok = plan_week && plan_day && TrainingPlan.day(plan_week, plan_day) && (plan_block.nil? || plan_found)
+      errors.add(:base, "That isn't a day of the training plan") unless ok
     end
 
     def refuse_while_live

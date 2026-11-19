@@ -1,0 +1,17 @@
+<details class="group rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
+  <summary class="flex min-h-11 cursor-pointer items-center gap-x-3 gap-y-1 px-4 py-2 select-none">
+    <span class="shrink-0 rounded bg-blue-600 px-2 py-0.5 text-sm font-medium text-white">Plan</span>
+    <span class="min-w-0 truncate font-medium"><%= found.title %></span>
+    <% if shots %><span class="shrink-0 text-sm tabular-nums text-gray-700 dark:text-gray-200"><%= shots %> shots</span><% end %>
+    <span class="ml-auto shrink-0 text-sm text-gray-600 group-open:hidden dark:text-gray-300">instructions ▾</span>
+  </summary>
+  <div class="border-t border-blue-200 px-4 py-3 dark:border-blue-900">
+    <p class="text-gray-800 dark:text-gray-100"><%= block.detail %></p>
+    <p class="mt-2 text-sm text-gray-700 dark:text-gray-200">
+      <% if block.session.course == "match" %>Match: the range officer runs the clock. <% end %>
+      Cards of <%= block.session.per_card %>.
+      <% if block.session.tags.any? %>Tagged <%= block.session.tags.to_sentence %>.<% end %>
+      <%= helpers.link_to "The whole day", helpers.plan_workout_path(found.day.week, found.day.day), class: "ml-1 text-blue-700 underline dark:text-blue-300" %>
+    </p>
+  </div>
+</details>

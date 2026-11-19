@@ -700,13 +700,20 @@ from there). The user commits; don't commit unless asked.
   fire - the FWB 65 is NEVER dry-fired, a spring piston slams without a pellet; a spec checks the dry-fire
   text never mentions it), `rest`. Per user: `PlanEnrollment` (the start date; the plan day follows from
   it, so a missed day stays undone - nothing is rescheduled) and `PlanWorkout` (made on first touch:
-  linked session, note, `completed_at`). Progress counts workout days, not rest days. "Start the
-  session" on an air day POSTs `setup_path` with `plan_day=W-D`; `SessionSetupController#create` keeps it
-  in the cookie session (and CLEARS it when the wizard is started from Practice), and
-  `PracticeSessionsController#create` calls `PlanEnrollment#link_session!` after the engine starts: the
-  session is linked to the day and tagged with the day's exercises (`Exercise` found by name, case-
-  insensitive, so the Journal's exercise filter works on them). Today's day also shows on Practice
-  (`PlanTodayComponent`). Not built: a block timer, auto-ticking a day when its session ends, plan
+  note, `completed_at`). Progress counts workout days, not rest days. **Each air pistol SHOOTING block has its own
+  session** (2026-11-19, the shooter: "separate sessions for slow groups and called shots, preloaded"): a block
+  with `session: { per_card, course?, tags }` in the yml (every air-day block that has shots; blocks are
+  numbered from 1 in their day, `TrainingPlan.find_block("W-D-B")`) gets a "Start the session: <block>" button
+  that POSTs `setup_path` with `plan_block=W-D-B`; `SessionSetupController#create` keeps it in the cookie
+  session (and CLEARS it when the wizard is started from Practice); the Start step is PRELOADED (a "From your
+  plan" card with the block's instructions, shots per card, the course - a match for the Match blocks) and
+  `PracticeSessionsController#create` calls `PlanEnrollment#link_session!`: the session gets
+  `practice_sessions.plan_week/plan_day/plan_block` and the block's exercise tags (`Exercise` found by name,
+  case-insensitive, so the Journal's exercise filter works). A day can have several sessions; the day page lists
+  those shot per block ("Another session: ...") and `PlanBlockComponent` shows the block's instructions as a
+  collapsed "Plan" line on the session's own page. A day's tags are its blocks' together (`Day#tags`). The old
+  one-session-per-day link (`plan_workouts.practice_session_id`) was moved onto the sessions (plan_block nil)
+  and dropped. Today's day also shows on Practice (`PlanTodayComponent`). Not built: a block timer, auto-ticking a day when its session ends, plan
   targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
   requests/training_plan, system/training_plan.
 

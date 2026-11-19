@@ -10,18 +10,29 @@ class TrainingPlan
   DAYS_PER_WEEK = 7
   KINDS = %w[ air dry rest ].freeze
 
-  Block = ::Data.define(:name, :minutes, :detail, :shots, :drill)   # drill: a HoldSpec, for the guided hold timer
+  # session: a SessionSpec on an air pistol shooting block (its own Spotter session, preloaded);
+  # drill: a HoldSpec on a hold-drill block (the guided hold timer). number: 1-based in its day.
+  Block = ::Data.define(:number, :name, :minutes, :detail, :shots, :drill, :session)
   HoldSpec = ::Data.define(:reps, :hold)
+  SessionSpec = ::Data.define(:per_card, :course, :tags)
+  # A shooting block found by its reference: the day it is in and the block.
+  Found = ::Data.define(:day, :block) do
+    def ref = "#{day.ref}-#{block.number}"
+    def title = "Week #{day.week} · Day #{day.day} · #{block.name}"
+  end
   Phase = ::Data.define(:key, :name, :summary, :weeks)
   Week = ::Data.define(:number, :phase, :focus, :volume, :days) do
     def light? = volume < 1
   end
 
-  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :tags, :blocks, :light) do
+  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :blocks, :light) do
     def air? = kind == "air"
     def dry? = kind == "dry"
     def rest? = kind == "rest"
     def minutes = blocks.sum(&:minutes)
+    def tags = blocks.flat_map { it.session&.tags.to_a }.uniq
+    def session_blocks = blocks.select(&:session)
+    def block(number) = blocks.find { it.number == number }
     def shots = blocks.sum { it.shots.to_i }
     def ref = "#{week}-#{day}"
   end
@@ -38,6 +49,16 @@ class TrainingPlan
     def parse(ref)
       week, day = ref.to_s.split("-", 2).map { Integer(it, 10, exception: false) }
       [ week, day ] if week && day && self.day(week, day)
+    end
+
+    # "3-1-2" -> the shooting block (it has a session of its own) with that reference, else nil.
+    def find_block(ref)
+      week, day, number = ref.to_s.split("-", 3).map { Integer(it, 10, exception: false) }
+      return unless week && day && number
+
+      plan_day = self.day(week, day)
+      block = plan_day&.block(number)
+      Found.new(plan_day, block) if block&.session
     end
 
     # Days that are a workout (not a rest or range day): what progress counts.
@@ -66,13 +87,13 @@ class TrainingPlan
       end
 
       def build_day(week, day, phase, fields, volume)
-        blocks = fields.fetch("blocks").map do |block|
+        blocks = fields.fetch("blocks").each_with_index.map do |block, i|
           shots = scale(block["shots"], volume)
           drill = block["drill"]&.then { HoldSpec.new(it.fetch("reps"), it.fetch("hold")) }
-          Block.new(block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill)
+          session = block["session"]&.then { SessionSpec.new(it.fetch("per_card"), it["course"], it.fetch("tags", [])) }
+          Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill, session)
         end
-        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"),
-                fields.fetch("tags", []), blocks, volume < 1)
+        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1)
       end
 
       # Shot counts follow the week's volume, in fives, never below five.

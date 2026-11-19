@@ -57,4 +57,44 @@ RSpec.describe TrainingPlan do
     expect(described_class.parse("x")).to be_nil
     expect(described_class.parse(nil)).to be_nil
   end
+
+  describe "block sessions" do
+    let(:blocks) { described_class.weeks.flat_map(&:days).flat_map { |d| d.blocks.map { |b| [ d, b ] } } }
+
+    it "gives every shooting block of an air pistol day a session of its own, and nothing else" do
+      blocks.each do |day, block|
+        expect(block.session.present?).to eq(day.air? && block.shots.present?), "#{day.ref} #{block.name}"
+      end
+    end
+
+    it "preloads cards of 5 or 10 shots, and a match for the match blocks only" do
+      sessions = blocks.filter_map { |_, b| b.session }
+      expect(sessions.map(&:per_card).uniq).to contain_exactly(5, 10)
+      expect(sessions.map(&:course).uniq).to contain_exactly(nil, "match")
+      matches = blocks.select { |_, b| b.session&.course == "match" }
+      expect(matches.map { |_, b| b.name }.uniq).to eq([ "Match" ])
+      expect(matches.map { |d, _| d.ref }).to contain_exactly("8-6", "9-6", "10-6", "11-6", "12-6")
+    end
+
+    it "makes a day's tags its blocks' tags together" do
+      expect(described_class.day(1, 1).tags).to eq([ "Groups", "Calling shots" ])
+      expect(described_class.day(1, 2).tags).to be_empty
+    end
+
+    it "numbers blocks from 1 in their day and finds a shooting block by reference" do
+      expect(described_class.day(1, 1).blocks.map(&:number)).to eq([ 1, 2, 3, 4 ])
+      found = described_class.find_block("1-1-2")
+      expect(found.block.name).to eq("Slow groups")
+      expect(found.ref).to eq("1-1-2")
+      expect(found.title).to eq("Week 1 · Day 1 · Slow groups")
+    end
+
+    it "finds nothing for a block with no session, or nonsense" do
+      expect(described_class.find_block("1-1-1")).to be_nil   # the hold drill
+      expect(described_class.find_block("1-1-9")).to be_nil
+      expect(described_class.find_block("1-1")).to be_nil
+      expect(described_class.find_block("x-y-z")).to be_nil
+      expect(described_class.find_block(nil)).to be_nil
+    end
+  end
 end
