@@ -11,7 +11,8 @@ class BrowserTriggerComponent < ApplicationComponent
   def render? = @session.live? && @session.mic == CameraProbe::BROWSER_MIC
 
   def call
-    tag.button(type: "button", class: AnnouncerComponent::BUTTON,
+    # min width: "Listening" <-> "Heard +72 dB" (each shot) at the same size
+    tag.button(type: "button", class: "#{AnnouncerComponent::BUTTON} wide:min-w-36",
                data: { controller: "browser-trigger", action: "browser-trigger#retry",
                        browser_trigger_url_value: helpers.trigger_practice_session_path(@session),
                        browser_trigger_db_value: @session.trigger_db || SoundTrigger::DB, browser_trigger_ms_value: SoundTrigger::MS,

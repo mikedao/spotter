@@ -10,7 +10,9 @@ class LiveBroadcast
     # Over: every open screen reloads into the finished session's summary.
     return Turbo::StreamsChannel.broadcast_refresh_to(@session) unless @session.live?
 
-    replace("session_status", SessionStatusComponent.new(session: @session))
+    SessionStatusComponent::PARTS.each do |part|
+      replace("session_#{part}", SessionStatusComponent.new(session: @session, part:))
+    end
     replace("live_course", CoursePanelComponent.new(session: @session)) if @session.course
     LivePanelComponent::SECTIONS.each do |section|
       replace("live_#{section}", LivePanelComponent.new(session: @session, section:))

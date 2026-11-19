@@ -667,6 +667,16 @@ from there). The user commits; don't commit unless asked.
   about the side-by-side layout must resize to landscape. Device emulation
   (`Emulation.setDeviceMetricsOverride`) sticks to the shared browser - clear it
   after (range_screen_spec does). `main` pads by `env(safe-area-inset-*)`.
+- **The range screen's header NEVER MOVES** (2026-11-19, the shooter on the iPad in a
+  match: buttons staggered over two rows, jumping with each status). Title + pill
+  left (truncate, the title first); ONE toolbar right: Pause / Re-find / Stop
+  (`SessionStatusComponent` part `:controls`, its own broadcast target beside
+  `:status` and `:error`), then Mic / Chatty / Sound (outside every broadcast;
+  wrappers are `display: contents`). Wide: one row, no wrap. Every button keeps
+  its slot - DISABLED, not removed, when unusable (paused: Re-find; stopping: Stop)
+  - with a minimum width, and disabled ones keep their short label (the pill says
+  "Resuming" / "Stopping"); the mic's flash is "Heard +72 dB" to fit its slot.
+  range_screen_spec checks positions across six statuses at 1322/1180/1024 wide.
 - The range screen sizes the target by window height (`LivePanelComponent::TARGET_SIZE`,
   `100svh - 7.5rem`, cap 60rem) so the whole card is visible without scrolling.
 - **Range screen layout (2026-11-12, by the shooter's eye):** target ZOOMS

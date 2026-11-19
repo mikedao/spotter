@@ -41,7 +41,7 @@ export default class extends Controller {
   }
 
   heard(db) {
-    this.element.textContent = `🎤 Shot heard +${Math.round(db)} dB`
+    this.element.textContent = `🎤 Heard +${Math.round(db)} dB`   // fits Listening's width: the toolbar stays put
     clearTimeout(this.flash)
     this.flash = setTimeout(() => this.show(this.state), 2500)
   }

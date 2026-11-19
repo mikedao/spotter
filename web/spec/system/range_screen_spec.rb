@@ -43,6 +43,38 @@ RSpec.describe "Range screen layout" do
     page.save_screenshot(Rails.root.join("tmp/screenshots/range_match_laptop.png")) if ENV["SCREENSHOTS"]
   end
 
+  # 2026-11-19, the shooter on the iPad in a match: the header's buttons were
+  # staggered over two rows and jumped as the status changed. Now one toolbar row,
+  # every button in the same place whatever the engine is doing.
+  [ [ 1322, 729 ], [ 1180, 820 ], [ 1024, 768 ] ].each do |w, h|
+    it "keeps the header's buttons on one row, in place as the status changes (#{w}x#{h})" do
+      session = create(:practice_session, user:, course: "match", status: "shooting", mic: CameraProbe::BROWSER_MIC,
+                                          course_state: { "phase" => "window", "label" => "Match", "stage" => "match",
+                                                          "ends_at" => 58.minutes.from_now.iso8601 })
+      shoot_a_card(session)
+      allow(EngineRunner).to receive_messages(snapshot: nil, understands_pause?: true)
+      sign_in_and_visit(session)
+      page.driver.resize(w, h)
+
+      boxes = lambda do
+        page.evaluate_script(<<~JS)
+          [...document.querySelectorAll("[role=toolbar] button")].map(b => { const r = b.getBoundingClientRect(); return [ Math.round(r.left), Math.round(r.top), Math.round(r.width) ] })
+        JS
+      end
+      positions = %w[ shooting new_card paused resuming card_off stopping ].map do |status|
+        session.update!(status:)
+        visit practice_session_path(session)
+        expect(page).to have_css("#session_status", text: SessionStatusComponent::LOOK[status].first.first(10))
+        boxes.()
+      end
+      expect(positions.first.size).to eq 6                         # Pause, Re-find, Stop, Mic, Chatty, Sound
+      tops = positions.flatten(1).map(&:second)
+      expect(tops.max - tops.min).to be <= 1                       # one row, every time (a form's rounding: 1 px)
+      expect(positions.map { |row| row.map { [ it[0], it[2] ] } }.uniq.size).to eq 1   # never moved or resized
+      expect(page.evaluate_script("document.documentElement.scrollWidth")).to be <= w
+    end
+  end
+
   def right_column = find("#range_side")
 
   it "sums up the whole session once it is over: every shot, the result, every card" do

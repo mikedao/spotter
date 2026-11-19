@@ -5,13 +5,25 @@
       height, and the header and everything else in a column beside it. The inner
       grids become "contents" so their parts are this grid's items. %>
   <div class="space-y-3 short:grid short:grid-cols-[auto_minmax(0,1fr)] short:items-start short:gap-x-4 short:gap-y-3 short:space-y-0">
-  <%# The header (broadcast, replaced on every event) and, beside it, the live
-      announcer's Sound button - outside it, so it keeps playing through every shot,
-      and on the header's line so the column below doesn't grow. %>
-  <div class="flex flex-wrap items-start gap-3 short:col-start-2 short:row-start-1 short:gap-2">
-    <div class="min-w-0 flex-1 short:basis-full"><%= render(SessionStatusComponent.new(session: @session)) %></div>
-    <%= render(BrowserTriggerComponent.new(session: @session)) %>
-    <%= render(AnnouncerComponent.new(session: @session)) %>
+  <%# The header: title + status on the left, ONE toolbar on the right - the
+      session's controls (broadcast, replaced on every event) and the Mic / Chatty /
+      Sound buttons (outside every broadcast, so they keep listening and playing
+      through every shot). Wide, it is one line that never wraps: the left side
+      truncates, so the buttons never move. Narrower, the toolbar is always its own
+      row (by rule, not by whatever happens to fit). %>
+  <div class="short:col-start-2 short:row-start-1">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 wide:flex-nowrap short:gap-x-2">
+      <div class="min-w-0 basis-full wide:flex-1 wide:basis-0"><%= render(SessionStatusComponent.new(session: @session, part: :status)) %></div>
+      <div role="toolbar" aria-label="Session controls" class="flex basis-full flex-wrap items-center gap-2 wide:shrink-0 wide:basis-auto wide:flex-nowrap">
+        <%= render(SessionStatusComponent.new(session: @session, part: :controls)) %>
+        <% if @session.live? %>
+          <span class="mx-1 h-6 w-px bg-gray-300 max-sm:hidden dark:bg-gray-700" aria-hidden="true"></span>
+          <%= render(BrowserTriggerComponent.new(session: @session)) %>
+          <%= render(AnnouncerComponent.new(session: @session)) %>
+        <% end %>
+      </div>
+    </div>
+    <%= render(SessionStatusComponent.new(session: @session, part: :error)) %>
   </div>
 
   <%# Target (sized by the window's height) and a right column capped at 32rem,
