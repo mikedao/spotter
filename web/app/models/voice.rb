@@ -42,6 +42,9 @@ class Voice
     def find(id) = ALL[id.to_s]
     def valid?(id) = ALL.key?(id.to_s)
     def for(user) = find(Personality.for(user)&.voice) || find(user&.voice) || find(DEFAULT)
+    # The voice the user PICKED in Settings, whatever personality is on: for what a personality has no
+    # lines for (the hold drill's cues), so changing the voice there always changes those.
+    def picked(user) = find(user&.voice) || find(DEFAULT)
 
     def dir = EngineRunner.engine_dir.join("voice")
     def python = dir.join(".venv", "bin", "python")

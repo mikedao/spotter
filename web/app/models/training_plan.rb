@@ -10,7 +10,8 @@ class TrainingPlan
   DAYS_PER_WEEK = 7
   KINDS = %w[ air dry rest ].freeze
 
-  Block = ::Data.define(:name, :minutes, :detail, :shots)
+  Block = ::Data.define(:name, :minutes, :detail, :shots, :drill)   # drill: a HoldSpec, for the guided hold timer
+  HoldSpec = ::Data.define(:reps, :hold)
   Phase = ::Data.define(:key, :name, :summary, :weeks)
   Week = ::Data.define(:number, :phase, :focus, :volume, :days) do
     def light? = volume < 1
@@ -67,7 +68,8 @@ class TrainingPlan
       def build_day(week, day, phase, fields, volume)
         blocks = fields.fetch("blocks").map do |block|
           shots = scale(block["shots"], volume)
-          Block.new(block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots)
+          drill = block["drill"]&.then { HoldSpec.new(it.fetch("reps"), it.fetch("hold")) }
+          Block.new(block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill)
         end
         Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"),
                 fields.fetch("tags", []), blocks, volume < 1)

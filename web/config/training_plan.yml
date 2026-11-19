@@ -6,6 +6,7 @@
 #   overrides        "WEEK-DAY" => fields that replace the template for that one day
 #   kind             air = a Spotter session (tagged with `tags`), dry = Pardini dry fire, rest
 #   block shots      the base count at volume 1.0 (rounded to 5)
+#   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
 #
 # Rules of thumb behind it: one pre-shot routine for every shot; call every shot before you
 # see it; never dry-fire the FWB 65 (a spring piston slams without a pellet) - dry fire is
@@ -41,7 +42,7 @@ phases:
         focus: "Build the pre-shot routine and watch the group, not the score."
         tags: ["Pre-shot routine", "Groups"]
         blocks:
-          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet." }
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet.", drill: { reps: 10, hold: 8 } }
           - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Judge the group size and where it sits." }
           - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right." }
           - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
@@ -50,7 +51,7 @@ phases:
         focus: "See the sights at the break. Teach the trigger finger to work alone."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Dry-fire the Pardini only." }
-          - { name: "Hold drills", minutes: 10, detail: "Ten holds of 8 seconds, no trigger press. Lower if it falls apart." }
+          - { name: "Hold drills", minutes: 10, detail: "Ten holds of 8 seconds, no trigger press. Lower if it falls apart.", drill: { reps: 10, hold: 8 } }
           - { name: "Slow dry fire", minutes: 25, shots: 30, detail: "Raise, settle, press. Call where the sights were at the break. In 10-shot strings, resting between." }
           - { name: "Timed sequence", minutes: 15, detail: "From low ready, 5 shots in 20 seconds. Four strings, smooth not fast." }
           - { name: "Notes", minutes: 5, detail: "Which shots felt good? What was the common thread?" }
@@ -59,7 +60,7 @@ phases:
         focus: "Press straight back and nothing else moves. Keep the picture after the break."
         tags: ["Trigger control", "Follow-through"]
         blocks:
-          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups. Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise." }
           - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first." }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
@@ -68,7 +69,7 @@ phases:
         focus: "Know where every shot went before you look."
         tags: ["Calling shots"]
         blocks:
-          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Called series", minutes: 40, shots: 40, detail: "In 10-shot series. Say ring and direction before the screen shows it. The stat that matters is how often you were right, not the score." }
           - { name: "Blind review", minutes: 10, detail: "Review the flagged shots and make your calls blind. Your call is the training data." }
       - title: "Timed and rapid (Pardini)"
@@ -76,7 +77,7 @@ phases:
         focus: "Rhythm for the 25 yard stages: sights back on target, same press every time."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds.", drill: { reps: 5, hold: 8 } }
           - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds, from low ready on a beep." }
           - { name: "Rapid fire", minutes: 15, detail: "Six strings of 5 shots in 10 seconds. Sights must be back on target for every shot, even when it is fast." }
           - { name: "Slow dry fire", minutes: 10, shots: 10, detail: "Finish with ten unhurried shots." }
@@ -106,7 +107,7 @@ phases:
         focus: "If the shot has not broken in 8 seconds, lower the arm and start again."
         tags: ["Hold time", "Let-downs"]
         blocks:
-          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Eight-second strings", minutes: 40, shots: 40, detail: "10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds." }
           - { name: "Diary", minutes: 10, detail: "Write how many let-downs you needed and when the hold was best." }
       - title: "Hold and trigger (Pardini)"
@@ -114,7 +115,7 @@ phases:
         focus: "Only shots that pass the test count: settled, straight press, sights still on at the break."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Long holds", minutes: 10, detail: "Ten holds of 10 seconds, no trigger press." }
+          - { name: "Long holds", minutes: 10, detail: "Ten holds of 10 seconds, no trigger press.", drill: { reps: 10, hold: 10 } }
           - { name: "Pass or let down", minutes: 35, shots: 40, detail: "10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count." }
           - { name: "Timed fire", minutes: 10, detail: "Four strings of 5 shots in 20 seconds." }
       - title: "Series at match pace"
@@ -130,7 +131,7 @@ phases:
         focus: "Pick the one direction that costs you most and work on its cause."
         tags: ["Fault finding"]
         blocks:
-          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds." }
+          - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Find it", minutes: 5, detail: "Journal, Where the misses go: pick the direction with the most misses. For a right-hander low often means anticipation or dropping the head, left or right means finger position or grip pressure, high means rushing or the heel of the hand pushing. Left-handers mirror." }
           - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it." }
           - { name: "Diary", minutes: 10, detail: "Write what you changed and whether the group moved." }
@@ -139,7 +140,7 @@ phases:
         focus: "Bring the air pistol's calm to the 25 yard stages."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds.", drill: { reps: 5, hold: 8 } }
           - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds. Call each shot." }
           - { name: "Rapid fire", minutes: 20, detail: "Eight strings of 5 shots in 10 seconds." }
           - { name: "Slow dry fire", minutes: 5, shots: 10, detail: "Ten unhurried shots to finish." }
@@ -177,7 +178,7 @@ phases:
         focus: "A full Bullseye run, dry: slow, timed and rapid in order."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Full run, twice", minutes: 40, detail: "Each run: 10 slow shots, 10 timed (2 x 5 in 20 seconds), 10 rapid (2 x 5 in 10 seconds). Call every shot good or bad. A run with a bad call you could have prevented gets repeated." }
           - { name: "Notes", minutes: 10, detail: "Which stage held up? Which broke?" }
       - title: "Make-it series"
@@ -201,7 +202,7 @@ phases:
         focus: "Keep the routine with something at stake."
         blocks:
           - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds." }
+          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Clean runs", minutes: 40, detail: "Dry Bullseye stages: 10 slow, 10 timed, 10 rapid. Every shot must be called good, or the run starts over. Add a distraction: a ticking metronome or a person walking by." }
           - { name: "Notes", minutes: 10, detail: "How many tries did a clean run take?" }
       - title: "Full match"

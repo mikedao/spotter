@@ -69,6 +69,17 @@ class Journal
     days.positive? ? charted.last.started_at.to_date + days.ceil : nil
   end
   def newest_first = summaries.reverse
+  def hold_stats = @hold_stats ||= HoldDrillStats.new(user, days: @filters[:days].presence_in(PERIODS.keys))
+
+  # Hold drills listed beside the sessions. They have no gun, pellets, kind or exercises,
+  # so any of those filters leaves them out.
+  def hold_entries = @filters.except(:target, :days).any? ? [] : hold_stats.drills
+
+  # The Sessions table's rows, newest first: [time, :session | :drill, record].
+  def session_rows
+    (newest_first.map { [ it.started_at, :session, it ] } + hold_entries.map { [ it.performed_at, :drill, it ] })
+      .sort_by { it.first }.reverse
+  end
   def with_notes = newest_first.select { [ it.problems, it.fixes, it.learned ].any?(&:present?) }
 
   # What the filter menus offer: only what the shooter has.

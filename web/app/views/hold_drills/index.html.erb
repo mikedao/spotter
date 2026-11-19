@@ -1,0 +1,50 @@
+<% content_for :title, "Hold drills" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+
+<h1 class="mb-4 text-2xl font-semibold">Hold drills</h1>
+
+<div class="space-y-4">
+  <%= render(CardComponent.new(title: "Start a drill")) do %>
+    <p class="mb-3 <%= muted %>">
+      Raise, settle, hold, lower, rest, again. With the Pardini unloaded, or the FWB 65 uncocked or with the trigger left alone:
+      no pellet, no pressing the trigger.
+    </p>
+    <%= form_with url: new_hold_drill_path, method: :get, class: "flex flex-wrap items-end gap-4" do %>
+      <div class="space-y-1">
+        <%= label_tag :reps, "Holds", class: "block text-sm font-medium" %>
+        <%= number_field_tag :reps, @settings[:reps], min: HoldDrill::LIMITS[:reps].min, max: HoldDrill::LIMITS[:reps].max, class: "#{TextFieldComponent::INPUT} w-24" %>
+      </div>
+      <div class="space-y-1">
+        <%= label_tag :hold, "Hold (seconds)", class: "block text-sm font-medium" %>
+        <%= number_field_tag :hold, @settings[:hold_seconds], min: HoldDrill::LIMITS[:hold_seconds].min, max: HoldDrill::LIMITS[:hold_seconds].max, class: "#{TextFieldComponent::INPUT} w-28" %>
+      </div>
+      <div class="space-y-1">
+        <%= label_tag :rest, "Rest (seconds)", class: "block text-sm font-medium" %>
+        <%= number_field_tag :rest, @settings[:rest_seconds], min: HoldDrill::LIMITS[:rest_seconds].min, max: HoldDrill::LIMITS[:rest_seconds].max, class: "#{TextFieldComponent::INPUT} w-28" %>
+      </div>
+      <%= render(ButtonComponent.new(type: :submit, size: :lg)) { "Open the timer" } %>
+    <% end %>
+  <% end %>
+
+  <%= render(CardComponent.new(title: "Recent drills", padding: :none)) do %>
+    <% if @drills.empty? %>
+      <p class="p-4 <%= muted %>">None yet. Your drills show here and in the Journal.</p>
+    <% else %>
+      <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+        <% @drills.each do |drill| %>
+          <li class="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+            <span>
+              <span class="font-medium"><%= drill.summary %></span>
+              <% if drill.plan_ref %>
+                <%= link_to "Week #{drill.plan_week} · Day #{drill.plan_day}", plan_workout_path(drill.plan_week, drill.plan_day), class: "ml-2 text-sm text-blue-700 underline dark:text-blue-300" %>
+              <% end %>
+            </span>
+            <span class="text-sm tabular-nums <%= muted %>">
+              <%= drill.held_seconds.round %> s held · <%= drill.performed_at.strftime("%b %-d, %H:%M") %>
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

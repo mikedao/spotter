@@ -710,6 +710,33 @@ from there). The user commits; don't commit unless asked.
   targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
   requests/training_plan, system/training_plan.
 
+- **Hold drills** (2026-11-19, the shooter's ask: a guided timer, in plan days, standalone, in the Journal).
+  `/holds` (menu "Hold drills"): settings form + recent drills; `/holds/new?reps=&hold=&rest=&plan_day=`
+  is the timer (`hold_drill_controller.js`): per rep a 3 s raise-and-settle, the hold, then a rest (none
+  after the last), a big countdown, WebAudio tones and optional `speechSynthesis` cues (preference in
+  localStorage), wake lock, Pause, "Let down" (ends a hold early, counted as let down) and Stop. The clock
+  runs on ELAPSED time and carries any overshoot into the next phase. At the end the page submits
+  `HoldDrill` {reps, hold/rest seconds, reps_done, let_downs, held_seconds} to `HoldDrillsController#create`
+  (a drill with no holds is not saved); settings are clamped (`HoldDrill::LIMITS`). Plan blocks named
+  "Hold drills"/"Long holds" carry `drill: { reps, hold }` in training_plan.yml, which gives the day page
+  a "Start the timer" button; a drill started from a day stores `plan_week/plan_day` (only for someone on
+  the plan) and returns to that day. Journal: `HoldDrillStats` -> `journals/_hold_drills` (drills, time
+  held, steadiness = holds not let down, longest clean run, a steadiness chart); period filter applies,
+  gun/pellet don't. NOT in the printed journal report. Nothing fires: the text says unloaded, no trigger.
+  **Cues are spoken in the user's Kokoro voice** (the one PICKED in Settings, `Voice.picked` - NOT `Voice.for`, which a personality overrides with its own: Katey is Nicole, so the picker looked broken): the pieces
+  raise / hold / lower / rest / three / two / one / done are `voicelines.HOLD_DRILL` (in `pieces()`, so they are
+  EXPORTED to `web/public/voice-pieces/<voice>/` for all 19 voices, in git; `HoldDrill::CUES` mirrors it, spec-
+  checked, and a spec fails if any voice's file is missing: re-run `voice/.venv/bin/python speak.py export
+  --all`). The page gets each cue's URL (`Voice.piece_url`), fetches and decodes them all before the first hold
+  (CUE_LOAD_S 4), and plays them through WebAudio after the tone; the last 3 s of a rest are counted aloud. A cue
+  that did not load falls back to `speechSynthesis`. A new cue word needs the export again.
+  **Marked done** (the shooter's ask): a hold block on a plan day shows "✓ done" (and "Do it again") once a drill
+  saved for that day `completes?` its spec: every hold attempted (let downs count), reps and hold seconds at
+  least the block's; a drill stopped early or with shorter holds does not. The Journal's Sessions table lists hold
+  drills as dated rows among the sessions (`Journal#session_rows`; left out when a kind / gun / pellet / exercise
+  filter is on, since a drill has none of those).
+  Specs: models/hold_drill, requests/hold_drills, system/hold_drill (real 3 s timers).
+
 Not built yet: see "Where we left off" for the agreed order.
 
 ## Announcer personalities: Katey (2026-11-14)

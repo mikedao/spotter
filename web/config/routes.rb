@@ -45,6 +45,9 @@ Rails.application.routes.draw do
     get :plot, on: :member        # ...in a panel over the live range screen
   end
 
+  # The hold drill: a guided timer (raise, hold, lower, rest), results kept for the journal.
+  resources :hold_drills, only: %i[ index new create ], path: "holds"
+
   # The training plan: a 12-week programme (TrainingPlan), one page per day.
   resource :training_plan, only: %i[ show create destroy ], path: "plan"
   get "plan/:week/:day", to: "plan_workouts#show", as: :plan_workout, constraints: { week: /\d+/, day: /\d+/ }

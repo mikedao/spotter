@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_150000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -67,6 +67,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_guns_on_user_id"
+  end
+
+  create_table "hold_drills", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.integer "reps", null: false
+    t.integer "hold_seconds", null: false
+    t.integer "rest_seconds", null: false
+    t.integer "reps_done", default: 0, null: false
+    t.integer "let_downs", default: 0, null: false
+    t.float "held_seconds", default: 0.0, null: false
+    t.integer "plan_week"
+    t.integer "plan_day"
+    t.datetime "performed_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "performed_at"], name: "index_hold_drills_on_user_id_and_performed_at"
+    t.index ["user_id"], name: "index_hold_drills_on_user_id"
   end
 
   create_table "pellets", force: :cascade do |t|
@@ -226,6 +243,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_19_120000) do
   add_foreign_key "cards", "practice_sessions"
   add_foreign_key "exercises", "users"
   add_foreign_key "guns", "users"
+  add_foreign_key "hold_drills", "users"
   add_foreign_key "pellets", "users"
   add_foreign_key "plan_enrollments", "users"
   add_foreign_key "plan_workouts", "plan_enrollments"

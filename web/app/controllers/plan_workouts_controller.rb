@@ -5,6 +5,7 @@ class PlanWorkoutsController < ApplicationController
 
   def show
     @workout = @enrollment.workout_for(@day.week, @day.day)
+    @drills = Current.user.hold_drills.where(plan_week: @day.week, plan_day: @day.day).newest_first
     @running = EngineRunner.running
   end
 

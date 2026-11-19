@@ -9,6 +9,17 @@ RSpec.describe Voice do
     expect(described_class::ALL.to_h { |id, v| [ id, [ v.name, v.accent, v.gender ] ] }).to eq engine
   end
 
+  it "has the hold drill's cues as the engine does, and exported for every voice" do
+    out, status = Open3.capture2(EngineRunner.python, "-c", "import json, voicelines; print(json.dumps([voicelines.HOLD_DRILL, voicelines.pieces()]))",
+                                 chdir: EngineRunner.engine_dir.to_s)
+    skip "engine Python not available" unless status.success?
+    cues, pieces = JSON.parse(out)
+    expect(HoldDrill::CUES).to eq(cues)
+    expect(pieces).to include(*cues)
+    missing = described_class::ALL.keys.product(HoldDrill::CUES).reject { |id, cue| described_class.exported_path(id, cue).exist? }
+    expect(missing).to be_empty, "not exported (voice/.venv/bin/python speak.py export --all): #{missing.first(3)}"
+  end
+
   it "uses the user's voice, else the default" do
     expect(described_class.for(build(:user, voice: "bm_george")).name).to eq "George"
     expect(described_class.for(build(:user, voice: nil)).id).to eq "af_heart"

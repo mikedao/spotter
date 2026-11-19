@@ -22,14 +22,31 @@
         <li>
           <p class="flex flex-wrap items-baseline gap-x-3">
             <span class="font-medium"><%= block.name %></span>
+            <% hold_done = block.drill && @drills.any? { it.completes?(block.drill) } %>
+            <% if hold_done %><span class="rounded bg-green-100 px-2 py-0.5 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">✓ done</span><% end %>
             <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300">
               <%= [ ("#{block.minutes} min" if block.minutes.positive?), ("#{block.shots} shots" if block.shots) ].compact.join(" · ") %>
             </span>
           </p>
           <p class="text-gray-700 dark:text-gray-200"><%= block.detail %></p>
+          <% if block.drill %>
+            <p class="mt-2">
+              <%= render(ButtonComponent.new(href: new_hold_drill_path(reps: block.drill.reps, hold: block.drill.hold, plan_day: @day.ref), variant: :secondary)) { "#{hold_done ? 'Do it again' : 'Start the timer'}: #{block.drill.reps} × #{block.drill.hold} s" } %>
+            </p>
+          <% end %>
         </li>
       <% end %>
     </ol>
+    <% if @drills.any? %>
+      <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
+        <p class="text-sm font-medium">Hold drills done for this day</p>
+        <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+          <% @drills.each do |drill| %>
+            <li><%= drill.summary %> · <%= drill.performed_at.strftime("%b %-d, %H:%M") %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
   <% end %>
 
   <% if @day.air? %>

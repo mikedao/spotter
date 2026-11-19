@@ -79,6 +79,10 @@ FIXED = ["ready", "inner ten", "new card please", "card off", "new card",
          "same card", "not scored", "view moving", "shot not scored",
          "camera connection lost", "geometry warning", "consider a fresh card",
          "please wait", "scoring paused"]
+# The web app's hold drill (HoldDrill::CUES mirrors this; a spec checks): the
+# cues the timer speaks in the shooter's voice - raise, hold, lower, rest, the
+# last three seconds of a rest, and the end.
+HOLD_DRILL = ["raise", "hold", "lower", "rest", "three", "two", "one", "done"]
 MAX_SHOTS = 60
 # A match or final (course.py): a sighter is "sighter"; a shot out of time is
 # flagged "<why>, scores zero".
@@ -111,7 +115,7 @@ def pieces():
     out += [f"shot {n}" for n in range(1, 11)]
     out += [f"{r / 10:.1f}" for r in range(109, -1, -1)]      # 10.9 .. 0.0
     out += [str(n) for n in range(9, -1, -1)]                 # a score below 10 is said as its ring
-    out += DIRECTION_PHRASES + FLAGS + FIXED + COURSE_SHOT
+    out += DIRECTION_PHRASES + FLAGS + FIXED + COURSE_SHOT + HOLD_DRILL
     out += [p for text in course.phrases() for sentence in split(text) for p in sentence]
     out += [f"that's {n}" for n in range(1, MAX_SHOTS + 1)]    # end of card
     out += [f"shot {n}" for n in range(11, MAX_SHOTS + 1)]

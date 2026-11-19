@@ -1,0 +1,23 @@
+<%# The hold drill section: what you have held and how steady (HoldDrillStats). Nothing until a drill is done. %>
+<% if stats.any? %>
+  <% muted = "text-gray-600 dark:text-gray-300" %>
+  <%= render(CardComponent.new(title: "Hold drills")) do |card| %>
+    <% card.with_action do %>
+      <%= link_to "Start a drill", hold_drills_path, class: "text-sm text-blue-700 underline dark:text-blue-300" %>
+    <% end %>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <% stats.tiles.each do |label, value, note| %>
+        <div>
+          <p class="text-sm <%= muted %>"><%= label %></p>
+          <p class="text-2xl font-semibold tabular-nums"><%= value %></p>
+          <p class="text-sm <%= muted %>"><%= note %></p>
+        </div>
+      <% end %>
+    </div>
+    <% if stats.points.size >= 2 %>
+      <p class="mt-4 mb-1 text-sm <%= muted %>">Share of holds held to the end, drill by drill. Filled dots were done for a plan day.</p>
+      <%= render(JournalChartComponent.new(kind: :line, label: "Steadiness of each hold drill, in percent", max: 100,
+                   points: stats.points.map { { label: it.label, y: it.y, title: it.title, filled: it.filled } })) %>
+    <% end %>
+  <% end %>
+<% end %>

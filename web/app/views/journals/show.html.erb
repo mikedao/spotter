@@ -139,7 +139,22 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-            <% j.newest_first.each do |s| %>
+            <% j.session_rows.each do |_at, kind, s| %>
+              <% if kind == :drill %>
+                <tr class="align-top">
+                  <td class="py-2 pr-3 pl-4 sm:pl-5">
+                    <%= link_to s.performed_at.strftime("%b %-d, %H:%M"), hold_drills_path, class: "font-medium text-blue-700 underline dark:text-blue-300" %>
+                    <span class="block text-xs <%= muted %>">Hold drill</span>
+                  </td>
+                  <td colspan="6" class="py-2 pr-4 pl-3 sm:pr-5">
+                    <%= s.summary %> · <%= s.held_seconds.round %> s held
+                    <% if s.plan_ref %>
+                      <%= link_to "Week #{s.plan_week} · Day #{s.plan_day}", plan_workout_path(s.plan_week, s.plan_day), class: "ml-2 text-blue-700 underline dark:text-blue-300" %>
+                    <% end %>
+                  </td>
+                </tr>
+                <% next %>
+              <% end %>
               <tr class="align-top">
                 <td class="py-2 pr-3 pl-4 sm:pl-5">
                   <%= link_to "#{s.started_at.strftime('%b %-d, %H:%M')}", practice_session_path(s.session), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
@@ -165,6 +180,8 @@
       </div>
     <% end %>
   <% end %>
+
+  <%= render("journals/hold_drills", stats: j.hold_stats) %>
 
   <% if j.with_notes.any? %>
     <%= render(CardComponent.new(title: "Problems, fixes and lessons")) do %>
