@@ -32,4 +32,27 @@
   <% end %>
 
   <%= render(VoicePickerComponent.new(user: Current.user)) %>
+
+  <%= render(CardComponent.new(title: "CompetitiveShooter.org", id: "competitive_shooter")) do %>
+    <p class="text-sm text-gray-600 dark:text-gray-300">
+      Share a finished session (or a day of training, from the journal) to your feed on CompetitiveShooter.org, as pictures.
+      Make an API key on their site under Profile → API keys, and paste it here. Posts say "via Spotter";
+      revoking the key there stops Spotter posting.
+    </p>
+    <% if Current.user.cso_connected? %>
+      <p class="mt-3 text-sm">Key saved: <span class="font-mono"><%= Current.user.cso_key_hint %></span></p>
+    <% end %>
+    <%= form_with model: Current.user, url: competitive_shooter_setting_path, method: :patch, class: "mt-3 flex flex-wrap items-end gap-3" do |f| %>
+      <label class="block grow">
+        <span class="block text-sm font-medium"><%= Current.user.cso_connected? ? "Replace the key" : "API key" %></span>
+        <%= f.password_field :cso_api_key, value: nil, autocomplete: "off", placeholder: "csk_…", required: true,
+              class: "mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-900" %>
+      </label>
+      <%= render(ButtonComponent.new(type: :submit, variant: :secondary)) { "Save key" } %>
+    <% end %>
+    <% if Current.user.cso_connected? %>
+      <%= button_to "Remove the key", competitive_shooter_setting_path, method: :patch, params: { remove: 1 },
+            class: "mt-3 text-sm text-red-700 underline dark:text-red-400", form: { data: { turbo_confirm: "Remove your CompetitiveShooter.org key from Spotter?" } } %>
+    <% end %>
+  <% end %>
 </div>

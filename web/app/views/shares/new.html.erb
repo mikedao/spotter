@@ -1,0 +1,105 @@
+<% content_for :title, "Share · #{@set.title}" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% preview = ->(kind) { picture_share_path(kind:, session_ids: @set.ids, colors: @colors, identity: @identity ? 1 : 0) } %>
+
+<h1 class="mb-1 text-2xl font-semibold">Share to CompetitiveShooter.org</h1>
+<p class="mb-4 <%= muted %>">
+  <% if @set.single? %>
+    <%= link_to @set.session.title, practice_session_path(@set.session), class: "underline" %>
+  <% else %>
+    <%= @set.title %>: <%= @set.date_text %>, <%= @set.meta %>
+  <% end %>
+</p>
+
+<% unless Current.user.cso_connected? %>
+  <%= render(CardComponent.new(class: "mb-4 max-w-3xl")) do %>
+    <p>To post, add your CompetitiveShooter.org API key in <%= link_to "Settings", settings_path(anchor: "competitive_shooter"), class: "font-medium text-blue-700 underline dark:text-blue-300" %>.
+      You can look at the pictures meanwhile.</p>
+  <% end %>
+<% end %>
+
+<% if @posted.any? %>
+  <%= render(CardComponent.new(class: "mb-4 max-w-3xl")) do %>
+    <p class="text-sm">Already posted:
+      <% @posted.each_with_index do |post, i| %><%= ", " if i.positive? %><%= link_to post.created_at.strftime("%b %-d, %H:%M"), post.url, class: "font-medium text-blue-700 underline dark:text-blue-300", target: "_blank", rel: "noopener" %><% end %>.
+      Posting again makes another post.</p>
+  <% end %>
+<% end %>
+
+<%= form_with url: share_path, method: :post, data: { controller: "share-preview" },
+              class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start" do |f| %>
+  <% @set.ids.each do |id| %><%= hidden_field_tag "session_ids[]", id, id: nil %><% end %>
+  <%= hidden_field_tag :identity, @identity ? 1 : 0, data: { share_preview_target: "identityValue" } %>
+
+  <%# The pictures, as the very JPEGs that will be posted. Untick one to leave it out. %>
+  <fieldset>
+    <legend class="sr-only">Pictures to post</legend>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <% SharePicture::KINDS.each do |kind, label| %>
+        <label class="group block cursor-pointer">
+          <span class="relative block overflow-hidden rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-800">
+            <img src="<%= preview.(kind) %>" alt="<%= label %>, as it will be posted" loading="lazy"
+                 data-share-preview-target="image" data-kind="<%= kind %>"
+                 class="block h-auto w-full transition-opacity group-has-[:checked]:opacity-100 opacity-35">
+          </span>
+          <span class="mt-2 flex min-h-11 items-center gap-2">
+            <%= check_box_tag "pictures[]", kind, @pictures.include?(kind), id: "picture_#{kind}", class: "size-5 accent-blue-600" %>
+            <span class="font-medium"><%= label %></span>
+          </span>
+        </label>
+      <% end %>
+    </div>
+    <p class="mt-2 text-sm <%= muted %>">Tap a picture's box to leave it out. Up to <%= CompetitiveShooter::MAX_IMAGES %> per post.</p>
+  </fieldset>
+
+  <div class="space-y-5 lg:sticky lg:top-4">
+    <fieldset>
+      <legend class="text-sm font-medium">Colors</legend>
+      <div class="mt-1.5 flex flex-wrap gap-2">
+        <% ShareColorway::THEMES.each do |key, theme| %>
+          <label class="cursor-pointer">
+            <input type="radio" name="colors" value="<%= key %>" <%= "checked" if key == @colors %> class="peer sr-only"
+                   data-action="share-preview#refresh">
+            <span class="flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm peer-checked:border-blue-600 peer-checked:ring-2 peer-checked:ring-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-600 dark:border-gray-700">
+              <span class="size-4 rounded-full border border-black/15" style="background: linear-gradient(135deg, <%= theme.bg1 %> 50%, <%= theme.accent %> 50%)"></span>
+              <%= theme.label %>
+            </span>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+
+    <label class="flex cursor-pointer items-start gap-3">
+      <input type="checkbox" <%= "checked" if @identity %> class="mt-1 size-5 accent-blue-600" data-action="share-preview#refresh" data-share-preview-target="identity">
+      <span>
+        <span class="block font-medium">Put my name and gear on the pictures</span>
+        <span class="block text-sm <%= muted %>"><%= [ Current.user.display_name, *@set.guns, *@set.pellets ].join(" · ") %></span>
+      </span>
+    </label>
+
+    <label class="block">
+      <span class="block text-sm font-medium">Caption <span class="font-normal <%= muted %>">(optional)</span></span>
+      <%= text_area_tag :body, @body, rows: 3, maxlength: CompetitiveShooter::BODY_MAX,
+            class: "mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" %>
+    </label>
+
+    <fieldset>
+      <legend class="text-sm font-medium">Topics <span class="font-normal <%= muted %>">(up to <%= CompetitiveShooter::MAX_TOPICS %>)</span></legend>
+      <div class="mt-1 space-y-1">
+        <% CompetitiveShooter::TOPICS.each do |slug, name| %>
+          <label class="flex min-h-11 cursor-pointer items-center gap-2">
+            <%= check_box_tag "topics[]", slug, @topics.include?(slug), id: "topic_#{slug}", class: "size-5 accent-blue-600" %>
+            <span><%= name %></span>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+
+    <p class="text-sm <%= muted %>">Everyone on CompetitiveShooter.org can see the post. It says "via Spotter".</p>
+    <div class="flex flex-wrap gap-3">
+      <%= render(ButtonComponent.new(type: :submit, disabled: !Current.user.cso_connected?,
+            data: { turbo_submits_with: "Posting…" })) { "Post" } %>
+      <%= render(ButtonComponent.new(href: @set.single? ? practice_session_path(@set.session) : journal_path, variant: :ghost)) { "Cancel" } %>
+    </div>
+  </div>
+<% end %>

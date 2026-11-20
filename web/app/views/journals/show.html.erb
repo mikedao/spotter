@@ -125,11 +125,18 @@
 
   <% if j.summaries.any? %>
     <%= render(CardComponent.new(title: "Sessions")) do %>
+      <%# Tick sessions and share them as one post: a day of training (SharesController). %>
+      <%= form_with url: new_share_path, method: :get, id: "share_sessions" do %>
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3">
+        <p class="text-sm <%= muted %>">Tick sessions to share them together as a day of training.</p>
+        <%= render(ButtonComponent.new(type: :submit, variant: :secondary, size: :sm)) { "Share selected to CompetitiveShooter.org" } %>
+      </div>
       <div id="sessions" class="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
         <table class="w-full text-left text-sm tabular-nums">
           <thead class="<%= muted %>">
             <tr class="border-b border-gray-200 dark:border-gray-800">
-              <th class="py-2 pr-3 pl-4 font-medium sm:pl-5">Session</th>
+              <th class="py-2 pl-4 font-medium sm:pl-5"><span class="sr-only">Share</span></th>
+              <th class="py-2 px-3 font-medium">Session</th>
               <th class="px-3 font-medium">Shots</th>
               <th class="px-3 font-medium">Per 60</th>
               <th class="px-3 font-medium">Series</th>
@@ -186,7 +193,11 @@
                 <% next %>
               <% end %>
               <tr class="align-top">
-                <td class="py-2 pr-3 pl-4 sm:pl-5">
+                <td class="py-2 pl-4 sm:pl-5">
+                  <%= check_box_tag "session_ids[]", s.session.id, false, id: "share_#{s.session.id}", class: "size-5 accent-blue-600",
+                        "aria-label": "Share the session of #{s.started_at.strftime('%b %-d, %H:%M')}" %>
+                </td>
+                <td class="px-3 py-2">
                   <%= link_to "#{s.started_at.strftime('%b %-d, %H:%M')}", practice_session_path(s.session), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
                   <span class="block text-xs <%= muted %>"><%= Journal::KINDS[s.kind] %></span>
                 </td>
@@ -208,6 +219,7 @@
           </tbody>
         </table>
       </div>
+      <% end %>
     <% end %>
   <% end %>
 

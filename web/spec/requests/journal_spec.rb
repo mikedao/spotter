@@ -37,7 +37,7 @@ RSpec.describe "Journal" do
     practice.update!(exercises: [ drill ])
     session_with([ 10 ] * 10, at: 1.day.ago, course: "match")
 
-    per_60 = -> { Nokogiri::HTML(response.body).css("#sessions tbody tr td:nth-child(3)").map(&:text) }
+    per_60 = -> { Nokogiri::HTML(response.body).css("#sessions tbody tr td:nth-child(4)").map(&:text) }   # after the share tick box, session, shots
     get journal_path(kind: "match")
     expect(per_60.()).to eq(%w[ 600 ])
     get journal_path(gun: gun.id)
