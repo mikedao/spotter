@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_20_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_213916) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -179,6 +179,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_140000) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "shared_posts", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "post_id", null: false
+    t.string "url", null: false
+    t.json "session_ids", default: [], null: false
+    t.json "pictures", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_shared_posts_on_user_id"
+  end
+
   create_table "shots", force: :cascade do |t|
     t.integer "card_id", null: false
     t.integer "number"
@@ -272,6 +283,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_140000) do
     t.json "sound_check"
     t.json "trigger_levels"
     t.string "personality"
+    t.string "cso_api_key"
+    t.string "share_colors"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["username"], name: "index_users_on_username", unique: true
   end
@@ -291,6 +304,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_140000) do
   add_foreign_key "session_exercises", "exercises"
   add_foreign_key "session_exercises", "practice_sessions"
   add_foreign_key "sessions", "users"
+  add_foreign_key "shared_posts", "users"
   add_foreign_key "shots", "cards"
   add_foreign_key "slow_drills", "users"
   add_foreign_key "timed_drills", "users"

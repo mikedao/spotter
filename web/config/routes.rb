@@ -67,6 +67,12 @@ Rails.application.routes.draw do
     get :report   # the journal as a printable progress report (Save as PDF)
   end
 
+  # Posting finished sessions to CompetitiveShooter.org (?session_ids[]=...): a preview
+  # of the pictures, then Post.
+  resource :share, only: %i[ new create ] do
+    get :picture   # one picture as it will be posted (?kind=hero|scorecard|stats|cards)
+  end
+
   # Gear: the shooter's guns and pellets (one per lot), picked per session.
   get "gear", to: "gear#show", as: :gear
   resources :guns, only: %i[ new create show edit update ]
@@ -75,6 +81,7 @@ Rails.application.routes.draw do
   # Settings: the announcer voice (pick one, hear each one's sample).
   get "settings", to: "settings#show", as: :settings
   patch "settings", to: "settings#update"
+  patch "settings/competitive_shooter", to: "settings#competitive_shooter", as: :competitive_shooter_setting
   patch "settings/chatty", to: "settings#chatty", as: :chatty_setting   # the range screen's Chatty button
   resource :personality, only: :update   # Settings, Personalities: none or one (Personality)
   resource :voice, only: :update do

@@ -14,6 +14,18 @@ class User < ApplicationRecord
   has_many :slow_drills, dependent: :destroy
   has_many :timed_drills, dependent: :destroy
   has_many :hold_drills, dependent: :destroy
+  has_many :shared_posts, dependent: :destroy
+
+  # CompetitiveShooter.org API key (`csk_` + 32 base58, made on their profile's API
+  # keys page). Stored as typed: this is a one-device SQLite app, and the member can
+  # revoke the key there at any time. Never shown back in full (`cso_key_hint`).
+  normalizes :cso_api_key, with: ->(k) { k.strip.presence }
+  validates :cso_api_key, format: { with: /\Acsk_[1-9A-HJ-NP-Za-km-z]{32}\z/, message: "should look like csk_ followed by 32 letters and digits" }, allow_nil: true
+  validates :share_colors, inclusion: { in: ->(_) { ShareColorway.keys } }, allow_nil: true
+
+  def cso_connected? = cso_api_key.present?
+  def cso_key_hint = cso_api_key && "csk_…#{cso_api_key.last(4)}"
+  def display_name = name.presence || username
 
   normalizes :username, with: ->(u) { u.strip.downcase }
   normalizes :email_address, with: ->(e) { e.strip.downcase }

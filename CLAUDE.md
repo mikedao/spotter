@@ -154,11 +154,12 @@ brew install python@3.13 && voice/setup.sh
 #  voice/.venv/bin/python voice/speak.py export --personality katey --voice af_nicole   # only new pieces render
 
 # web: Ruby 4.0.9 (rbenv; web/.ruby-version), SQLite
-cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 332 examples, 0 failures
+cd ../web && bundle install && bin/rails db:prepare && bundle exec rspec   # 485 examples, 0 failures
 bin/rails spotter:tls                            # https for the laptop's mic (trust storage/tls/spotter-ca.pem there)
 bin/dev                                          # http://localhost:3000 (+ https :3443), sign up (username + PIN)
 ```
 
+- Sharing pictures need `rsvg-convert` (`brew install librsvg`; on a Pi `apt install librsvg2-bin`).
 - **Not in git, copy by hand if wanted:** `engine/out/` (shot log `calls.csv`,
   every shot's before/after frames - the real-shot evidence behind "Known
   limits"; EXCEPT `engine/out/shots/demo/` (044_before + 044-053 after), which
@@ -209,6 +210,10 @@ the Kiyo and a shot; a match / final end to end; the range officer's commands
 by ear; installing as an app; the camera fully visible in a live match on the
 laptop. The browser trigger has run at the firing line too (sessions 10-11; see
 "Session 11" under the deployment notes for its trigger level).
+
+**Never yet tried for real:** sharing to CompetitiveShooter.org (2026-11-20): add
+a key in Settings, share a session and a hand-picked day from the journal; check
+the post and its pictures on the site.
 
 **Announcer PERSONALITIES: built 2026-11-14** (Katey, a bank of lines; see "Announcer
 personalities"). First check by ear on the rig. **Next:** 👍/👎 on her lines in real
@@ -632,6 +637,22 @@ from there). The user commits; don't commit unless asked.
   imports once. Their check measures from the pellet CENTRE (ISSF gauge); ours is
   at most ~0.1 more generous - inside the tolerance. The name "Shotmetrix" may only
   describe that we produce their codes (their NOTICE).
+- **Sharing to CompetitiveShooter.org** (2026-11-20; fl-shooters' API keys + `POST /api/v1/posts`,
+  see `../fl-shooters/docs/plans/api-posting.md`). The shooter's choices: a PREVIEW then Post (never
+  automatic), all four pictures, and a "day of training" = sessions TICKED BY HAND on the journal.
+  `ShareSet` (one or more finished sessions, one target type; counted as the session pages count),
+  `SharePicture::{Hero,Scorecard,Stats,Cards}` draw SVG in fl-shooters' look (`ShareColorway` and
+  `ShareSvg` are copies of theirs - keep in step; the hero's band is their
+  `target_share_controller.js#drawBand` redrawn as SVG), turned into JPEG by **`rsvg-convert`** (not
+  libvips' svgload: image_processing blocks it process-wide as untrusted, and unblocking it would let
+  Active Storage read SVGs) then vips. Page: `/share/new?session_ids[]=..` (`SharesController`,
+  `share_preview_controller.js` recolors the previews in place), from the session's Export card and the
+  journal's tick boxes. `CompetitiveShooter` posts with `users.cso_api_key` (Settings; stored plain - a
+  one-device SQLite app, revocable on their site), via "Spotter"; each post is a `SharedPost`, linked on
+  the session. Limits are theirs: 4 pictures, 3 topics (`CompetitiveShooter::TOPICS`, from their
+  /developers list - a new topic there needs adding here), 10 posts an hour. Pictures say "Scored by
+  Spotter" with Spotter's own mark, never the site's logo (their `via` rules forbid posing as the site).
+  NOT yet posted for real (specs stub the API).
 - **Session report / PDF** (2026-11-12): `/practice/:id/report` (Export card),
   `layout "report"`: paper, LIGHT ONLY (no dark: classes), no app menu; "Save as
   PDF" = the browser's print dialog (`print_controller.js`), no PDF gem - targets
