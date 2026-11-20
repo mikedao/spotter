@@ -11,9 +11,25 @@ class PlanEnrollment < ApplicationRecord
   # The plan's days in calendar order, as "week-day" references: as written until the
   # shooter swaps some (the saved `schedule`). A day keeps everything that is about it
   # (ticks, notes, sessions) when it moves, since those hang on its reference.
+  #
+  # It can also hold rest days the shooter added ("rest-1", "rest-2"...): a day made
+  # into a rest day pushes it and everything after it one day later, so the calendar
+  # grows by a day for each. A rest day has no ticks or notes: it is only a gap.
+  PAUSE = /\Arest-\d+\z/
+  Pause = Data.define(:ref) do
+    def pause? = true
+    def rest? = true
+    def range? = false
+    def kind = "rest"
+    def title = "Rest day"
+    def week = nil
+    def day = nil
+  end
+
   def order
     saved = (JSON.parse(schedule) if schedule.present?) rescue nil
-    saved.is_a?(Array) && saved.sort == natural_order.sort ? saved : natural_order
+    valid = saved.is_a?(Array) && saved.grep(PAUSE).uniq.size == saved.grep(PAUSE).size && saved.grep_v(PAUSE).sort == natural_order.sort
+    valid ? saved : natural_order
   end
 
   def natural_order = TrainingPlan.weeks.flat_map { |week| week.days.map(&:ref) }
@@ -25,21 +41,25 @@ class PlanEnrollment < ApplicationRecord
   # [week, day] of the plan on a date, or nil before it starts and after it ends.
   def position(date = Time.zone.today)
     n = day_number(date)
-    return unless n.between?(1, TrainingPlan.total_days)
+    return unless n.between?(1, order.size)
 
     TrainingPlan.parse(order[n - 1])
   end
 
   def today = position&.then { |week, day| TrainingPlan.day(week, day) }
-  def scheduled_on(week, day) = started_on + order.index("#{week}-#{day}")
+
+  # Is today a rest day the shooter added (the plan has started and is not over)?
+  def rest_today? = day_number.between?(1, order.size) && order[day_number - 1].match?(PAUSE)
+  def scheduled_on(week, day) = date_of("#{week}-#{day}")
+  def date_of(ref) = started_on + order.index(ref)
   def starts_in = (started_on - Time.zone.today).to_i.clamp(0, nil)
 
   # The calendar as weeks of seven days, each a list of plan days (what was moved
   # shows under its new date).
-  def calendar = order.each_slice(TrainingPlan::DAYS_PER_WEEK).map { |refs| refs.map { |ref| TrainingPlan.day(*TrainingPlan.parse(ref)) } }
+  def calendar = order.each_slice(TrainingPlan::DAYS_PER_WEEK).map { |refs| refs.map { plan_day_for(it) } }
 
   # Calendar week (1-12) of today, for opening that week on the plan page.
-  def calendar_week_now = day_number.clamp(1, TrainingPlan.total_days).then { (it - 1) / TrainingPlan::DAYS_PER_WEEK + 1 }
+  def calendar_week_now = day_number.clamp(1, order.size).then { (it - 1) / TrainingPlan::DAYS_PER_WEEK + 1 }
 
   class Refused < StandardError; end
 
@@ -53,19 +73,27 @@ class PlanEnrollment < ApplicationRecord
 
     moved = order.dup
     moved[a], moved[b] = moved[b], moved[a]
-    crowded = moved.each_slice(TrainingPlan::DAYS_PER_WEEK).each_with_index.find do |refs, _|
-      refs.count { TrainingPlan.day(*TrainingPlan.parse(it)).range? } > 1
-    end
-    raise Refused, "That would put two range days in week #{crowded[1] + 1}. Move one of them elsewhere first." if crowded
+    save_order!(moved)
+  end
 
-    update!(schedule: (moved == natural_order ? nil : moved.to_json))
-    @workouts_by_day = nil
-    self
+  # The day becomes a rest day: it and every day after it move one day later.
+  def add_rest!(ref)
+    index = order.index(ref.to_s) or raise Refused, "That isn't a day of the plan."
+    taken = order.grep(PAUSE).filter_map { it[/\d+/].to_i }
+    moved = order.dup.insert(index, "rest-#{(taken.max || 0) + 1}")
+    save_order!(moved)
+  end
+
+  # A rest day the shooter added goes: the days after it move one day earlier.
+  def remove_rest!(ref)
+    raise Refused, "That isn't an added rest day." unless ref.to_s.match?(PAUSE) && order.include?(ref.to_s)
+
+    save_order!(order - [ ref.to_s ])
   end
 
   def reset_schedule! = update!(schedule: nil)
 
-  def finished? = day_number > TrainingPlan.total_days
+  def finished? = day_number > order.size
 
   def workout_for(week, day) = workouts_by_day[[ week, day ]]
   def done?(week, day) = workout_for(week, day)&.done? || false
@@ -94,6 +122,21 @@ class PlanEnrollment < ApplicationRecord
   end
 
   private
+    def plan_day_for(ref) = ref.match?(PAUSE) ? Pause.new(ref) : TrainingPlan.day(*TrainingPlan.parse(ref))
+
+    # Saves a new order unless a calendar week would get two range days (a Pardini day
+    # at the range: the shooter has one a week).
+    def save_order!(moved)
+      crowded = moved.each_slice(TrainingPlan::DAYS_PER_WEEK).each_with_index.find do |refs, _|
+        refs.count { plan_day_for(it).range? } > 1
+      end
+      raise Refused, "That would put two range days in week #{crowded[1] + 1}. Move one of them elsewhere first." if crowded
+
+      update!(schedule: (moved == natural_order ? nil : moved.to_json))
+      @workouts_by_day = nil
+      self
+    end
+
     def workouts_by_day = (@workouts_by_day ||= workouts.index_by { [ it.week, it.day ] })
 
     def find_or_create_exercise(name)

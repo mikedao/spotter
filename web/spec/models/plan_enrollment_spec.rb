@@ -86,6 +86,57 @@ RSpec.describe PlanEnrollment do
     end
   end
 
+  describe "rest days" do
+    it "makes a day a rest day and pushes it and everything after it a day later" do
+      enrollment.workouts.create!(week: 1, day: 2, completed_at: Time.current)
+      enrollment.add_rest!("1-2")
+
+      expect(enrollment.reload.order.first(3)).to eq(%w[1-1 rest-1 1-2])
+      expect(enrollment.order.size).to eq(85)
+      expect(enrollment.scheduled_on(1, 2)).to eq(start + 2)
+      expect(enrollment.done?(1, 2)).to be true
+      expect(enrollment.calendar.size).to eq(13)
+      expect(enrollment.calendar.first[1]).to be_pause
+      expect(enrollment.position(start + 1)).to be_nil
+    end
+
+    it "knows today is an added rest day, and when the longer plan is over" do
+      enrollment.add_rest!("1-1")
+      travel_to Time.zone.local(2026, 11, 2, 9) do
+        expect(enrollment).to be_rest_today
+        expect(enrollment.today).to be_nil
+      end
+      travel_to Time.zone.local(2026, 11, 3, 9) { expect(enrollment.today.ref).to eq("1-1") }
+      travel_to start + 84 do
+        expect(enrollment.reload).not_to be_finished
+        expect(enrollment.today.ref).to eq("12-7")
+      end
+      travel_to start + 85 do
+        expect(enrollment).to be_finished
+      end
+    end
+
+    it "takes a rest day out again, and swaps with one" do
+      enrollment.add_rest!("1-2")
+      enrollment.add_rest!("1-1")
+      expect(enrollment.order.first(4)).to eq(%w[rest-2 1-1 rest-1 1-2])
+
+      enrollment.remove_rest!("rest-2")
+      enrollment.swap!("rest-1", "1-3")
+      expect(enrollment.order.first(4)).to eq(%w[1-1 1-3 1-2 rest-1])
+      enrollment.remove_rest!("rest-1")
+      expect(enrollment.order.first(3)).to eq(%w[1-1 1-3 1-2])
+      expect { enrollment.remove_rest!("1-1") }.to raise_error(described_class::Refused)
+      expect { enrollment.add_rest!("99-1") }.to raise_error(described_class::Refused)
+    end
+
+    it "goes back to the plan's order with no rest days when reset" do
+      enrollment.add_rest!("1-1")
+      enrollment.reset_schedule!
+      expect(enrollment.order.size).to eq(84)
+    end
+  end
+
   describe "#link_session!" do
     it "ties the session to the block and tags it, reusing tags typed in another case" do
       user.exercises.create!(name: "rhythm")

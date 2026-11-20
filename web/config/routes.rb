@@ -53,6 +53,8 @@ Rails.application.routes.draw do
   # The training plan: a 12-week programme (TrainingPlan), one page per day.
   resource :training_plan, only: %i[ show create destroy ], path: "plan"
   patch "plan/swap", to: "plan_schedules#swap", as: :swap_plan_days
+  post "plan/rest", to: "plan_schedules#add_rest", as: :add_plan_rest
+  delete "plan/rest", to: "plan_schedules#remove_rest", as: :remove_plan_rest
   delete "plan/swap", to: "plan_schedules#reset", as: :reset_plan_days
   get "plan/:week/:day", to: "plan_workouts#show", as: :plan_workout, constraints: { week: /\d+/, day: /\d+/ }
   patch "plan/:week/:day", to: "plan_workouts#update", constraints: { week: /\d+/, day: /\d+/ }

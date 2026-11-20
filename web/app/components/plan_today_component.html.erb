@@ -12,6 +12,9 @@
     <div class="mt-3">
       <%= render(ButtonComponent.new(href: helpers.plan_workout_path(day.week, day.day), variant: done? ? :secondary : :primary)) { done? ? "Review the day" : "Open today's workout" } %>
     </div>
+  <% elsif enrollment.rest_today? %>
+    <p class="text-lg font-medium">Rest day</p>
+    <p class="text-gray-600 dark:text-gray-300">You added this one. The plan picks up tomorrow.</p>
   <% elsif enrollment.starts_in.positive? %>
     <p class="text-gray-700 dark:text-gray-200">
       The plan starts <%= helpers.plan_date(enrollment.started_on) %>, in <%= helpers.pluralize(enrollment.starts_in, "day") %>.

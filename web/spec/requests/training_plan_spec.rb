@@ -107,6 +107,24 @@ RSpec.describe "Training plan" do
       expect(user.plan_enrollment.reload).not_to be_moved
     end
 
+    it "makes a day a rest day, shows it, and takes it out" do
+      post add_plan_rest_path, params: { ref: "1-2", open: "1" }
+      expect(response).to redirect_to(training_plan_path(open: "1"))
+      expect(user.plan_enrollment.reload.order.first(3)).to eq(%w[1-1 rest-1 1-2])
+      get training_plan_path(open: "1")
+      expect(response.body).to include('data-ref="rest-1"', "Rest day", "Week 13")
+
+      delete remove_plan_rest_path, params: { ref: "rest-1" }
+      expect(user.plan_enrollment.reload).not_to be_moved
+    end
+
+    it "shows an added rest day as today's training" do
+      user.plan_enrollment.update!(started_on: Time.zone.today)
+      post add_plan_rest_path, params: { ref: "1-1" }
+      get training_plan_path
+      expect(response.body).to include("You added this one")
+    end
+
     it "puts the days back" do
       patch swap_plan_days_path, params: { from: "1-1", to: "1-2" }
       delete reset_plan_days_path

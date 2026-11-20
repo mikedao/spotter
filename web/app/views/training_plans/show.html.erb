@@ -62,7 +62,7 @@
 
     <div data-controller="plan-schedule" class="space-y-4">
       <p class="text-sm text-gray-600 dark:text-gray-300">
-        Can't make a day? Drag it onto another day to swap them, or tap <strong>Swap</strong> on one and then on the other.
+        Can't make a day? Tap <strong>Rest instead</strong> to make it a rest day and push the rest of the plan a day later. Or drag it onto another day to swap them, or tap <strong>Swap</strong> on one and then on the other.
         A week can have one range day. Ticks, notes and sessions stay with the day when it moves.
       </p>
       <p hidden data-plan-schedule-target="hint" class="rounded bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-200">
@@ -84,26 +84,28 @@
           <details <%= "open" if number == open_week %> data-week="<%= number %>">
             <summary class="flex min-h-11 cursor-pointer flex-wrap items-baseline justify-between gap-2 px-4 py-3">
               <span class="font-medium">
-                Week <%= number %> · <%= TrainingPlan.week(number).phase.name %>
-                <% if TrainingPlan.week(number).light? %><span class="ml-1 rounded bg-gray-100 px-2 py-0.5 text-sm font-normal text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter</span><% end %>
-                <span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= TrainingPlan.week(number).focus %></span>
+                <% plan_week = TrainingPlan.week(number) %>
+                Week <%= number %><%= " · #{plan_week.phase.name}" if plan_week %>
+                <% if plan_week&.light? %><span class="ml-1 rounded bg-gray-100 px-2 py-0.5 text-sm font-normal text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter</span><% end %>
+                <span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= plan_week ? plan_week.focus : "The plan ran on past week 12 because of the rest days you added." %></span>
               </span>
               <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300"><%= done %> / <%= total %></span>
             </summary>
             <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
               <% days.each do |day| %>
-                <% date = @enrollment.scheduled_on(day.week, day.day) %>
-                <% finished = @enrollment.done?(day.week, day.day) %>
+                <% date = @enrollment.date_of(day.ref) %>
+                <% pause = day.respond_to?(:pause?) %>
+                <% finished = !pause && @enrollment.done?(day.week, day.day) %>
                 <li draggable="true" data-ref="<%= day.ref %>" data-plan-schedule-target="day"
                     data-action="dragstart->plan-schedule#dragStart dragend->plan-schedule#dragEnd dragover->plan-schedule#dragOver dragleave->plan-schedule#dragLeave drop->plan-schedule#drop"
                     class="flex items-center">
-                  <%= link_to plan_workout_path(day.week, day.day), draggable: "false",
+                  <%= link_to((pause ? "#" : plan_workout_path(day.week, day.day)), draggable: "false",
                         class: class_names("flex min-h-11 min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800",
-                                           "bg-blue-50 dark:bg-blue-950/40" => date == Time.zone.today) do %>
+                                           "bg-blue-50 dark:bg-blue-950/40" => date == Time.zone.today)) do %>
                     <span>
                       <span class="inline-block w-24 text-sm text-gray-600 dark:text-gray-300"><%= plan_date(date) %></span>
                       <%= day.title %>
-                      <% if day.week != number %><span class="text-xs text-gray-500 dark:text-gray-400">(from week <%= day.week %>)</span><% end %>
+                      <% if !pause && day.week != number && number <= TrainingPlan::WEEKS %><span class="text-xs text-gray-500 dark:text-gray-400">(from week <%= day.week %>)</span><% end %>
                     </span>
                     <span class="flex items-center gap-2">
                       <%= plan_kind_badge(day) %>
@@ -115,6 +117,13 @@
                         <span class="text-sm text-amber-800 dark:text-amber-300">not done</span>
                       <% end %>
                     </span>
+                  <% end %>
+                  <% if pause %>
+                    <%= button_to "✕ Remove", remove_plan_rest_path(ref: day.ref, open: number), method: :delete, form: { class: "shrink-0" },
+                          class: "mr-1 min-h-11 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" %>
+                  <% else %>
+                    <%= button_to "Rest instead", add_plan_rest_path(ref: day.ref, open: number), method: :post, form: { class: "shrink-0", data: { turbo_confirm: "Make this a rest day? It and every day after it move one day later." } },
+                          class: "min-h-11 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" %>
                   <% end %>
                   <button type="button" data-action="plan-schedule#pick" aria-label="Swap <%= day.title %> with another day"
                           class="mr-2 min-h-11 shrink-0 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">⇄ Swap</button>

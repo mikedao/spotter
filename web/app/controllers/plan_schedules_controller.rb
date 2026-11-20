@@ -10,6 +10,21 @@ class PlanSchedulesController < ApplicationController
     back alert: e.message
   end
 
+  # The day becomes a rest day and the plan shifts a day later.
+  def add_rest
+    @enrollment.add_rest!(params[:ref])
+    back notice: "Rest day added. The days from there moved a day later."
+  rescue PlanEnrollment::Refused => e
+    back alert: e.message
+  end
+
+  def remove_rest
+    @enrollment.remove_rest!(params[:ref])
+    back notice: "Rest day taken out. The days after it moved a day earlier."
+  rescue PlanEnrollment::Refused => e
+    back alert: e.message
+  end
+
   # Back to the order the plan was written in.
   def reset
     @enrollment.reset_schedule!

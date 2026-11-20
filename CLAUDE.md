@@ -720,7 +720,7 @@ from there). The user commits; don't commit unless asked.
   keeping its ticks, notes and sessions (they hang on its "week-day" reference). The order is
   `plan_enrollments.schedule` (JSON of 84 refs, null = as written; a damaged one is ignored); `scheduled_on`,
   `position` (so "today"), `missed` all follow it. A swap that would give a calendar week two `range: true`
-  days (the yml's "Range day or rest") is refused with a message; "Put the days back" resets. A moved day shows
+  days (the yml's "Range day or rest") is refused with a message; "Put the days back" resets. **Rest instead** (2026-11-20): a day's "Rest instead" inserts an added rest day ("rest-1"...) into `schedule` there, so that day and all after move one day LATER and the calendar grows (week 13+; `PlanEnrollment::Pause`, `add_rest!`/`remove_rest!`, `date_of`, `rest_today?`); a rest day can be dragged/swapped and removed (days move back up); it has no ticks or notes; "Put the days back" removes them all. A moved day shows
   "(from week N)". Specs: models/plan_enrollment, requests/training_plan, system/training_plan (tap + a
   synthetic drag). Not built: moving a day to a date without swapping (a gap), a day list on Practice.
   **Timed fire timer** (2026-11-20, the shooter's ask for the plan's "Timed sequence"; Pardini DRY fire - the
