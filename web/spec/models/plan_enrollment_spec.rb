@@ -44,14 +44,14 @@ RSpec.describe PlanEnrollment do
 
   describe "#link_session!" do
     it "ties the session to the block and tags it, reusing tags typed in another case" do
-      user.exercises.create!(name: "calling shots")
+      user.exercises.create!(name: "rhythm")
       session = create(:practice_session, user:)
 
-      enrollment.link_session!(session, week: 1, day: 1, block: 3)   # Called shots
+      enrollment.link_session!(session, week: 1, day: 1, block: 3)   # Steady-pace series
 
       expect(session.reload).to have_attributes(plan_week: 1, plan_day: 1, plan_block: 3)
-      expect(session.plan_found.block.name).to eq("Called shots")
-      expect(session.exercises.map(&:name)).to eq([ "calling shots" ])
+      expect(session.plan_found.block.name).to eq("Steady-pace series")
+      expect(session.exercises.map(&:name)).to eq([ "rhythm" ])
       expect(user.exercises.count).to eq(1)
     end
 

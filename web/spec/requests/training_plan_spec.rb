@@ -39,8 +39,8 @@ RSpec.describe "Training plan" do
     enroll
     get plan_workout_path(1, 1)
     body = CGI.unescapeHTML(response.body)
-    expect(body).to include("Hold drills", "Slow groups", "Called shots")
-    expect(body).to include("Start the session: Slow groups", "Start the session: Called shots")
+    expect(body).to include("Hold drills", "Slow groups", "Steady-pace series")
+    expect(body).to include("Start the session: Slow groups", "Start the session: Steady-pace series")
     expect(body).to include('value="1-1-2"', 'value="1-1-3"')   # each starts its own block
   end
 
@@ -163,7 +163,7 @@ RSpec.describe "Training plan" do
       enrollment.link_session!(started, week: 1, day: 1, block: 2)
       get plan_workout_path(1, 1)
       body = CGI.unescapeHTML(response.body)
-      expect(body).to include("Another session: Slow groups", "Start the session: Called shots", practice_session_path(started))
+      expect(body).to include("Another session: Slow groups", "Start the session: Steady-pace series", practice_session_path(started))
     end
 
     it "shows the plan block on the session's own page" do

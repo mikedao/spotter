@@ -46,7 +46,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet.", drill: { reps: 10, hold: 8 } }
           - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Spotter measures each group for you: look at its size and where it sits.", session: { per_card: 10, group: 5, tags: ["Groups"] } }
-          - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right.", session: { per_card: 10, tags: ["Calling shots"] } }
+          - { name: "Steady-pace series", minutes: 20, shots: 20, detail: "Two 10-shot series, one shot about every 40 seconds, the same routine each time. Judge the rhythm and the spread, not the score.", session: { per_card: 10, tags: ["Rhythm"] } }
           - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
       - title: "Hold and trigger (Pardini)"
         kind: dry
@@ -65,13 +65,13 @@ phases:
           - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups (Spotter measures each one). Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 10, group: 5, tags: ["Trigger control", "Follow-through"] } }
           - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
-      - title: "Calling shots"
+      - title: "Rhythm"
         kind: air
-        focus: "Know where every shot went before you look."
+        focus: "The same rhythm from shot to shot."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Called series", minutes: 40, shots: 40, detail: "In 10-shot series. Say ring and direction before the screen shows it. The stat that matters is how often you were right, not the score.", session: { per_card: 10, tags: ["Calling shots"] } }
-          - { name: "Blind review", minutes: 10, detail: "Review the flagged shots and make your calls blind. Your call is the training data." }
+          - { name: "Rhythm series", minutes: 40, shots: 40, detail: "Four 10-shot series, one shot every 30 to 40 seconds. Afterwards open the Journal's Your rhythm: even gaps should mean even scores.", session: { per_card: 10, tags: ["Rhythm"] } }
+          - { name: "Diary", minutes: 10, detail: "One line on whether the rhythm held, and where it broke." }
       - title: "Timed and rapid (Pardini)"
         kind: dry
         focus: "Rhythm for the 25 yard stages: sights back on target, same press every time."

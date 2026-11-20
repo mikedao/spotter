@@ -78,7 +78,7 @@ RSpec.describe TrainingPlan do
     end
 
     it "makes a day's tags its blocks' tags together" do
-      expect(described_class.day(1, 1).tags).to eq([ "Groups", "Calling shots" ])
+      expect(described_class.day(1, 1).tags).to eq([ "Groups", "Rhythm" ])
       expect(described_class.day(1, 2).tags).to be_empty
     end
 

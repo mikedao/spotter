@@ -28,7 +28,7 @@ RSpec.describe "Training plan" do
     click_link "Open today's workout"
     expect(page).to have_text("Hold drills")
     expect(page).to have_button("Start the session: Slow groups")
-    expect(page).to have_button("Start the session: Called shots")
+    expect(page).to have_button("Start the session: Steady-pace series")
     shot("plan_day")
 
     click_button "Mark done"
