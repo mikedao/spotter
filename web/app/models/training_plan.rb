@@ -25,10 +25,11 @@ class TrainingPlan
     def light? = volume < 1
   end
 
-  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :blocks, :light) do
+  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :blocks, :light, :range) do
     def air? = kind == "air"
     def dry? = kind == "dry"
     def rest? = kind == "rest"
+    def range? = range
     def minutes = blocks.sum(&:minutes)
     def tags = blocks.flat_map { it.session&.tags.to_a }.uniq
     def session_blocks = blocks.select(&:session)
@@ -93,7 +94,7 @@ class TrainingPlan
           session = block["session"]&.then { SessionSpec.new(it.fetch("per_card"), it["group"], it["course"], it.fetch("tags", [])) }
           Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill, session)
         end
-        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1)
+        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1, fields["range"] == true)
       end
 
       # Shot counts follow the week's volume, in fives, never below five.

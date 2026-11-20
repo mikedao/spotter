@@ -89,6 +89,37 @@ RSpec.describe "Training plan" do
     expect(response.body).to include("0</strong> of 72")
   end
 
+  describe "swapping days" do
+    before { enroll }
+
+    it "swaps two days and keeps the week open" do
+      patch swap_plan_days_path, params: { from: "1-1", to: "1-2", open: "1" }
+      expect(response).to redirect_to(training_plan_path(open: "1"))
+      expect(user.plan_enrollment.reload.order.first(2)).to eq(%w[1-2 1-1])
+      get training_plan_path
+      expect(response.body).to include('data-ref="1-2"')
+    end
+
+    it "says why a swap is refused" do
+      patch swap_plan_days_path, params: { from: "2-1", to: "1-7" }
+      follow_redirect!
+      expect(CGI.unescapeHTML(response.body)).to include("two range days in week 2")
+      expect(user.plan_enrollment.reload).not_to be_moved
+    end
+
+    it "puts the days back" do
+      patch swap_plan_days_path, params: { from: "1-1", to: "1-2" }
+      delete reset_plan_days_path
+      expect(user.plan_enrollment.reload).not_to be_moved
+    end
+
+    it "does nothing for someone not on the plan" do
+      user.plan_enrollment.destroy
+      patch swap_plan_days_path, params: { from: "1-1", to: "1-2" }
+      expect(response).to redirect_to(training_plan_path)
+    end
+  end
+
   describe "starting a session from a block" do
     let(:enrollment) { enroll }
     let(:started) { create(:practice_session, user:) }

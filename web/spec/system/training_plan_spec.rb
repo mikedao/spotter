@@ -47,4 +47,26 @@ RSpec.describe "Training plan" do
     expect(page).to have_button("New session")
     shot("plan_practice")
   end
+
+  it "swaps two days by tapping Swap on each, and by dragging one onto the other" do
+    user.create_plan_enrollment!(started_on: Time.zone.today)
+    visit training_plan_path
+    within("li[data-ref='1-1']") { click_button "⇄ Swap" }
+    expect(page).to have_text("Now tap Swap on the day")
+    within("li[data-ref='1-2']") { click_button "⇄ Swap" }
+    expect(page).to have_text("Swapped.")
+    expect(user.plan_enrollment.reload.order.first(2)).to eq(%w[1-2 1-1])
+    expect(find("details[open] li", match: :first)["data-ref"]).to eq("1-2")
+
+    page.execute_script(<<~JS)
+      const a = document.querySelector("li[data-ref='1-2']"), b = document.querySelector("li[data-ref='1-3']")
+      const data = new DataTransfer()
+      a.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: data }))
+      b.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: data }))
+      b.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: data }))
+    JS
+    expect(page).to have_text("Swapped.")
+    expect(user.plan_enrollment.reload.order.first(3)).to eq(%w[1-3 1-1 1-2])
+    shot("plan_swapped")
+  end
 end

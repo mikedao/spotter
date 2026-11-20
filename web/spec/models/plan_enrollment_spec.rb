@@ -42,6 +42,50 @@ RSpec.describe PlanEnrollment do
     expect(user.build_plan_enrollment(started_on: Time.zone.today + 60)).not_to be_valid
   end
 
+  describe "swapping days" do
+    it "trades two days' places on the calendar, and keeps what is about each day" do
+      enrollment.workouts.create!(week: 1, day: 1, completed_at: Time.current)
+      enrollment.swap!("1-1", "1-3")
+
+      expect(enrollment.reload.position(start)).to eq([ 1, 3 ])
+      expect(enrollment.position(start + 2)).to eq([ 1, 1 ])
+      expect(enrollment.scheduled_on(1, 1)).to eq(start + 2)
+      expect(enrollment.done?(1, 1)).to be true
+      expect(enrollment.calendar.first.map(&:ref).first(3)).to eq(%w[1-3 1-2 1-1])
+      expect(enrollment).to be_moved
+    end
+
+    it "can move a day into another week, and back" do
+      enrollment.swap!("1-1", "2-1")
+      expect(enrollment.scheduled_on(1, 1)).to eq(start + 7)
+      expect(enrollment.calendar[1].first.ref).to eq("1-1")
+      enrollment.swap!("1-1", "2-1")
+      expect(enrollment).not_to be_moved
+      expect(enrollment.schedule).to be_nil
+    end
+
+    it "keeps one range day a week" do
+      expect(TrainingPlan.day(1, 7)).to be_range
+      expect { enrollment.swap!("2-1", "1-7") }.to raise_error(described_class::Refused, /two range days in week 2/)
+      expect(enrollment.reload).not_to be_moved
+
+      enrollment.swap!("1-7", "2-7")   # a range day for a range day is fine
+      expect(enrollment.calendar[0].last.ref).to eq("2-7")
+    end
+
+    it "refuses what is not a day of the plan, and puts the order back on request" do
+      expect { enrollment.swap!("1-1", "99-1") }.to raise_error(described_class::Refused)
+      enrollment.swap!("1-1", "1-2")
+      enrollment.reset_schedule!
+      expect(enrollment).not_to be_moved
+    end
+
+    it "ignores a damaged saved order" do
+      enrollment.update!(schedule: '["1-1"]')
+      expect(enrollment.order).to eq(enrollment.natural_order)
+    end
+  end
+
   describe "#link_session!" do
     it "ties the session to the block and tags it, reusing tags typed in another case" do
       user.exercises.create!(name: "rhythm")

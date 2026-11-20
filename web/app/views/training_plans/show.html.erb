@@ -31,8 +31,7 @@
     <% end %>
   </div>
 <% else %>
-  <% week_now, = @enrollment.position %>
-  <% missed = @enrollment.missed %>
+    <% missed = @enrollment.missed %>
   <div class="space-y-4">
     <%= render(PlanTodayComponent.new(enrollment: @enrollment)) %>
 
@@ -61,48 +60,77 @@
       <% end %>
     <% end %>
 
-    <% TrainingPlan.weeks.each do |week| %>
-      <% done = week.days.count { !it.rest? && @enrollment.done?(it.week, it.day) } %>
-      <% total = week.days.count { !it.rest? } %>
-      <%= render(CardComponent.new(padding: :none)) do %>
-        <details <%= "open" if week.number == week_now %>>
-          <summary class="flex min-h-11 cursor-pointer flex-wrap items-baseline justify-between gap-2 px-4 py-3">
-            <span class="font-medium">
-              Week <%= week.number %> · <%= week.phase.name %>
-              <% if week.light? %><span class="ml-1 rounded bg-gray-100 px-2 py-0.5 text-sm font-normal text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter</span><% end %>
-              <span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= week.focus %></span>
-            </span>
-            <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300"><%= done %> / <%= total %></span>
-          </summary>
-          <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            <% week.days.each do |day| %>
-              <% date = @enrollment.scheduled_on(day.week, day.day) %>
-              <% finished = @enrollment.done?(day.week, day.day) %>
-              <li>
-                <%= link_to plan_workout_path(day.week, day.day),
-                      class: class_names("flex min-h-11 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800",
-                                         "bg-blue-50 dark:bg-blue-950/40" => date == Time.zone.today) do %>
-                  <span>
-                    <span class="inline-block w-24 text-sm text-gray-600 dark:text-gray-300"><%= plan_date(date) %></span>
-                    <%= day.title %>
-                  </span>
-                  <span class="flex items-center gap-2">
-                    <%= plan_kind_badge(day) %>
-                    <% if finished %>
-                      <span class="text-sm text-green-800 dark:text-green-300">✓ done</span>
-                    <% elsif date == Time.zone.today %>
-                      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">today</span>
-                    <% elsif date < Time.zone.today && !day.rest? %>
-                      <span class="text-sm text-amber-800 dark:text-amber-300">not done</span>
-                    <% end %>
-                  </span>
-                <% end %>
-              </li>
-            <% end %>
-          </ul>
-        </details>
+    <div data-controller="plan-schedule" class="space-y-4">
+      <p class="text-sm text-gray-600 dark:text-gray-300">
+        Can't make a day? Drag it onto another day to swap them, or tap <strong>Swap</strong> on one and then on the other.
+        A week can have one range day. Ticks, notes and sessions stay with the day when it moves.
+      </p>
+      <p hidden data-plan-schedule-target="hint" class="rounded bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-200">
+        Now tap Swap on the day to trade places with.
+        <button type="button" data-action="plan-schedule#clear" class="ml-2 underline">Cancel</button>
+      </p>
+      <%= form_with url: swap_plan_days_path, method: :patch, class: "hidden", data: { plan_schedule_target: "form" } do %>
+        <%= hidden_field_tag :from, nil, data: { plan_schedule_target: "from" } %>
+        <%= hidden_field_tag :to, nil, data: { plan_schedule_target: "to" } %>
+        <%= hidden_field_tag :open, nil, data: { plan_schedule_target: "open" } %>
       <% end %>
-    <% end %>
+
+      <% open_week = (params[:open].presence || @enrollment.calendar_week_now).to_i %>
+      <% @enrollment.calendar.each_with_index do |days, index| %>
+        <% number = index + 1 %>
+        <% done = days.count { !it.rest? && @enrollment.done?(it.week, it.day) } %>
+        <% total = days.count { !it.rest? } %>
+        <%= render(CardComponent.new(padding: :none)) do %>
+          <details <%= "open" if number == open_week %> data-week="<%= number %>">
+            <summary class="flex min-h-11 cursor-pointer flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+              <span class="font-medium">
+                Week <%= number %> · <%= TrainingPlan.week(number).phase.name %>
+                <% if TrainingPlan.week(number).light? %><span class="ml-1 rounded bg-gray-100 px-2 py-0.5 text-sm font-normal text-gray-700 dark:bg-gray-800 dark:text-gray-300">lighter</span><% end %>
+                <span class="block text-sm font-normal text-gray-600 dark:text-gray-300"><%= TrainingPlan.week(number).focus %></span>
+              </span>
+              <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300"><%= done %> / <%= total %></span>
+            </summary>
+            <ul class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+              <% days.each do |day| %>
+                <% date = @enrollment.scheduled_on(day.week, day.day) %>
+                <% finished = @enrollment.done?(day.week, day.day) %>
+                <li draggable="true" data-ref="<%= day.ref %>" data-plan-schedule-target="day"
+                    data-action="dragstart->plan-schedule#dragStart dragend->plan-schedule#dragEnd dragover->plan-schedule#dragOver dragleave->plan-schedule#dragLeave drop->plan-schedule#drop"
+                    class="flex items-center">
+                  <%= link_to plan_workout_path(day.week, day.day), draggable: "false",
+                        class: class_names("flex min-h-11 min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800",
+                                           "bg-blue-50 dark:bg-blue-950/40" => date == Time.zone.today) do %>
+                    <span>
+                      <span class="inline-block w-24 text-sm text-gray-600 dark:text-gray-300"><%= plan_date(date) %></span>
+                      <%= day.title %>
+                      <% if day.week != number %><span class="text-xs text-gray-500 dark:text-gray-400">(from week <%= day.week %>)</span><% end %>
+                    </span>
+                    <span class="flex items-center gap-2">
+                      <%= plan_kind_badge(day) %>
+                      <% if finished %>
+                        <span class="text-sm text-green-800 dark:text-green-300">✓ done</span>
+                      <% elsif date == Time.zone.today %>
+                        <span class="text-sm font-medium text-blue-800 dark:text-blue-300">today</span>
+                      <% elsif date < Time.zone.today && !day.rest? %>
+                        <span class="text-sm text-amber-800 dark:text-amber-300">not done</span>
+                      <% end %>
+                    </span>
+                  <% end %>
+                  <button type="button" data-action="plan-schedule#pick" aria-label="Swap <%= day.title %> with another day"
+                          class="mr-2 min-h-11 shrink-0 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">⇄ Swap</button>
+                </li>
+              <% end %>
+            </ul>
+          </details>
+        <% end %>
+      <% end %>
+
+      <% if @enrollment.moved? %>
+        <%= button_to "Put the days back in the plan's order", reset_plan_days_path, method: :delete,
+              form: { data: { turbo_confirm: "Put every day back where the plan had it?" } },
+              class: "min-h-11 cursor-pointer rounded-md px-3 text-sm text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950" %>
+      <% end %>
+    </div>
 
     <div>
       <%= button_to "Leave the plan", training_plan_path, method: :delete,

@@ -4,6 +4,8 @@
 #   phases[].days    seven day templates, shared by every week of that phase
 #   weeks            a focus line and a volume (1.0 = as written; shot counts scale with it)
 #   overrides        "WEEK-DAY" => fields that replace the template for that one day
+#   range: true      the day you may shoot the Pardini for real at a range: at most one per calendar week
+#                    when days are swapped on the plan page
 #   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire, rest
 #   block shots      the base count at volume 1.0 (rounded to 5)
 #   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
@@ -91,6 +93,7 @@ phases:
           - { name: "Diary", minutes: 10, detail: "Write the score, your worst series and the first thing that went wrong." }
       - title: "Range day or rest"
         kind: rest
+        range: true
         focus: "A free day. If you shoot Bullseye, use it to see what carries over."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye as you normally do and call every shot before you score it. Note where your routine slipped." }
@@ -150,6 +153,7 @@ phases:
           - { name: "Series review", minutes: 10, detail: "Journal, Series through a session: does one series number fade or start cold?" }
       - title: "Range day or rest"
         kind: rest
+        range: true
         focus: "A free day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye and call every shot first. Slow fire is where the air pistol work shows." }
@@ -206,6 +210,7 @@ phases:
           - { name: "Diary", minutes: 10, detail: "Score, worst series, how the last 10 shots went." }
       - title: "Range day or rest"
         kind: rest
+        range: true
         focus: "A free day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye. Use the same routine as the air pistol and call each shot." }

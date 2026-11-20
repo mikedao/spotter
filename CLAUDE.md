@@ -713,7 +713,17 @@ from there). The user commits; don't commit unless asked.
   those shot per block ("Another session: ...") and `PlanBlockComponent` shows the block's instructions as a
   collapsed "Plan" line on the session's own page. A day's tags are its blocks' together (`Day#tags`). The old
   one-session-per-day link (`plan_workouts.practice_session_id`) was moved onto the sessions (plan_block nil)
-  and dropped. Today's day also shows on Practice (`PlanTodayComponent`). Not built: a block timer, auto-ticking a day when its session ends, plan
+  and dropped. Today's day also shows on Practice (`PlanTodayComponent`). **Swapping days** (2026-11-20, the shooter: work and weather get in the way; one RANGE day a week - real
+  fire with the Pardini at a range; air pistol is shot at home any day): the plan page is the CALENDAR - twelve
+  weeks of seven slots, each a plan day. Drag a day onto another (HTML5 DnD) or tap "Swap" on each (touch;
+  `plan_schedule_controller.js`) and the two TRADE PLACES (`PATCH /plan/swap` -> `PlanEnrollment#swap!`), a day
+  keeping its ticks, notes and sessions (they hang on its "week-day" reference). The order is
+  `plan_enrollments.schedule` (JSON of 84 refs, null = as written; a damaged one is ignored); `scheduled_on`,
+  `position` (so "today"), `missed` all follow it. A swap that would give a calendar week two `range: true`
+  days (the yml's "Range day or rest") is refused with a message; "Put the days back" resets. A moved day shows
+  "(from week N)". Specs: models/plan_enrollment, requests/training_plan, system/training_plan (tap + a
+  synthetic drag). Not built: moving a day to a date without swapping (a gap), a day list on Practice.
+  Not built: a block timer, auto-ticking a day when its session ends, plan
   targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
   requests/training_plan, system/training_plan.
 
