@@ -69,6 +69,14 @@ class PracticeSession < ApplicationRecord
   # The training plan block this session was started for (TrainingPlan::Found), if any: what the
   # shooter set out to do in it. Nil for a day started as a whole (before blocks had sessions).
   def plan_found = plan_block && TrainingPlan.find_block(plan_ref)
+  # Shots per group when the plan block measures a card in runs (10 shots, two 5-shot groups).
+  # Shot as the plan block asked: at least its shot count, sighters not counted.
+  def completes_plan_block?
+    shots = plan_found&.block&.shots
+    shots.present? && cards.sum { |card| card.scored_shots.count { !it.sighter? } } >= shots
+  end
+
+  def group_of = plan_found&.block&.session&.group
   def plan_ref = ([ plan_week, plan_day, plan_block ].compact.join("-") if plan_week)
 
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")

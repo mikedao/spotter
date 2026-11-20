@@ -60,6 +60,13 @@ class CardStats
     shots.combination(2).map { |a, b| Math.hypot(a.final_x_mm - b.final_x_mm, a.final_y_mm - b.final_y_mm) }.max.round(1)
   end
 
+  # Group sizes of each run of `of` shots in firing order (a 10-shot card as two
+  # 5-shot groups). Only a run of at least two shots counts, so a group still
+  # being shot shows as soon as it has a pair.
+  def group_sizes(of:)
+    shots.sort_by(&:fired_at).each_slice(of).filter_map { |run| self.class.new(run, spec).group_size_mm }
+  end
+
   # Seconds between consecutive shots on the card.
   def intervals_s = shots.sort_by(&:fired_at).each_cons(2).map { |a, b| (b.fired_at - a.fired_at).round }
   def average_interval_s = intervals_s.any? ? (intervals_s.sum / intervals_s.size.to_f).round : nil

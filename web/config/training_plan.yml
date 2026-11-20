@@ -7,7 +7,7 @@
 #   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire, rest
 #   block shots      the base count at volume 1.0 (rounded to 5)
 #   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
-#   block session    { per_card, course?, tags } on an air pistol shooting block (one with shots): the day page
+#   block session    { per_card, group?, course?, tags } on an air pistol shooting block (one with shots): the day page
 #                    starts its OWN Spotter session, preloaded with these and the block's instructions;
 #                    a day's tags are its blocks' tags together
 #
@@ -45,7 +45,7 @@ phases:
         focus: "Build the pre-shot routine and watch the group, not the score."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet.", drill: { reps: 10, hold: 8 } }
-          - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Judge the group size and where it sits.", session: { per_card: 5, tags: ["Groups"] } }
+          - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Spotter measures each group for you: look at its size and where it sits.", session: { per_card: 10, group: 5, tags: ["Groups"] } }
           - { name: "Called shots", minutes: 20, shots: 20, detail: "Say the ring and direction out loud before the announcer does. Keep a tally of how many you called right.", session: { per_card: 10, tags: ["Calling shots"] } }
           - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
       - title: "Hold and trigger (Pardini)"
@@ -62,8 +62,8 @@ phases:
         focus: "Press straight back and nothing else moves. Keep the picture after the break."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups. Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 5, tags: ["Trigger control", "Follow-through"] } }
-          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 5, tags: ["Follow-through"] } }
+          - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups (Spotter measures each one). Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 10, group: 5, tags: ["Trigger control", "Follow-through"] } }
+          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
       - title: "Calling shots"
         kind: air
@@ -129,7 +129,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Find it", minutes: 5, detail: "Journal, Where the misses go: pick the direction with the most misses. For a right-hander low often means anticipation or dropping the head, left or right means finger position or grip pressure, high means rushing or the heel of the hand pushing. Left-handers mirror." }
-          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it.", session: { per_card: 5, tags: ["Fault finding"] } }
+          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it.", session: { per_card: 10, group: 5, tags: ["Fault finding"] } }
           - { name: "Diary", minutes: 10, detail: "Write what you changed and whether the group moved." }
       - title: "Timed, rapid, transitions (Pardini)"
         kind: dry
@@ -180,14 +180,14 @@ phases:
         focus: "A target you have to hit. A miss means starting the series again."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Make-it", minutes: 40, shots: 40, detail: "5-shot series. Set the target to your recent 5-shot average plus one ring. Miss it and the series starts again. Stop after 40 minutes and count your attempts.", session: { per_card: 5, tags: ["Pressure"] } }
+          - { name: "Make-it", minutes: 40, shots: 40, detail: "5-shot series. Set the target to your recent 5-shot average plus one ring. Miss it and the series starts again. Stop after 40 minutes and count your attempts.", session: { per_card: 10, group: 5, tags: ["Pressure"] } }
           - { name: "Diary", minutes: 10, detail: "How did your routine change when it counted?" }
       - title: "Cold starts"
         kind: air
         focus: "The first shot has to be as good as the sixtieth."
         blocks:
           - { name: "Rest between", minutes: 10, detail: "No warm-up and no sighters: this is the point." }
-          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts.", session: { per_card: 5, tags: ["Cold starts"] } }
+          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 10, detail: "How much worse was shot one than shot five?" }
       - title: "Rhythm and stakes (Pardini)"
         kind: dry
@@ -221,7 +221,7 @@ phases:
         focus: "Short and crisp. Quality over volume."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Groups", minutes: 35, shots: 30, detail: "5-shot groups at match pace, each shot called.", session: { per_card: 5, tags: ["Groups", "Match pace"] } }
+          - { name: "Groups", minutes: 35, shots: 30, detail: "5-shot groups at match pace, each shot called.", session: { per_card: 10, group: 5, tags: ["Groups", "Match pace"] } }
           - { name: "Diary", minutes: 10, detail: "One thing to keep for the test." }
       - title: "Slow fire (Pardini)"
         kind: dry
@@ -235,14 +235,14 @@ phases:
         focus: "One last round of pressure, kept short."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Make-it", minutes: 30, shots: 30, detail: "5-shot series. Hit your target or restart. Stop after 30 minutes.", session: { per_card: 5, tags: ["Pressure"] } }
+          - { name: "Make-it", minutes: 30, shots: 30, detail: "5-shot series. Hit your target or restart. Stop after 30 minutes.", session: { per_card: 10, group: 5, tags: ["Pressure"] } }
           - { name: "Diary", minutes: 10, detail: "What did you do when the pressure came?" }
       - title: "Cold starts"
         kind: air
         focus: "Practice the first shot again, lighter."
         blocks:
           - { name: "Rest between", minutes: 5, detail: "No warm-up." }
-          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold.", session: { per_card: 5, tags: ["Cold starts"] } }
+          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 5, detail: "Shot one against shot five." }
       - title: "Timed and rapid (Pardini)"
         kind: dry

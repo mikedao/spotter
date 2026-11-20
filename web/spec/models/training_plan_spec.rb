@@ -67,9 +67,10 @@ RSpec.describe TrainingPlan do
       end
     end
 
-    it "preloads cards of 5 or 10 shots, and a match for the match blocks only" do
+    it "preloads cards of 10 shots (groups measured by 5), and a match for the match blocks only" do
       sessions = blocks.filter_map { |_, b| b.session }
-      expect(sessions.map(&:per_card).uniq).to contain_exactly(5, 10)
+      expect(sessions.map(&:per_card).uniq).to contain_exactly(10)
+      expect(sessions.map(&:group).uniq).to contain_exactly(nil, 5)
       expect(sessions.map(&:course).uniq).to contain_exactly(nil, "match")
       matches = blocks.select { |_, b| b.session&.course == "match" }
       expect(matches.map { |_, b| b.name }.uniq).to eq([ "Match" ])

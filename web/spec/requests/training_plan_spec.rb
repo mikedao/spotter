@@ -115,8 +115,8 @@ RSpec.describe "Training plan" do
       get setup_start_path
       body = CGI.unescapeHTML(response.body)
       expect(body).to include("From your plan", "Week 1 · Day 3 · Trigger groups", "#{TrainingPlan.find_block('1-3-2').block.shots} shots")
-      expect(body).to include("5 shots a card", "Trigger control and Follow-through")
-      expect(body).to match(/name="practice_session\[per_card\]"[^>]*value="5"|value="5"[^>]*name="practice_session\[per_card\]"/)
+      expect(body).to include("10 shots a card", "Trigger control and Follow-through")
+      expect(body).to match(/name="practice_session\[per_card\]"[^>]*value="10"|value="10"[^>]*name="practice_session\[per_card\]"/)
     end
 
     it "preloads a match for a match block" do
@@ -143,6 +143,19 @@ RSpec.describe "Training plan" do
       end
     end
 
+    it "ticks a block once a session shot all of its shots" do
+      enrollment.link_session!(started, week: 1, day: 1, block: 2)
+      card = create(:card, practice_session: started)
+      needed = TrainingPlan.find_block("1-1-2").block.shots
+      (needed - 1).times { |i| create(:shot, card:, number: i + 1, ring: 9, decimal_score: 9.4) }
+      get plan_workout_path(1, 1)
+      expect(response.body).not_to include("✓ done")
+
+      create(:shot, card:, number: needed, ring: 9, decimal_score: 9.4)
+      get plan_workout_path(1, 1)
+      expect(response.body).to include("✓ done")
+    end
+
     it "lists the sessions shot for a block on the day, and offers another" do
       get plan_workout_path(1, 1)
       expect(CGI.unescapeHTML(response.body)).to include("Start the session: Slow groups")
@@ -157,7 +170,7 @@ RSpec.describe "Training plan" do
       enrollment.link_session!(started, week: 1, day: 1, block: 2)
       get practice_session_path(started)
       body = CGI.unescapeHTML(response.body)
-      expect(body).to include("Week 1 · Day 1 · Slow groups", "5-shot groups. Same routine every shot", "Cards of 5")
+      expect(body).to include("Week 1 · Day 1 · Slow groups", "5-shot groups. Same routine every shot", "Cards of 10, measured in groups of 5")
     end
 
     it "shows nothing extra on a session that was not started from the plan" do

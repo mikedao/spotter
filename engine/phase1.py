@@ -486,8 +486,7 @@ def _shot_once(a, spec, prior=()):
     if not a.before:
         sd = OUT / "shots"
         sd.mkdir(parents=True, exist_ok=True)
-        n = 1 + max([int(p.name[:3]) for p in sd.glob("[0-9][0-9][0-9]_after.png")]
-                    or [0])
+        n = 1 + _last_shot_number(sd)
         for tag, img in (("before", before), ("after", after)):
             cv2.imwrite(str(sd / f"{n:03d}_{tag}.png"),
                         np.clip(img, 0, 255).astype(np.uint8))
@@ -495,11 +494,17 @@ def _shot_once(a, spec, prior=()):
     return _score_pair(a, spec, before, tf_b, after, n, prior=prior)
 
 
+def _last_shot_number(sd):
+    """Highest NNN in sd/NNN_after.png - any number of digits (shot 1000 and up
+    broke a 3-digit glob: every later shot was numbered 1000 again)."""
+    return max([int(p.name.split("_")[0]) for p in sd.glob("*_after.png")
+                if p.name.split("_")[0].isdigit()] or [0])
+
+
 def _next_shot_number():
     sd = OUT / "shots"
     sd.mkdir(parents=True, exist_ok=True)
-    return 1 + max([int(p.name[:3]) for p in sd.glob("[0-9][0-9][0-9]_after.png")]
-                   or [0])
+    return 1 + _last_shot_number(sd)
 
 
 def _score_pair(a, spec, before, tf_b, after, n, tf=None, verbose=True,

@@ -23,6 +23,9 @@
           <p class="flex flex-wrap items-baseline gap-x-3">
             <span class="font-medium"><%= block.name %></span>
             <% hold_done = block.drill && @drills.any? { it.completes?(block.drill) } %>
+            <% shot_for = block.session ? @sessions.select { it.plan_block == block.number } : [] %>
+            <% shots_done = shot_for.any?(&:completes_plan_block?) %>
+            <% hold_done ||= shots_done %>
             <% if hold_done %><span class="rounded bg-green-100 px-2 py-0.5 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">✓ done</span><% end %>
             <span class="text-sm tabular-nums text-gray-600 dark:text-gray-300">
               <%= [ ("#{block.minutes} min" if block.minutes.positive?), ("#{block.shots} shots" if block.shots) ].compact.join(" · ") %>
@@ -30,7 +33,6 @@
           </p>
           <p class="text-gray-700 dark:text-gray-200"><%= block.detail %></p>
           <% if block.session %>
-            <% shot_for = @sessions.select { it.plan_block == block.number } %>
             <div class="mt-2 space-y-2">
               <% if @running %>
                 <p class="text-sm text-gray-600 dark:text-gray-300">
@@ -49,7 +51,9 @@
                 <ul class="text-sm text-gray-700 dark:text-gray-200">
                   <% shot_for.each do |practice| %>
                     <li><%= link_to practice.started_at.strftime("%b %-d, %H:%M"), practice_session_path(practice), class: "text-blue-700 underline dark:text-blue-300" %>
-                        · <%= pluralize(practice.cards.sum { it.scored_shots.size }, "shot") %></li>
+                        · <%= pluralize(practice.cards.sum { it.scored_shots.size }, "shot") %>
+                        <% sizes = practice.cards.flat_map { |card| st = CardStats.new(card.scored_shots.reject(&:sighter?), practice.target_spec); practice.group_of ? st.group_sizes(of: practice.group_of) : [ st.group_size_mm ].compact } %>
+                        <% if sizes.any? %>· groups <%= sizes.join(", ") %> mm<% end %></li>
                   <% end %>
                 </ul>
               <% end %>
