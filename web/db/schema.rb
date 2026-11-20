@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_20_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_20_140000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -221,6 +221,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_120000) do
     t.index ["engine_shot_id"], name: "index_shots_on_engine_shot_id"
   end
 
+  create_table "slow_drills", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.integer "shots", null: false
+    t.integer "string_size", null: false
+    t.integer "limit_seconds", null: false
+    t.integer "between_seconds", null: false
+    t.integer "string_rest_seconds", null: false
+    t.integer "shots_fired", default: 0, null: false
+    t.integer "let_downs", default: 0, null: false
+    t.float "break_seconds", default: 0.0, null: false
+    t.integer "plan_week"
+    t.integer "plan_day"
+    t.datetime "performed_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "performed_at"], name: "index_slow_drills_on_user_id_and_performed_at"
+    t.index ["user_id"], name: "index_slow_drills_on_user_id"
+  end
+
+  create_table "timed_drills", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.integer "strings", null: false
+    t.integer "shots", null: false
+    t.integer "string_seconds", null: false
+    t.integer "rest_seconds", null: false
+    t.integer "strings_done", default: 0, null: false
+    t.integer "plan_week"
+    t.integer "plan_day"
+    t.datetime "performed_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "performed_at"], name: "index_timed_drills_on_user_id_and_performed_at"
+    t.index ["user_id"], name: "index_timed_drills_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "username", null: false
     t.string "email_address", null: false
@@ -257,4 +292,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_120000) do
   add_foreign_key "session_exercises", "practice_sessions"
   add_foreign_key "sessions", "users"
   add_foreign_key "shots", "cards"
+  add_foreign_key "slow_drills", "users"
+  add_foreign_key "timed_drills", "users"
 end

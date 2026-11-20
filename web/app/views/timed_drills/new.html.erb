@@ -1,0 +1,61 @@
+<% content_for :title, "Timed fire" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% s = @settings %>
+<% button = "min-h-14 cursor-pointer rounded-md px-6 text-lg font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" %>
+
+<p class="mb-1 text-sm">
+  <%= link_to "← Timed fire", timed_drills_path, class: "text-blue-700 underline dark:text-blue-300" %>
+  <% if @plan_day %>
+    <% week, day = TrainingPlan.parse(@plan_day) %>
+    · <%= link_to "Week #{week} · Day #{day}", plan_workout_path(week, day), class: "text-blue-700 underline dark:text-blue-300" %>
+  <% end %>
+</p>
+<h1 class="text-2xl font-semibold">Timed fire</h1>
+<p class="mt-1 <%= muted %>">
+  <%= s[:strings] %> strings of <%= s[:shots] %> shots in <%= s[:string_seconds] %> seconds, <%= s[:rest_seconds] %> seconds rest.
+  Pardini dry fire: magazine out, chamber checked, snap cap in.
+</p>
+
+<div class="mt-4" data-controller="timed-drill"
+     data-timed-drill-strings-value="<%= s[:strings] %>" data-timed-drill-shots-value="<%= s[:shots] %>"
+     data-timed-drill-seconds-value="<%= s[:string_seconds] %>" data-timed-drill-rest-value="<%= s[:rest_seconds] %>"
+     data-timed-drill-ready-min-value="<%= TimedDrill::READY_SECONDS.min %>" data-timed-drill-ready-max-value="<%= TimedDrill::READY_SECONDS.max %>"
+     data-timed-drill-index-url-value="<%= timed_drills_path %>" data-timed-drill-cues-value="<%= @cues.to_json %>">
+  <%= render(CardComponent.new) do %>
+    <div class="flex flex-col items-center gap-3 py-4 text-center">
+      <p class="text-lg <%= muted %>" data-timed-drill-target="string">Ready</p>
+      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-timed-drill-target="phase">Press Start with the gun at low ready.</p>
+      <p class="text-9xl font-semibold tabular-nums text-gray-400 data-[phase=ready]:text-amber-500 data-[phase=fire]:text-green-600 data-[phase=rest]:text-blue-500 dark:data-[phase=fire]:text-green-400"
+         aria-hidden="true" data-timed-drill-target="count">&nbsp;</p>
+      <p class="min-h-7 text-lg <%= muted %>" aria-hidden="true" data-timed-drill-target="shot">&nbsp;</p>
+      <div class="flex flex-wrap justify-center gap-2" aria-hidden="true" data-timed-drill-target="dots"></div>
+
+      <div class="mt-2 flex flex-wrap justify-center gap-3">
+        <button type="button" class="<%= button %> bg-blue-600 text-white hover:bg-blue-500" data-timed-drill-target="start" data-action="timed-drill#start">Start</button>
+        <button type="button" class="<%= button %> border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" data-timed-drill-target="pause" data-action="timed-drill#pause" hidden>Pause</button>
+        <button type="button" class="<%= button %> border border-gray-300 text-red-700 hover:bg-red-50 dark:border-gray-700 dark:text-red-300 dark:hover:bg-red-950" data-timed-drill-target="stop" data-action="timed-drill#stop" hidden>Stop</button>
+      </div>
+
+      <div class="mt-2 flex flex-col items-center gap-1 text-sm <%= muted %>">
+        <label class="flex min-h-11 cursor-pointer items-center gap-2">
+          <input type="checkbox" checked data-timed-drill-target="voice" data-action="timed-drill#rememberChoices" class="size-4">
+          Say the cues out loud
+          <span>(<%= @voice.name %>, <%= link_to "change", settings_path(anchor: "voice"), class: "text-blue-700 underline dark:text-blue-300" %>)</span>
+        </label>
+        <label class="flex min-h-11 cursor-pointer items-center gap-2">
+          <input type="checkbox" checked data-timed-drill-target="pace" data-action="timed-drill#rememberChoices" class="size-4">
+          A soft tick for each shot's share of the time
+        </label>
+      </div>
+    </div>
+  <% end %>
+
+  <%= form_with scope: :timed_drill, url: timed_drills_path, method: :post, class: "hidden", data: { timed_drill_target: "form" } do %>
+    <%= hidden_field_tag "timed_drill[strings]", s[:strings] %>
+    <%= hidden_field_tag "timed_drill[shots]", s[:shots] %>
+    <%= hidden_field_tag "timed_drill[string_seconds]", s[:string_seconds] %>
+    <%= hidden_field_tag "timed_drill[rest_seconds]", s[:rest_seconds] %>
+    <%= hidden_field_tag "timed_drill[strings_done]", 0, data: { timed_drill_target: "stringsDone" } %>
+    <%= hidden_field_tag :plan_day, @plan_day if @plan_day %>
+  <% end %>
+</div>

@@ -22,7 +22,8 @@
         <li>
           <p class="flex flex-wrap items-baseline gap-x-3">
             <span class="font-medium"><%= block.name %></span>
-            <% hold_done = block.drill && @drills.any? { it.completes?(block.drill) } %>
+            <% hold_done = (block.drill && @drills.any? { it.completes?(block.drill) }) || (block.timed && @timed_drills.any? { it.completes?(block.timed) }) ||
+                         (block.slow && @slow_drills.any? { it.completes?(block.shots, block.slow.limit) }) %>
             <% shot_for = block.session ? @sessions.select { it.plan_block == block.number } : [] %>
             <% shots_done = shot_for.any?(&:completes_plan_block?) %>
             <% hold_done ||= shots_done %>
@@ -59,6 +60,16 @@
               <% end %>
             </div>
           <% end %>
+          <% if block.slow %>
+            <p class="mt-2">
+              <%= render(ButtonComponent.new(href: new_slow_drill_path(shots: block.shots, limit: block.slow.limit, plan_day: @day.ref), variant: :secondary)) { "#{hold_done ? 'Do it again' : 'Start the timer'}: #{block.shots} shots, #{block.slow.limit} s each" } %>
+            </p>
+          <% end %>
+          <% if block.timed %>
+            <p class="mt-2">
+              <%= render(ButtonComponent.new(href: new_timed_drill_path(strings: block.timed.strings, seconds: block.timed.seconds, plan_day: @day.ref), variant: :secondary)) { "#{hold_done ? 'Do it again' : 'Start the timer'}: #{block.timed.strings} × 5 in #{block.timed.seconds} s" } %>
+            </p>
+          <% end %>
           <% if block.drill %>
             <p class="mt-2">
               <%= render(ButtonComponent.new(href: new_hold_drill_path(reps: block.drill.reps, hold: block.drill.hold, plan_day: @day.ref), variant: :secondary)) { "#{hold_done ? 'Do it again' : 'Start the timer'}: #{block.drill.reps} × #{block.drill.hold} s" } %>
@@ -74,6 +85,26 @@
         <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
           <% legacy.each do |practice| %>
             <li><%= link_to practice.title, practice_session_path(practice), class: "text-blue-700 underline dark:text-blue-300" %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+    <% if @slow_drills.any? %>
+      <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
+        <p class="text-sm font-medium">Slow dry fire done for this day</p>
+        <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+          <% @slow_drills.each do |drill| %>
+            <li><%= drill.summary %> · <%= drill.performed_at.strftime("%b %-d, %H:%M") %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+    <% if @timed_drills.any? %>
+      <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
+        <p class="text-sm font-medium">Timed fire done for this day</p>
+        <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+          <% @timed_drills.each do |drill| %>
+            <li><%= drill.summary %> · <%= drill.performed_at.strftime("%b %-d, %H:%M") %></li>
           <% end %>
         </ul>
       </div>

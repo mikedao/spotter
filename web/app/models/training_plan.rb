@@ -12,8 +12,10 @@ class TrainingPlan
 
   # session: a SessionSpec on an air pistol shooting block (its own Spotter session, preloaded);
   # drill: a HoldSpec on a hold-drill block (the guided hold timer). number: 1-based in its day.
-  Block = ::Data.define(:number, :name, :minutes, :detail, :shots, :drill, :session)
+  Block = ::Data.define(:number, :name, :minutes, :detail, :shots, :drill, :timed, :slow, :session)
   HoldSpec = ::Data.define(:reps, :hold)
+  SlowSpec = ::Data.define(:limit)   # slow: each shot broken within `limit` seconds (the slow dry fire timer; shots from the block)
+  TimedSpec = ::Data.define(:strings, :seconds)   # timed: strings of 5 in `seconds` (the timed-fire timer)
   SessionSpec = ::Data.define(:per_card, :group, :course, :tags)
   # A shooting block found by its reference: the day it is in and the block.
   Found = ::Data.define(:day, :block) do
@@ -91,8 +93,10 @@ class TrainingPlan
         blocks = fields.fetch("blocks").each_with_index.map do |block, i|
           shots = scale(block["shots"], volume)
           drill = block["drill"]&.then { HoldSpec.new(it.fetch("reps"), it.fetch("hold")) }
+          slow = block["slow"]&.then { SlowSpec.new(it.fetch("limit")) }
+          timed = block["timed"]&.then { TimedSpec.new(it.fetch("strings"), it.fetch("seconds")) }
           session = block["session"]&.then { SessionSpec.new(it.fetch("per_card"), it["group"], it["course"], it.fetch("tags", [])) }
-          Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill, session)
+          Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill, timed, slow, session)
         end
         Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1, fields["range"] == true)
       end

@@ -9,6 +9,10 @@
 #   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire, rest
 #   block shots      the base count at volume 1.0 (rounded to 5)
 #   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
+#   block slow       { limit } on a slow dry fire block (Pardini): the day page offers the slow-fire timer, shots from
+#                    the block, each to be broken within `limit` seconds or taken again
+#   block timed      { strings, seconds } on a timed / rapid fire block (Pardini dry fire): the day page offers the
+#                    timed-fire timer for it (strings of 5 shots on a beep)
 #   block session    { per_card, group?, course?, tags } on an air pistol shooting block (one with shots): the day page
 #                    starts its OWN Spotter session, preloaded with these and the block's instructions;
 #                    a day's tags are its blocks' tags together
@@ -54,10 +58,9 @@ phases:
         kind: dry
         focus: "See the sights at the break. Teach the trigger finger to work alone."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Dry-fire the Pardini only." }
-          - { name: "Hold drills", minutes: 10, detail: "Ten holds of 8 seconds, no trigger press. Lower if it falls apart.", drill: { reps: 10, hold: 8 } }
-          - { name: "Slow dry fire", minutes: 25, shots: 30, detail: "Raise, settle, press. Call where the sights were at the break. In 10-shot strings, resting between." }
-          - { name: "Timed sequence", minutes: 15, detail: "From low ready, 5 shots in 20 seconds. Four strings, smooth not fast." }
+          - { name: "Hold drills", minutes: 10, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Dry-fire the Pardini only. Ten holds of 8 seconds, no trigger press. Lower if it falls apart.", drill: { reps: 10, hold: 8 } }
+          - { name: "Slow dry fire", minutes: 25, shots: 30, detail: "Raise, settle, press. Call where the sights were at the break. In 10-shot strings, resting between.", slow: { limit: 12 } }
+          - { name: "Timed sequence", minutes: 15, detail: "From low ready, 5 shots in 20 seconds. Four strings, smooth not fast.", timed: { strings: 4, seconds: 20 } }
           - { name: "Notes", minutes: 5, detail: "Which shots felt good? What was the common thread?" }
       - title: "Trigger and follow-through"
         kind: air
@@ -78,11 +81,10 @@ phases:
         kind: dry
         focus: "Rhythm for the 25 yard stages: sights back on target, same press every time."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds.", drill: { reps: 5, hold: 8 } }
-          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds, from low ready on a beep." }
-          - { name: "Rapid fire", minutes: 15, detail: "Six strings of 5 shots in 10 seconds. Sights must be back on target for every shot, even when it is fast." }
-          - { name: "Slow dry fire", minutes: 10, shots: 10, detail: "Finish with ten unhurried shots." }
+          - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 8-second holds.", drill: { reps: 5, hold: 8 } }
+          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds, from low ready on a beep.", timed: { strings: 8, seconds: 20 } }
+          - { name: "Rapid fire", minutes: 15, detail: "Six strings of 5 shots in 10 seconds. Sights must be back on target for every shot, even when it is fast.", timed: { strings: 6, seconds: 10 } }
+          - { name: "Slow dry fire", minutes: 10, shots: 10, detail: "Finish with ten unhurried shots.", slow: { limit: 12 } }
           - { name: "Notes", minutes: 5, detail: "Where did the rhythm break down?" }
       - title: "Baseline: 40-shot session"
         kind: air
@@ -115,10 +117,9 @@ phases:
         kind: dry
         focus: "Only shots that pass the test count: settled, straight press, sights still on at the break."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Long holds", minutes: 10, detail: "Ten holds of 10 seconds, no trigger press.", drill: { reps: 10, hold: 10 } }
-          - { name: "Pass or let down", minutes: 35, shots: 40, detail: "10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count." }
-          - { name: "Timed fire", minutes: 10, detail: "Four strings of 5 shots in 20 seconds." }
+          - { name: "Long holds", minutes: 10, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Ten holds of 10 seconds, no trigger press.", drill: { reps: 10, hold: 10 } }
+          - { name: "Pass or let down", minutes: 35, shots: 40, detail: "10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count.", slow: { limit: 8 } }
+          - { name: "Timed fire", minutes: 10, detail: "Four strings of 5 shots in 20 seconds.", timed: { strings: 4, seconds: 20 } }
       - title: "Series at match pace"
         kind: air
         focus: "One shot every 75 seconds, the same routine from the first to the last."
@@ -138,11 +139,10 @@ phases:
         kind: dry
         focus: "Bring the air pistol's calm to the 25 yard stages."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 8-second holds.", drill: { reps: 5, hold: 8 } }
-          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds. Call each shot." }
-          - { name: "Rapid fire", minutes: 20, detail: "Eight strings of 5 shots in 10 seconds." }
-          - { name: "Slow dry fire", minutes: 5, shots: 10, detail: "Ten unhurried shots to finish." }
+          - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 8-second holds.", drill: { reps: 5, hold: 8 } }
+          - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds. Call each shot.", timed: { strings: 8, seconds: 20 } }
+          - { name: "Rapid fire", minutes: 20, detail: "Eight strings of 5 shots in 10 seconds.", timed: { strings: 8, seconds: 10 } }
+          - { name: "Slow dry fire", minutes: 5, shots: 10, detail: "Ten unhurried shots to finish.", slow: { limit: 12 } }
           - { name: "Notes", minutes: 5, detail: "Which string was best, and what was different about it?" }
       - title: "Half match and series review"
         kind: air
@@ -175,8 +175,7 @@ phases:
         kind: dry
         focus: "A full Bullseye run, dry: slow, timed and rapid in order."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds.", drill: { reps: 5, hold: 10 } }
+          - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Full run, twice", minutes: 40, detail: "Each run: 10 slow shots, 10 timed (2 x 5 in 20 seconds), 10 rapid (2 x 5 in 10 seconds). Call every shot good or bad. A run with a bad call you could have prevented gets repeated." }
           - { name: "Notes", minutes: 10, detail: "Which stage held up? Which broke?" }
       - title: "Make-it series"
@@ -197,8 +196,7 @@ phases:
         kind: dry
         focus: "Keep the routine with something at stake."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Hold drills", minutes: 5, detail: "Five 10-second holds.", drill: { reps: 5, hold: 10 } }
+          - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Clean runs", minutes: 40, detail: "Dry Bullseye stages: 10 slow, 10 timed, 10 rapid. Every shot must be called good, or the run starts over. Add a distraction: a ticking metronome or a person walking by." }
           - { name: "Notes", minutes: 10, detail: "How many tries did a clean run take?" }
       - title: "Full match"
@@ -232,8 +230,7 @@ phases:
         kind: dry
         focus: "Light slow-fire work with the routine you have built."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Slow dry fire", minutes: 30, shots: 30, detail: "Ten-shot strings, resting between. Raise, settle, press, call." }
+          - { name: "Slow dry fire", minutes: 30, shots: 30, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Ten-shot strings, resting between. Raise, settle, press, call.", slow: { limit: 12 } }
           - { name: "Notes", minutes: 5, detail: "How does the hold feel compared with week 1?" }
       - title: "Make-it series"
         kind: air
@@ -253,8 +250,8 @@ phases:
         kind: dry
         focus: "Light and smooth."
         blocks:
-          - { name: "Safety", minutes: 5, detail: "Magazine out, chamber open and looked into, snap cap in, muzzle at the backstop." }
-          - { name: "Timed and rapid", minutes: 30, detail: "Four strings of 5 in 20 seconds, then four of 5 in 10 seconds. Call each." }
+          - { name: "Timed fire", minutes: 15, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Four strings of 5 in 20 seconds. Call each.", timed: { strings: 4, seconds: 20 } }
+          - { name: "Rapid fire", minutes: 15, detail: "Four strings of 5 in 10 seconds. Call each.", timed: { strings: 4, seconds: 10 } }
           - { name: "Notes", minutes: 5, detail: "Anything to carry into Bullseye." }
       - title: "Full match"
         kind: air

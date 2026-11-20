@@ -1,0 +1,54 @@
+<% content_for :title, "Timed fire" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% limits = TimedDrill::LIMITS %>
+
+<h1 class="mb-4 text-2xl font-semibold">Timed fire</h1>
+
+<div class="space-y-4">
+  <%= render(CardComponent.new(title: "Start a timer")) do %>
+    <p class="mb-3 <%= muted %>">
+      Low ready, a spoken "ready", a short wait, then a beep: your shots, smooth not fast, until the stop.
+      Pardini dry fire only, magazine out. Never dry-fire the FWB 65.
+    </p>
+    <%= form_with url: new_timed_drill_path, method: :get, class: "flex flex-wrap items-end gap-4" do %>
+      <div class="space-y-1">
+        <%= label_tag :strings, "Strings", class: "block text-sm font-medium" %>
+        <%= number_field_tag :strings, @settings[:strings], min: limits[:strings].min, max: limits[:strings].max, class: "#{TextFieldComponent::INPUT} w-24" %>
+      </div>
+      <div class="space-y-1">
+        <%= label_tag :shots, "Shots a string", class: "block text-sm font-medium" %>
+        <%= number_field_tag :shots, @settings[:shots], min: limits[:shots].min, max: limits[:shots].max, class: "#{TextFieldComponent::INPUT} w-28" %>
+      </div>
+      <div class="space-y-1">
+        <%= label_tag :seconds, "Seconds a string", class: "block text-sm font-medium" %>
+        <%= number_field_tag :seconds, @settings[:string_seconds], min: limits[:string_seconds].min, max: limits[:string_seconds].max, class: "#{TextFieldComponent::INPUT} w-32" %>
+      </div>
+      <div class="space-y-1">
+        <%= label_tag :rest, "Rest (seconds)", class: "block text-sm font-medium" %>
+        <%= number_field_tag :rest, @settings[:rest_seconds], min: limits[:rest_seconds].min, max: limits[:rest_seconds].max, class: "#{TextFieldComponent::INPUT} w-28" %>
+      </div>
+      <%= render(ButtonComponent.new(type: :submit, size: :lg)) { "Open the timer" } %>
+    <% end %>
+    <p class="mt-2 text-sm <%= muted %>">Timed fire is 5 shots in 20 seconds, rapid fire 5 in 10.</p>
+  <% end %>
+
+  <%= render(CardComponent.new(title: "Recent runs", padding: :none)) do %>
+    <% if @drills.empty? %>
+      <p class="p-4 <%= muted %>">None yet.</p>
+    <% else %>
+      <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+        <% @drills.each do |drill| %>
+          <li class="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+            <span>
+              <span class="font-medium"><%= drill.summary %></span>
+              <% if drill.plan_ref %>
+                <%= link_to "Week #{drill.plan_week} · Day #{drill.plan_day}", plan_workout_path(drill.plan_week, drill.plan_day), class: "ml-2 text-sm text-blue-700 underline dark:text-blue-300" %>
+              <% end %>
+            </span>
+            <span class="text-sm tabular-nums <%= muted %>"><%= drill.performed_at.strftime("%b %-d, %H:%M") %></span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

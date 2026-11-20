@@ -723,6 +723,35 @@ from there). The user commits; don't commit unless asked.
   days (the yml's "Range day or rest") is refused with a message; "Put the days back" resets. A moved day shows
   "(from week N)". Specs: models/plan_enrollment, requests/training_plan, system/training_plan (tap + a
   synthetic drag). Not built: moving a day to a date without swapping (a gap), a day list on Practice.
+  **Timed fire timer** (2026-11-20, the shooter's ask for the plan's "Timed sequence"; Pardini DRY fire - the
+  FWB 65 is never dry-fired, a spec checks timed blocks only sit on dry days): `/timed` (menu "Timed fire"),
+  `/timed/new?strings=&seconds=&shots=&rest=&plan_day=` is the timer (`timed_drill_controller.js`, built on the
+  hold drill's: elapsed clock, WebAudio tones, Kokoro cues fetched first, wake lock, Pause / Stop). Per string:
+  "ready" + a RANDOM 4-7 s wait (shown as dots, so the start can't be anticipated), a long beep, the string's
+  seconds with "Shot k of N" and an optional soft tick at each shot's share of the time (smooth, not fast),
+  stop beep + "stop" + "rest", a rest (30 s default; none after the last string) whose last 3 s are counted.
+  A string stopped before its stop beep does not count. `TimedDrill` {strings, shots, string_seconds,
+  rest_seconds, strings_done, plan_week/day}; `TimedDrill::CUES` = ready stop rest three two one done, all
+  already exported for the 19 voices (they are RO / hold-drill pieces; `voicelines.TIMED_DRILL` mirrors, spec-checked).
+  Plan blocks carry `timed: { strings, seconds }` (8 dry blocks: Timed sequence, Timed / Rapid fire; "Timed and
+  rapid" in the test phase was split in two); the day page gets "Start the timer: 4 x 5 in 20 s" and a "✓ done"
+  once a run `completes?` the spec (all strings, at least as many, in the block's time or less). JOURNAL:
+  `TimedDrillStats` -> `journals/_timed_drills` (runs, strings, dry shots, fastest string, a chart of the share of
+  strings finished) and runs as dated "Timed fire" rows in the Sessions table (`:timed` in `Journal#session_rows`;
+  left out under a kind / gun / pellet / exercise filter, period applies; not in the printed report). Not a rest
+  value per block. Specs: models/timed_drill, requests/timed_drills, system/timed_drill.
+  **Slow dry fire timer** (2026-11-20; Pardini dry fire, same rule as above): `/slow` (menu "Slow dry fire"),
+  `/slow/new?shots=&limit=&between=&string=&string_rest=&plan_day=` (`slow_drill_controller.js`). Per shot: 3 s
+  to raise and settle, then `limit` seconds (12 default) to BREAK the shot - tap Shot / Space as it breaks;
+  Let down / Escape, or the time running out, does NOT count and the shot is taken again, so the run lasts until
+  `shots` are fired (the plan's "Pass or let down": 8 s). Rest between shots (10 s), between strings of 10
+  (60 s), none after the last shot. Cues are the hold drill's (raise hold lower rest three two one done: nothing
+  new to export). `SlowDrill` {shots, string_size, limit_seconds, between/string_rest_seconds, shots_fired,
+  let_downs, break_seconds (summed raise-to-break), plan_week/day}. Plan blocks carry `slow: { limit }` (5 dry
+  blocks: Slow dry fire x4, Pass or let down) with the shots from the block (scaled by the week's volume); "✓ done"
+  once a run fired at least the block's shots in its limit or less. JOURNAL: `SlowDrillStats` ->
+  `journals/_slow_drills` (runs, shots fired, first-time rate = raises that became a shot, mean time to break, a
+  chart) and "Slow dry fire" rows (`:slow`). Specs: models/slow_drill, requests/slow_drills, system/slow_drill.
   Not built: a block timer, auto-ticking a day when its session ends, plan
   targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
   requests/training_plan, system/training_plan.

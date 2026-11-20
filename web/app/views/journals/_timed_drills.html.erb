@@ -1,0 +1,23 @@
+<%# The timed fire section: strings of dry fire done against the clock (TimedDrillStats). Nothing until a run is done. %>
+<% if stats.any? %>
+  <% muted = "text-gray-600 dark:text-gray-300" %>
+  <%= render(CardComponent.new(title: "Timed fire")) do |card| %>
+    <% card.with_action do %>
+      <%= link_to "Start the timer", timed_drills_path, class: "text-sm text-blue-700 underline dark:text-blue-300" %>
+    <% end %>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <% stats.tiles.each do |label, value, note| %>
+        <div>
+          <p class="text-sm <%= muted %>"><%= label %></p>
+          <p class="text-2xl font-semibold tabular-nums"><%= value %></p>
+          <p class="text-sm <%= muted %>"><%= note %></p>
+        </div>
+      <% end %>
+    </div>
+    <% if stats.points.size >= 2 %>
+      <p class="mt-4 mb-1 text-sm <%= muted %>">Share of each run's strings shot to the stop beep. Filled dots were done for a plan day.</p>
+      <%= render(JournalChartComponent.new(kind: :line, label: "Strings finished in each timed fire run, in percent", max: 100,
+                   points: stats.points.map { { label: it.label, y: it.y, title: it.title, filled: it.filled } })) %>
+    <% end %>
+  <% end %>
+<% end %>

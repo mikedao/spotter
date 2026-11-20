@@ -46,6 +46,8 @@ Rails.application.routes.draw do
   end
 
   # The hold drill: a guided timer (raise, hold, lower, rest), results kept for the journal.
+  resources :slow_drills, only: %i[ index new create ], path: "slow"
+  resources :timed_drills, only: %i[ index new create ], path: "timed"
   resources :hold_drills, only: %i[ index new create ], path: "holds"
 
   # The training plan: a 12-week programme (TrainingPlan), one page per day.

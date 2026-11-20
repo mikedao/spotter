@@ -10,13 +10,15 @@ RSpec.describe Voice do
   end
 
   it "has the hold drill's cues as the engine does, and exported for every voice" do
-    out, status = Open3.capture2(EngineRunner.python, "-c", "import json, voicelines; print(json.dumps([voicelines.HOLD_DRILL, voicelines.pieces()]))",
+    out, status = Open3.capture2(EngineRunner.python, "-c", "import json, voicelines; print(json.dumps([voicelines.HOLD_DRILL, voicelines.pieces(), voicelines.TIMED_DRILL]))",
                                  chdir: EngineRunner.engine_dir.to_s)
     skip "engine Python not available" unless status.success?
-    cues, pieces = JSON.parse(out)
+    cues, pieces, timed = JSON.parse(out)
     expect(HoldDrill::CUES).to eq(cues)
+    expect(TimedDrill::CUES).to eq(%w[ ready stop ] + (cues & TimedDrill::CUES))
+    expect(pieces).to include(*timed)
     expect(pieces).to include(*cues)
-    missing = described_class::ALL.keys.product(HoldDrill::CUES).reject { |id, cue| described_class.exported_path(id, cue).exist? }
+    missing = described_class::ALL.keys.product(HoldDrill::CUES | TimedDrill::CUES | SlowDrill::CUES).reject { |id, cue| described_class.exported_path(id, cue).exist? }
     expect(missing).to be_empty, "not exported (voice/.venv/bin/python speak.py export --all): #{missing.first(3)}"
   end
 

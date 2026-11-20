@@ -1,0 +1,61 @@
+<% content_for :title, "Slow dry fire" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% s = @settings %>
+<% button = "min-h-14 cursor-pointer rounded-md px-6 text-lg font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" %>
+
+<p class="mb-1 text-sm">
+  <%= link_to "← Slow dry fire", slow_drills_path, class: "text-blue-700 underline dark:text-blue-300" %>
+  <% if @plan_day %>
+    <% week, day = TrainingPlan.parse(@plan_day) %>
+    · <%= link_to "Week #{week} · Day #{day}", plan_workout_path(week, day), class: "text-blue-700 underline dark:text-blue-300" %>
+  <% end %>
+</p>
+<h1 class="text-2xl font-semibold">Slow dry fire</h1>
+<p class="mt-1 <%= muted %>">
+  <%= s[:shots] %> shots in strings of <%= s[:string_size] %>, <%= s[:limit_seconds] %> seconds to break each, <%= s[:between_seconds] %> seconds between shots,
+  <%= s[:string_rest_seconds] %> between strings. Pardini dry fire: magazine out, chamber checked, snap cap in.
+</p>
+
+<div class="mt-4" data-controller="slow-drill"
+     data-slow-drill-shots-value="<%= s[:shots] %>" data-slow-drill-string-value="<%= s[:string_size] %>"
+     data-slow-drill-limit-value="<%= s[:limit_seconds] %>" data-slow-drill-between-value="<%= s[:between_seconds] %>"
+     data-slow-drill-string-rest-value="<%= s[:string_rest_seconds] %>" data-slow-drill-settle-value="<%= SlowDrill::SETTLE_SECONDS %>"
+     data-slow-drill-index-url-value="<%= slow_drills_path %>" data-slow-drill-cues-value="<%= @cues.to_json %>"
+     data-action="keydown@window->slow-drill#key">
+  <%= render(CardComponent.new) do %>
+    <div class="flex flex-col items-center gap-3 py-4 text-center">
+      <p class="text-lg <%= muted %>" data-slow-drill-target="progress">Ready</p>
+      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-slow-drill-target="phase">Press Start when you are standing ready.</p>
+      <p class="text-9xl font-semibold tabular-nums text-gray-400 data-[phase=settle]:text-amber-500 data-[phase=hold]:text-green-600 data-[phase=gap]:text-blue-500 dark:data-[phase=hold]:text-green-400"
+         aria-hidden="true" data-slow-drill-target="count">&nbsp;</p>
+      <p class="min-h-7 text-lg <%= muted %>" data-slow-drill-target="tally">&nbsp;</p>
+
+      <div class="mt-2 flex flex-wrap justify-center gap-3">
+        <button type="button" class="<%= button %> bg-blue-600 text-white hover:bg-blue-500" data-slow-drill-target="start" data-action="slow-drill#start">Start</button>
+        <button type="button" class="<%= button %> bg-green-600 text-white hover:bg-green-500" data-slow-drill-target="shot" data-action="slow-drill#fired" hidden>Shot</button>
+        <button type="button" class="<%= button %> border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" data-slow-drill-target="letDown" data-action="slow-drill#letDown" hidden>Let down</button>
+        <button type="button" class="<%= button %> border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" data-slow-drill-target="pause" data-action="slow-drill#pause" hidden>Pause</button>
+        <button type="button" class="<%= button %> border border-gray-300 text-red-700 hover:bg-red-50 dark:border-gray-700 dark:text-red-300 dark:hover:bg-red-950" data-slow-drill-target="stop" data-action="slow-drill#stop" hidden>Stop</button>
+      </div>
+      <p class="text-sm <%= muted %>">Space also taps Shot; Escape lets the shot down.</p>
+
+      <label class="mt-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm <%= muted %>">
+        <input type="checkbox" checked data-slow-drill-target="voice" data-action="slow-drill#rememberVoice" class="size-4">
+        Say the cues out loud
+        <span>(<%= @voice.name %>, <%= link_to "change", settings_path(anchor: "voice"), class: "text-blue-700 underline dark:text-blue-300" %>)</span>
+      </label>
+    </div>
+  <% end %>
+
+  <%= form_with scope: :slow_drill, url: slow_drills_path, method: :post, class: "hidden", data: { slow_drill_target: "form" } do %>
+    <%= hidden_field_tag "slow_drill[shots]", s[:shots] %>
+    <%= hidden_field_tag "slow_drill[string_size]", s[:string_size] %>
+    <%= hidden_field_tag "slow_drill[limit_seconds]", s[:limit_seconds] %>
+    <%= hidden_field_tag "slow_drill[between_seconds]", s[:between_seconds] %>
+    <%= hidden_field_tag "slow_drill[string_rest_seconds]", s[:string_rest_seconds] %>
+    <%= hidden_field_tag "slow_drill[shots_fired]", 0, data: { slow_drill_target: "shotsFired" } %>
+    <%= hidden_field_tag "slow_drill[let_downs]", 0, data: { slow_drill_target: "letDowns" } %>
+    <%= hidden_field_tag "slow_drill[break_seconds]", 0, data: { slow_drill_target: "breakSeconds" } %>
+    <%= hidden_field_tag :plan_day, @plan_day if @plan_day %>
+  <% end %>
+</div>

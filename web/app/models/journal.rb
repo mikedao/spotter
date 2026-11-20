@@ -71,13 +71,19 @@ class Journal
   def newest_first = summaries.reverse
   def hold_stats = @hold_stats ||= HoldDrillStats.new(user, days: @filters[:days].presence_in(PERIODS.keys))
 
+  def slow_stats = @slow_stats ||= SlowDrillStats.new(user, days: @filters[:days].presence_in(PERIODS.keys))
+  def timed_stats = @timed_stats ||= TimedDrillStats.new(user, days: @filters[:days].presence_in(PERIODS.keys))
+
   # Hold drills listed beside the sessions. They have no gun, pellets, kind or exercises,
   # so any of those filters leaves them out.
   def hold_entries = @filters.except(:target, :days).any? ? [] : hold_stats.drills
+  def slow_entries = @filters.except(:target, :days).any? ? [] : slow_stats.drills
+  def timed_entries = @filters.except(:target, :days).any? ? [] : timed_stats.drills
 
-  # The Sessions table's rows, newest first: [time, :session | :drill, record].
+  # The Sessions table's rows, newest first: [time, :session | :drill | :timed | :slow, record].
   def session_rows
-    (newest_first.map { [ it.started_at, :session, it ] } + hold_entries.map { [ it.performed_at, :drill, it ] })
+    (newest_first.map { [ it.started_at, :session, it ] } + hold_entries.map { [ it.performed_at, :drill, it ] } +
+      timed_entries.map { [ it.performed_at, :timed, it ] } + slow_entries.map { [ it.performed_at, :slow, it ] })
       .sort_by { it.first }.reverse
   end
   def with_notes = newest_first.select { [ it.problems, it.fixes, it.learned ].any?(&:present?) }

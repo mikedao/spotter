@@ -11,6 +11,8 @@ class User < ApplicationRecord
   has_many :pellets, dependent: :destroy
   has_many :exercises, dependent: :destroy
   has_one :plan_enrollment, dependent: :destroy   # the training plan, once started
+  has_many :slow_drills, dependent: :destroy
+  has_many :timed_drills, dependent: :destroy
   has_many :hold_drills, dependent: :destroy
 
   normalizes :username, with: ->(u) { u.strip.downcase }
