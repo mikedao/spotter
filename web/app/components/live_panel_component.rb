@@ -41,6 +41,26 @@ class LivePanelComponent < ApplicationComponent
   def spec = @session.target_spec
   def earlier_cards = @card ? @session.cards.to_a - [ @card ] : []
 
+  # Shooting in runs (a plan block's 5-shot groups, the card not changed between):
+  # the card's runs in firing order, the last one being shot.
+  def group_of = @session.group_of
+  def groups = (@groups ||= group_of ? stats.groups(of: group_of) : [])
+
+  # One shot as a whole-ring chip linking to its page (your call wins; penalized
+  # = a struck 0). Same colours as the target: the latest ringed in amber, red =
+  # flagged and not yet checked by you.
+  def chip(shot)
+    value = shot.penalized? ? 0 : shot.final_ring
+    link_to value, helpers.shot_path(shot),
+            "aria-label": "#{shot.stage_label || "Shot #{shot.number}"}: #{value}",
+            class: classes("grid h-9 min-w-9 place-items-center rounded-md border px-1.5 text-lg font-semibold tabular-nums hover:bg-gray-100 dark:hover:bg-gray-800",
+                           if shot.penalized? then "border-gray-300 text-gray-500 line-through dark:border-gray-700"
+                           elsif shot.flagged? && !shot.called? then "border-red-500 text-red-700 dark:border-red-500 dark:text-red-300"
+                           else "border-gray-300 dark:border-gray-700"
+                           end,
+                           ("ring-2 ring-amber-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900" if shot == latest))
+  end
+
   # The card's most recent capture, when it wasn't scored and can still be
   # plotted (it has a picture): the range screen offers to plot it.
   def unplotted_capture

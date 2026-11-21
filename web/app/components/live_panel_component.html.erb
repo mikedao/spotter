@@ -3,7 +3,12 @@
   <div id="<%= dom_id %>" class="<%= LivePanelComponent::TARGET_SIZE %>">
     <%= render(CardComponent.new(padding: :none, class: "relative p-2")) do %>
       <span class="absolute left-4 top-3 text-sm font-semibold text-gray-700">Card <%= card_number %></span>
-      <%= render(TargetSvgComponent.new(spec:, shots: scored, latest:, label: "Card #{card_number}")) %>
+      <%= render(TargetSvgComponent.new(spec:, shots: scored, latest:, label: "Card #{card_number}", group_of:)) %>
+      <% if (group = groups.last) && group.size_mm %>
+        <span class="absolute right-4 top-3 rounded bg-white/85 px-2 text-sm font-semibold tabular-nums text-red-700">
+          Group <%= group.number %>: <%= group.size_mm %> mm<%= " (#{group_of - group.shots.size} to go)" unless group.complete %>
+        </span>
+      <% end %>
     <% end %>
   </div>
 <% when :latest %>
@@ -47,19 +52,33 @@
         <%# Every shot on this card so far, oldest first, as whole rings (your call wins;
             a penalized shot is 0). Same colours as the target: the latest ringed in
             amber, red = flagged and not yet checked by you; penalized struck through. %>
-        <ol class="mt-3 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
-          <% scored.each do |shot| %>
-            <li>
-              <%= link_to (shot.penalized? ? 0 : shot.final_ring), shot_path(shot),
-                    "aria-label": "#{shot.stage_label || "Shot #{shot.number}"}: #{shot.penalized? ? 0 : shot.final_ring}",
-                    class: classes("grid h-9 min-w-9 place-items-center rounded-md border px-1.5 text-lg font-semibold tabular-nums hover:bg-gray-100 dark:hover:bg-gray-800",
-                                   if shot.penalized? then "border-gray-300 text-gray-500 line-through dark:border-gray-700"
-                                   elsif shot.flagged? && !shot.called? then "border-red-500 text-red-700 dark:border-red-500 dark:text-red-300"
-                                   else "border-gray-300 dark:border-gray-700" end,
-                                   ("ring-2 ring-amber-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900" if shot == latest)) %>
-            </li>
-          <% end %>
-        </ol>
+        <% if group_of && groups.any? %>
+          <%# Shooting in runs: each group of the card on its own line with its size,
+              the one being shot highlighted (it stays so once full, until the next shot). %>
+          <ol class="mt-3 space-y-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Groups of <%= group_of %> on this card">
+            <% groups.each do |group| %>
+              <% current = group == groups.last %>
+              <li class="<%= classes("flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-2 py-1.5 -mx-2",
+                                     current ? "bg-amber-50 dark:bg-amber-950/40" : "opacity-60") %>"
+                  data-group="<%= group.number %>" <%= "aria-current=true" if current %>>
+                <span class="w-16 shrink-0 text-sm font-medium text-gray-600 dark:text-gray-300">Group <%= group.number %></span>
+                <ol class="flex flex-wrap gap-1.5" aria-label="Group <%= group.number %>, <%= group.range_text %>">
+                  <% group.shots.each do |shot| %><li><%= chip(shot) %></li><% end %>
+                </ol>
+                <span class="ml-auto text-right tabular-nums">
+                  <span class="<%= classes("font-semibold", current ? "text-2xl" : "text-lg") %>"><%= group.size_mm ? "#{group.size_mm} mm" : "–" %></span>
+                  <% unless group.complete %>
+                    <span class="block text-sm text-gray-600 dark:text-gray-300"><%= group_of - group.shots.size %> to go</span>
+                  <% end %>
+                </span>
+              </li>
+            <% end %>
+          </ol>
+        <% else %>
+          <ol class="mt-3 flex flex-wrap gap-1.5 border-t border-gray-200 pt-3 dark:border-gray-800" aria-label="Shots on this card">
+            <% scored.each do |shot| %><li><%= chip(shot) %></li><% end %>
+          </ol>
+        <% end %>
       <% else %>
         <div class="flex flex-wrap items-baseline gap-x-3 text-gray-400 dark:text-gray-500">
           <span class="text-5xl font-bold tabular-nums">–</span>
@@ -72,7 +91,7 @@
   <%# tall: in two columns; without a match clock it is the odd one out, so it
       takes the whole row. %>
   <div id="<%= dom_id %>" class="<%= "tall:col-span-2" unless @session.course %>">
-    <%= render(CardStatsComponent.new(stats:)) %>
+    <%= render(CardStatsComponent.new(stats:, group_of:)) %>
   </div>
 <% when :list %>
   <div id="<%= dom_id %>" class="space-y-4 tall:col-span-2">

@@ -22,14 +22,20 @@ class TargetSvgComponent < ApplicationComponent
 
   # in_order: number the shots 1, 2, 3... in firing order (a whole session on one
   # target, where card numbers would repeat); a match's own numbers win.
-  def initialize(spec:, shots: [], latest: nil, zoom: :fit, label: "Target", in_order: false)
+  # group_of: the card is shot in runs of that many (5-shot groups without changing
+  # the card): the CURRENT run is drawn as usual with its group marks and its widest
+  # pair measured on the target; earlier runs on the card fade back.
+  def initialize(spec:, shots: [], latest: nil, zoom: :fit, label: "Target", in_order: false, group_of: nil)
     @spec = spec
     @shots = shots.select { |s| s.final_x_mm && s.final_y_mm }
     @latest = latest
     @zoom = zoom
     @label = label
     @order = in_order ? @shots.sort_by(&:fired_at).each_with_index.to_h { |s, i| [ s.id, i + 1 ] } : {}
+    @group = (CardStats.new(@shots, @spec).current_group(of: group_of) if group_of)
   end
+
+  GROUP_LINE = "#dc2626"   # the widest pair, as the group marks
 
   def call
     tag.svg(viewBox: view_box, role: "img", "aria-label": @label, class: "h-auto w-full",
@@ -88,31 +94,60 @@ class TargetSvgComponent < ApplicationComponent
       end
     end
 
-    def group_marks
-      return [] if @shots.size < 2
+    # The shots the group marks describe: the current group when shooting in runs.
+    def grouped = @group ? @group.shots : @shots
 
-      stats = CardStats.new(@shots, @spec)
+    def faded?(shot) = @group && !@group.shots.include?(shot)
+
+    def group_marks
+      return [] if grouped.size < 2
+
+      stats = CardStats.new(grouped, @spec)
       mx, my = stats.mean_point
       arm = 2.5
       [
         tag.circle(cx: mx, cy: -my, r: stats.mean_radius_mm, fill: "none", stroke: FLAGGED, "stroke-width": 0.35,
                    "stroke-dasharray": "1.2 0.8", opacity: 0.8),
-        tag.path(d: "M#{mx - arm} #{-my}H#{mx + arm}M#{mx} #{-my - arm}V#{-my + arm}", stroke: FLAGGED, "stroke-width": 0.5)
-      ]
+        tag.path(d: "M#{mx - arm} #{-my}H#{mx + arm}M#{mx} #{-my - arm}V#{-my + arm}", stroke: FLAGGED, "stroke-width": 0.5),
+        widest_pair(stats)
+      ].compact
+    end
+
+    # Shooting in runs: the line the group size is measured along, centre to
+    # centre between the two shots farthest apart, and the size beside it (with a
+    # white halo, so it reads on the paper and on the black).
+    def widest_pair(stats)
+      return unless @group
+
+      a, b = stats.widest_pair
+      x1, y1, x2, y2 = [ a.final_x_mm, -a.final_y_mm, b.final_x_mm, -b.final_y_mm ].map { it.round(2) }
+      size = (@spec.step_mm * 0.2).clamp(1.2, 3.2).round(2)
+      label = "#{@group.size_mm} mm"
+      tag.g("data-group-size": @group.size_mm) do
+        safe_join([
+          tag.line(x1:, y1:, x2:, y2:, stroke: GROUP_LINE, "stroke-width": 0.45, "stroke-linecap": "round"),
+          tag.text(label, x: ((x1 + x2) / 2).round(2), y: (((y1 + y2) / 2) - size * 0.6).round(2), "text-anchor": "middle",
+                   "font-size": size, "font-weight": 700, fill: GROUP_LINE, stroke: "#fff", "stroke-width": (size * 0.18).round(2),
+                   "paint-order": "stroke", "font-family": "system-ui, sans-serif")
+        ])
+      end
     end
 
     def shot_marks
       r = TargetSpec::PELLET_MM / 2.0
-      @shots.sort_by { it == @latest ? 1 : 0 }.flat_map do |s|
+      # Faded (earlier groups) first, the latest last: the current group on top.
+      @shots.sort_by { [ faded?(it) ? 0 : 1, it == @latest ? 1 : 0 ] }.flat_map do |s|
         x, y = s.final_x_mm.round(2), -s.final_y_mm.round(2)
         # A sighter is grey and marked "S"; in a match or final a shot shows its
         # number in the event, otherwise its number on the card.
         fill = s.sighter? ? SIGHTER : (s.flagged? && !s.called? ? FLAGGED : SHOT)
+        fill = SIGHTER if faded?(s)
         [
           (tag.circle(cx: x, cy: y, r: r + 1.1, fill: "none", stroke: LATEST, "stroke-width": 0.7) if s == @latest),
-          tag.circle(cx: x, cy: y, r: r, fill: fill, "fill-opacity": 0.88, stroke: "#fff", "stroke-width": 0.3),
+          tag.circle(cx: x, cy: y, r: r, fill: fill, "fill-opacity": faded?(s) ? 0.35 : 0.88, stroke: "#fff", "stroke-width": 0.3,
+                     "data-faded": (true if faded?(s))),
           tag.text(s.sighter? ? "S" : (s.match_number || @order[s.id] || s.number), x: x, y: y + 0.95, "text-anchor": "middle", "font-size": 2.7, "font-weight": 700,
-                   fill: "#fff", "font-family": "system-ui, sans-serif")
+                   fill: "#fff", "fill-opacity": (0.7 if faded?(s)), "font-family": "system-ui, sans-serif")
         ].compact
       end
     end

@@ -60,12 +60,33 @@ class CardStats
     shots.combination(2).map { |a, b| Math.hypot(a.final_x_mm - b.final_x_mm, a.final_y_mm - b.final_y_mm) }.max.round(1)
   end
 
-  # Group sizes of each run of `of` shots in firing order (a 10-shot card as two
-  # 5-shot groups). Only a run of at least two shots counts, so a group still
-  # being shot shows as soon as it has a pair.
-  def group_sizes(of:)
-    shots.sort_by(&:fired_at).each_slice(of).filter_map { |run| self.class.new(run, spec).group_size_mm }
+  # The two shots farthest apart: the pair the group size is measured between.
+  def widest_pair
+    return nil if count < 2
+
+    shots.combination(2).max_by { |a, b| Math.hypot(a.final_x_mm - b.final_x_mm, a.final_y_mm - b.final_y_mm) }
   end
+
+  # One run of `of` shots in firing order: its number on the card, its shots, its
+  # size (nil below two shots) and whether all `of` are in.
+  Group = Data.define(:number, :shots, :size_mm, :complete) do
+    def range_text = shots.size == 1 ? "shot #{shots.first.number}" : "shots #{shots.first.number}–#{shots.last.number}"
+  end
+
+  # The card in runs of `of` shots in firing order (a 10-shot card as two 5-shot
+  # groups, shot without changing the card). Sighters are never part of a group.
+  def groups(of:)
+    shots.reject(&:sighter?).sort_by(&:fired_at).each_slice(of).with_index(1).map do |run, number|
+      Group.new(number, run, self.class.new(run, spec).group_size_mm, run.size == of)
+    end
+  end
+
+  # The group being shot: the last run (a finished one stays current until the next shot).
+  def current_group(of:) = groups(of:).last
+
+  # Group sizes of each run of `of` shots. Only a run of at least two shots counts,
+  # so a group still being shot shows as soon as it has a pair.
+  def group_sizes(of:) = groups(of:).filter_map(&:size_mm)
 
   # Seconds between consecutive shots on the card.
   def intervals_s = shots.sort_by(&:fired_at).each_cons(2).map { |a, b| (b.fired_at - a.fired_at).round }

@@ -729,7 +729,14 @@ from there). The user commits; don't commit unless asked.
   AFTER the dry work ("Case the Pardini first"); day 7 is "Range day or home lane" (kind air, `range: true`:
   Bullseye at a range, else 15 easy shots, ~20 min); 11-7 is "Easy lane". So all 84 days are workouts (progress
   "of 84"); kind `rest` is left only for the days added by "Rest instead". Spec-checked: every day has a session
-  block, no dry-fire block mentions the FWB. Shot
+  block, no dry-fire block mentions the FWB.
+  **5-shot groups on one card, LIVE** (2026-11-21, the shooter: groups of five without changing the card): a
+  session whose plan block has `group: 5` (`PracticeSession#group_of`) splits the current card into runs
+  (`CardStats#groups(of:)`, firing order, sighters out). Range screen: the target fades earlier runs and draws the
+  CURRENT run's group marks + its widest pair as a red line with the size (`TargetSvgComponent group_of:`), a
+  "Group 2: 14.3 mm (2 to go)" badge on it; beside the latest shot each run is a row of chips with its size (the
+  current one highlighted, it stays current once full until the next shot); the card's numbers say "Groups of 5".
+  spec/components/live_groups_spec.rb. Only plan sessions with `group:` - no switch for a free session yet. Shot
   counts scale with the week's volume, in fives. Kinds: `air` (a Spotter session), `dry` (Pardini dry
   fire - the FWB 65 is NEVER dry-fired, a spring piston slams without a pellet; a spec checks the dry-fire
   text never mentions it), `rest`. Per user: `PlanEnrollment` (the start date; the plan day follows from
