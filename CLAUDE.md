@@ -653,6 +653,14 @@ from there). The user commits; don't commit unless asked.
   /developers list - a new topic there needs adding here), 10 posts an hour. Pictures say "Scored by
   Spotter" with Spotter's own mark, never the site's logo (their `via` rules forbid posing as the site).
   NOT yet posted for real (specs stub the API).
+  **Training-plan DAYS post BY THEMSELVES** (2026-11-20, the shooter's call - the one exception to "preview
+  then Post"): ticking a workout day done (`PlanWorkoutsController#update`, not done -> done, with a key)
+  queues `PlanDayPostJob` (async adapter in dev: in the Puma process). `PlanDayShare` builds it: caption
+  (each measured block "✓ Hold drills: 10 of 10 holds of 8 s", the note, plan progress), topic Bullseye for a
+  dry (Pardini) day else ISSF pistol, `PlanDayPicture` (a row per block with its value, "Logged with Spotter")
+  + the day's finished sessions' hero and stats. ONCE per day (`shared_posts.plan_week/plan_day`; untick and
+  retick does not repost); a failure is kept in `plan_workouts.share_error` and shown on the day with "Look
+  and post it". Preview any day at `/plan/W/D/share` (also "Post it now" there).
 - **Session report / PDF** (2026-11-12): `/practice/:id/report` (Export card),
   `layout "report"`: paper, LIGHT ONLY (no dark: classes), no app menu; "Save as
   PDF" = the browser's print dialog (`print_controller.js`), no PDF gem - targets

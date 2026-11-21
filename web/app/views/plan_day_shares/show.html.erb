@@ -1,0 +1,51 @@
+<% content_for :title, "Share · Week #{@share.day.week} · #{@share.day.title}" %>
+<% muted = "text-gray-600 dark:text-gray-300" %>
+<% posted = @share.posted.to_a %>
+
+<p class="mb-1 text-sm"><%= link_to "← #{@share.day.title}", plan_workout_path(@share.day.week, @share.day.day), class: "text-blue-700 underline dark:text-blue-300" %></p>
+<h1 class="mb-1 text-2xl font-semibold">The post to CompetitiveShooter.org</h1>
+<p class="mb-4 <%= muted %>">
+  Week <%= @share.day.week %> · Day <%= @share.day.day %> · <%= @share.date_text %>.
+  <% if posted.any? %>
+    Posted <%= link_to posted.first.created_at.strftime("%b %-d, %H:%M"), posted.first.url, class: "font-medium text-blue-700 underline dark:text-blue-300", target: "_blank", rel: "noopener" %>.
+  <% else %>
+    This goes out by itself when you tick the day done.
+  <% end %>
+</p>
+
+<% unless Current.user.cso_connected? %>
+  <%= render(CardComponent.new(class: "mb-4 max-w-3xl")) do %>
+    <p>To post, add your CompetitiveShooter.org API key in <%= link_to "Settings", settings_path(anchor: "competitive_shooter"), class: "font-medium text-blue-700 underline dark:text-blue-300" %>.</p>
+  <% end %>
+<% end %>
+
+<% if @share.workout&.share_error.present? && posted.empty? %>
+  <%= render(CardComponent.new(class: "mb-4 max-w-3xl")) do %>
+    <p role="alert" class="text-red-800 dark:text-red-300">The automatic post didn't go out: <%= @share.workout.share_error %></p>
+  <% end %>
+<% end %>
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <% @share.picture_kinds.each do |kind| %>
+      <img src="<%= plan_day_share_picture_path(@share.day.week, @share.day.day, kind) %>" loading="lazy"
+           alt="<%= kind == "day" ? "The day's picture" : SharePicture::KINDS[kind] %>, as it will be posted"
+           class="block h-auto w-full rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-800">
+    <% end %>
+  </div>
+
+  <div class="space-y-4 lg:sticky lg:top-4">
+    <%= render(CardComponent.new(title: "Caption")) do %>
+      <p class="whitespace-pre-line text-sm"><%= @share.body %></p>
+      <p class="mt-3 text-sm <%= muted %>">Topic: <%= @share.topics.map { CompetitiveShooter::TOPICS[it] }.to_sentence %>.
+        Colors: <%= ShareColorway.find(@colors).label %> (the last you posted with).</p>
+    <% end %>
+    <% if Current.user.cso_connected? && (posted.empty? || @share.workout&.done?) %>
+      <%= form_with url: plan_day_share_path(@share.day.week, @share.day.day), method: :post,
+                    data: { turbo_confirm: posted.any? ? "This day was posted already. Post it again?" : "Post this day to CompetitiveShooter.org now?",
+                            confirm_button: "Post", turbo_submits_with: "Posting…" } do %>
+        <%= render(ButtonComponent.new(type: :submit, variant: posted.any? ? :secondary : :primary)) { posted.any? ? "Post it again" : "Post it now" } %>
+      <% end %>
+    <% end %>
+  </div>
+</div>

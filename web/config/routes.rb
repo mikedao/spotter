@@ -58,6 +58,9 @@ Rails.application.routes.draw do
   delete "plan/swap", to: "plan_schedules#reset", as: :reset_plan_days
   get "plan/:week/:day", to: "plan_workouts#show", as: :plan_workout, constraints: { week: /\d+/, day: /\d+/ }
   patch "plan/:week/:day", to: "plan_workouts#update", constraints: { week: /\d+/, day: /\d+/ }
+  get "plan/:week/:day/share", to: "plan_day_shares#show", as: :plan_day_share, constraints: { week: /\d+/, day: /\d+/ }
+  post "plan/:week/:day/share", to: "plan_day_shares#create", constraints: { week: /\d+/, day: /\d+/ }
+  get "plan/:week/:day/share/:kind", to: "plan_day_shares#picture", as: :plan_day_share_picture, constraints: { week: /\d+/, day: /\d+/ }
 
   # The learned scoring model: how its training is going (ModelProgress).
   resource :scoring_model, only: :show, path: "model"
