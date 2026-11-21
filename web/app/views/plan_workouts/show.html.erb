@@ -16,6 +16,10 @@
     <p class="text-lg"><%= @day.focus %></p>
   <% end %>
 
+  <% if done && !@day.rest? %>
+    <%= render(PlanDaySummaryComponent.new(share: PlanDayShare.new(current_user, @day.week, @day.day))) %>
+  <% end %>
+
   <%= render(CardComponent.new(title: "The workout")) do %>
     <ol class="space-y-4">
       <% @day.blocks.each do |block| %>
@@ -89,7 +93,7 @@
         </ul>
       </div>
     <% end %>
-    <% if @slow_drills.any? %>
+    <% if !done && @slow_drills.any? %>
       <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
         <p class="text-sm font-medium">Slow dry fire done for this day</p>
         <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
@@ -99,7 +103,7 @@
         </ul>
       </div>
     <% end %>
-    <% if @timed_drills.any? %>
+    <% if !done && @timed_drills.any? %>
       <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
         <p class="text-sm font-medium">Timed fire done for this day</p>
         <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">
@@ -109,7 +113,7 @@
         </ul>
       </div>
     <% end %>
-    <% if @drills.any? %>
+    <% if !done && @drills.any? %>
       <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800">
         <p class="text-sm font-medium">Hold drills done for this day</p>
         <ul class="mt-1 text-sm text-gray-700 dark:text-gray-200">

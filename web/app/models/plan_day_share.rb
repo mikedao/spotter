@@ -11,8 +11,18 @@ class PlanDayShare
   class Invalid < StandardError; end
 
   # One block of the day and what was done in it: a headline value ("10/10") and
-  # what it means; `done` when a timer or session finished the block's spec.
-  Item = Data.define(:name, :value, :detail, :done, :line)
+  # what it means; `done` when a timer or session finished the block's spec; `runs`
+  # every timer run or session done for it, oldest first (empty: not done yet).
+  Item = Data.define(:block, :name, :value, :detail, :done, :line, :runs) do
+    def started? = runs.any?
+  end
+
+  # One session's numbers, for a shooting block: competition shots (sighters out),
+  # scored as the session is, and its groups when the block shoots in runs.
+  SessionNumbers = Data.define(:session, :shots, :score, :average, :groups) do
+    def text = [ ("#{score} over #{shots} shots" if shots.positive?), ("avg #{average}" if average),
+                 ("groups #{groups.join(' · ')} mm" if groups.any?) ].compact.join(" · ").presence || "no shots"
+  end
 
   attr_reader :user, :enrollment, :day
 
@@ -35,9 +45,19 @@ class PlanDayShare
   def timeds = @timeds ||= user.timed_drills.where(plan_week: day.week, plan_day: day.day).order(:performed_at).to_a
   def sessions = @sessions ||= user.practice_sessions.for_plan_day(day.week, day.day).includes(cards: :shots).order(:started_at).to_a
 
-  # The blocks something was done in, in the day's order. Blocks with nothing to
-  # measure (warm-up, notes) are left out: the note goes in the caption.
-  def items = @items ||= day.blocks.filter_map { item_for(it) }
+  # Every block with something to measure (a timer or a session), in the day's
+  # order, done or not. Warm-up, notes and the like have nothing to measure.
+  def summary = @summary ||= day.blocks.filter_map { item_for(it) }
+
+  # The blocks something was done in: what the post shows. The note goes in the caption.
+  def items = summary.select(&:started?)
+
+  def session_numbers(session)
+    shots = session.cards.flat_map { |card| card.scored_shots.reject(&:sighter?) }
+    stats = CardStats.new(shots, session.target_spec, whole_rings: session.whole_rings?)
+    groups = session.group_of ? session.cards.flat_map { CardStats.new(it.scored_shots, session.target_spec).group_sizes(of: session.group_of) } : []
+    SessionNumbers.new(session, stats.count, stats.score, stats.score_average, groups)
+  end
 
   def done_count = enrollment.done_count
   def workout_count = enrollment.workout_count
@@ -92,36 +112,42 @@ class PlanDayShare
     # The run that finished the block, else the last one tried.
     def pick(runs) = runs.find { yield it } || runs.last
 
+    def not_done(block, value) = Item.new(block, block.name, value, "not done", false, "not done", [])
+
     def hold_item(block)
-      drill = pick(holds) { it.completes?(block.drill) } or return
+      drill = pick(holds) { it.completes?(block.drill) } or return not_done(block, "0/#{block.drill.reps}")
       detail = "holds of #{drill.hold_seconds} s held · #{drill.held_seconds.round} s in all"
       detail += " · #{drill.let_downs} let down" if drill.let_downs.positive?
-      Item.new(block.name, "#{drill.reps_done}/#{drill.reps}", detail, drill.completes?(block.drill), drill.summary)
+      Item.new(block, block.name, "#{drill.reps_done}/#{drill.reps}", detail, drill.completes?(block.drill), drill.summary, holds)
     end
 
     def slow_item(block)
-      drill = pick(slows) { it.completes?(block.shots, block.slow.limit) } or return
+      drill = pick(slows) { it.completes?(block.shots, block.slow.limit) } or return not_done(block, "0/#{block.shots}")
       bits = [ "shots broken inside #{drill.limit_seconds} s" ]
       bits << "#{drill.mean_break_seconds} s to break" if drill.mean_break_seconds
       bits << "#{drill.first_time_rate}% first time" if drill.first_time_rate
-      Item.new(block.name, "#{drill.shots_fired}/#{drill.shots}", bits.join(" · "), drill.completes?(block.shots, block.slow.limit), drill.summary)
+      Item.new(block, block.name, "#{drill.shots_fired}/#{drill.shots}", bits.join(" · "), drill.completes?(block.shots, block.slow.limit), drill.summary, slows)
     end
 
     def timed_item(block)
-      drill = pick(timeds) { it.completes?(block.timed) } or return
-      Item.new(block.name, "#{drill.strings_done}/#{drill.strings}", "strings of #{drill.shots} in #{drill.string_seconds} s",
-               drill.completes?(block.timed), drill.summary)
+      drill = pick(timeds) { it.completes?(block.timed) } or return not_done(block, "0/#{block.timed.strings}")
+      Item.new(block, block.name, "#{drill.strings_done}/#{drill.strings}", "strings of #{drill.shots} in #{drill.string_seconds} s",
+               drill.completes?(block.timed), drill.summary, timeds)
     end
 
+    # A shooting block: its sessions' shots and score together, the groups when it
+    # shoots in runs.
     def session_item(block)
       shot = sessions.select { it.plan_block == block.number }
-      return if shot.empty?
+      return not_done(block, "0/#{block.shots}") if shot.empty?
 
-      count = shot.sum { |s| s.cards.sum { it.scored_shots.reject(&:sighter?).size } }
-      sizes = shot.flat_map do |s|
-        s.cards.filter_map { CardStats.new(it.scored_shots.reject(&:sighter?), s.target_spec).group_size_mm }
-      end
-      detail = [ "shots", ("groups #{sizes.join(', ')} mm" if sizes.any?) ].compact.join(" · ")
-      Item.new(block.name, count.to_s, detail, shot.any?(&:completes_plan_block?), "#{count} shots#{" · groups #{sizes.join(', ')} mm" if sizes.any?}")
+      numbers = shot.map { session_numbers(it) }
+      count = numbers.sum(&:shots)
+      groups = numbers.flat_map(&:groups)
+      score = numbers.sum(&:score)
+      score = score.round(1) if score.is_a?(Float)
+      detail = [ "#{count} shots", ("groups #{groups.join(' · ')} mm" if groups.any?) ].compact.join(" · ")
+      line = "#{score} over #{count} shots#{" · groups #{groups.join(', ')} mm" if groups.any?}"
+      Item.new(block, block.name, count.positive? ? score.to_s : "0", detail, shot.any?(&:completes_plan_block?), line, numbers)
     end
 end

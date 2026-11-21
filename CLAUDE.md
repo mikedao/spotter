@@ -736,7 +736,12 @@ from there). The user commits; don't commit unless asked.
   CURRENT run's group marks + its widest pair as a red line with the size (`TargetSvgComponent group_of:`), a
   "Group 2: 14.3 mm (2 to go)" badge on it; beside the latest shot each run is a row of chips with its size (the
   current one highlighted, it stays current once full until the next shot); the card's numbers say "Groups of 5".
-  spec/components/live_groups_spec.rb. Only plan sessions with `group:` - no switch for a free session yet. Shot
+  spec/components/live_groups_spec.rb. Only plan sessions with `group:` - no switch for a free session yet.
+  **A finished day sums itself up** (2026-11-21): once ticked done, the day page opens with "How the day went"
+  (`PlanDaySummaryComponent`, from `PlanDayShare#summary` - the same numbers the post uses): every block with a
+  timer or session, ✓ / not finished / not done, its headline (10/10, the score), each run or session done for it
+  (time, its numbers, sessions linked; groups when the block shoots in fives), then the note. The workout card's
+  "... done for this day" lists show only while the day is not done. Shot
   counts scale with the week's volume, in fives. Kinds: `air` (a Spotter session), `dry` (Pardini dry
   fire - the FWB 65 is NEVER dry-fired, a spring piston slams without a pellet; a spec checks the dry-fire
   text never mentions it), `rest`. Per user: `PlanEnrollment` (the start date; the plan day follows from

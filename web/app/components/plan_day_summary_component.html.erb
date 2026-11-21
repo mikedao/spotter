@@ -1,0 +1,45 @@
+<%= render(CardComponent.new(title: "How the day went")) do %>
+  <ol class="divide-y divide-gray-200 dark:divide-gray-800" aria-label="Each part of the day">
+    <% items.each do |item| %>
+      <li class="py-3 first:pt-0" data-block="<%= item.block.number %>">
+        <div class="flex items-start gap-3">
+          <% if item.done %>
+            <span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-green-600 text-sm font-bold text-white" aria-label="finished">✓</span>
+          <% else %>
+            <span class="mt-0.5 size-7 shrink-0 rounded-full border-2 border-gray-300 dark:border-gray-600"
+                  aria-label="<%= item.started? ? "not finished" : "not done" %>"></span>
+          <% end %>
+          <div class="min-w-0 flex-1">
+            <p class="font-medium"><%= item.name %></p>
+            <%# One run: its own line below says it all. Several: the block's together. %>
+            <% summary = [ (item.started? ? (item.detail if item.runs.size > 1) : "Not done"), ("not finished as planned" if item.started? && !item.done) ].compact %>
+            <% if summary.any? %>
+              <p class="text-sm text-gray-600 dark:text-gray-300"><%= summary.join(" · ").upcase_first %></p>
+            <% end %>
+          </div>
+          <span class="<%= classes("shrink-0 text-2xl font-semibold tabular-nums", ("text-gray-400 dark:text-gray-500" unless item.started?)) %>"><%= item.value %></span>
+        </div>
+        <% if item.runs.any? %>
+          <ul class="mt-2 ml-10 space-y-1 text-sm text-gray-700 dark:text-gray-200">
+            <% item.runs.each do |run| %>
+              <li class="tabular-nums">
+                <% if (href = run_link(run)) %>
+                  <%= link_to run_time(run), href, class: "font-medium text-blue-700 underline dark:text-blue-300" %>
+                <% else %>
+                  <span class="text-gray-500 dark:text-gray-400"><%= run_time(run) %></span>
+                <% end %>
+                · <%= run_text(run) %>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+  <% if note.present? %>
+    <div class="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800">
+      <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Your note</p>
+      <p class="whitespace-pre-line"><%= note %></p>
+    </div>
+  <% end %>
+<% end %>
