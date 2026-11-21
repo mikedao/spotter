@@ -15,9 +15,10 @@ RSpec.describe TrainingPlan do
     end
   end
 
-  it "fits workout days into about an hour: shorter in the taper, longer on match days" do
+  it "fits workout days into about an hour: shorter in the taper, longer on match days, short on day 7" do
     described_class.workout_days.each do |day|
       range = if day.title.in?([ "Full match", "Test match" ]) then 100..115
+      elsif day.day == 7 then 15..25
       elsif day.phase.key == "test" then 35..65
       else 55..65
       end
@@ -25,11 +26,26 @@ RSpec.describe TrainingPlan do
     end
   end
 
-  it "tags air pistol days only, and keeps rest days short" do
+  it "fires live on the home lane every day: each day has a Spotter session and its tags" do
     days = described_class.weeks.flat_map(&:days)
-    expect(days.select(&:air?)).to all(satisfy { it.tags.any? })
-    expect(days.reject(&:air?)).to all(satisfy { it.tags.empty? })
-    expect(days.select(&:rest?).map(&:day).uniq).to eq([ 7 ])
+    expect(days.size).to eq(84)
+    expect(days.reject(&:rest?).size).to eq(84)
+    days.each do |day|
+      expect(day.session_blocks).not_to be_empty, "#{day.ref} #{day.title} has no live fire"
+      expect(day.tags).to be_present
+    end
+  end
+
+  it "puts the live block on a dry day last of the shooting, after the Pardini is cased" do
+    described_class.weeks.flat_map(&:days).select(&:dry?).each do |day|
+      lane = day.session_blocks.sole
+      expect(lane.detail).to start_with("Case the Pardini first"), day.ref
+      expect(day.blocks.drop(lane.number).map(&:name)).to all(eq("Notes")), day.ref
+    end
+  end
+
+  it "keeps one range day a week, on day 7" do
+    expect(described_class.weeks.flat_map(&:days).select(&:range?).map(&:day).uniq).to eq([ 7 ])
   end
 
   it "scales shot counts by the week's volume, in fives" do
@@ -46,7 +62,7 @@ RSpec.describe TrainingPlan do
   end
 
   it "never tells the shooter to dry-fire the air pistol" do
-    texts = described_class.weeks.flat_map(&:days).select(&:dry?).flat_map { it.blocks.map(&:detail) }.join(" ")
+    texts = described_class.weeks.flat_map(&:days).select(&:dry?).flat_map { it.blocks.reject(&:session).map(&:detail) }.join(" ")
     expect(texts).not_to match(/FWB/i)
   end
 
@@ -61,9 +77,10 @@ RSpec.describe TrainingPlan do
   describe "block sessions" do
     let(:blocks) { described_class.weeks.flat_map(&:days).flat_map { |d| d.blocks.map { |b| [ d, b ] } } }
 
-    it "gives every shooting block of an air pistol day a session of its own, and nothing else" do
+    it "gives every live shooting block a session of its own, and no dry-fire block one" do
       blocks.each do |day, block|
-        expect(block.session.present?).to eq(day.air? && block.shots.present?), "#{day.ref} #{block.name}"
+        live = block.shots.present? && !block.slow
+        expect(block.session.present?).to eq(live), "#{day.ref} #{block.name}"
       end
     end
 
@@ -79,7 +96,7 @@ RSpec.describe TrainingPlan do
 
     it "makes a day's tags its blocks' tags together" do
       expect(described_class.day(1, 1).tags).to eq([ "Groups", "Rhythm" ])
-      expect(described_class.day(1, 2).tags).to be_empty
+      expect(described_class.day(1, 2).tags).to eq([ "Called shots" ])
     end
 
     it "numbers blocks from 1 in their day and finds a shooting block by reference" do

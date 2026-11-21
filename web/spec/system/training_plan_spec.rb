@@ -36,7 +36,7 @@ RSpec.describe "Training plan" do
     expect(page).to have_button("Not done after all")
 
     click_link "← Training plan"
-    expect(page).to have_text("1 of 72 workouts done")
+    expect(page).to have_text("1 of 84 workouts done")
     shot("plan_done")
   end
 

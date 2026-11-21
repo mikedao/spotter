@@ -27,7 +27,7 @@ class PlanDayShare
   def note = workout&.note
   def date = workout&.completed_at&.to_date || enrollment.scheduled_on(day.week, day.day)
   def date_text = date.strftime("%b %-d, %Y")
-  def kind_text = day.dry? ? "Dry fire" : "Air pistol"
+  def kind_text = day.dry? ? "Dry fire + air pistol" : "Air pistol"
   def heading = "Week #{day.week} · Day #{day.day}"
 
   def holds = @holds ||= user.hold_drills.where(plan_week: day.week, plan_day: day.day).order(:performed_at).to_a
@@ -50,8 +50,9 @@ class PlanDayShare
     lines.join("\n").strip.first(CompetitiveShooter::BODY_MAX)
   end
 
-  # Dry fire is the Pardini (Bullseye); air days are the ISSF air pistol.
-  def topics = [ day.dry? ? "bullseye-precision-pistol" : "international-issf-pistol" ]
+  # Dry fire is the Pardini (Bullseye), and those days finish on the air pistol too;
+  # air days are the ISSF air pistol.
+  def topics = day.dry? ? %w[ bullseye-precision-pistol international-issf-pistol ] : [ "international-issf-pistol" ]
 
   # The finished sessions shot for the day with scored shots, as one set, or nil.
   def session_set

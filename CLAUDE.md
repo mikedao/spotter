@@ -724,7 +724,12 @@ from there). The user commits; don't commit unless asked.
 - **Training plan** (2026-11-19, the shooter's ask: cross-train the Pardini SP, Bullseye, with the FWB 65
   air pistol, an hour a day, followed from inside the app). `/plan`, menu "Training plan". The plan is
   DATA: `web/config/training_plan.yml` (4 phases x 7 day templates, per-week focus + `volume`, `overrides`
-  per "WEEK-DAY"), loaded by `TrainingPlan` (12 weeks x 7 days: six workouts + a rest-or-range day). Shot
+  per "WEEK-DAY"), loaded by `TrainingPlan` (12 weeks x 7 days). **Every plan day fires live on the home lane** (2026-11-21,
+  the shooter: "I have that home lane"): dry (Pardini) days end with an "On the lane (FWB 65)" Spotter session
+  AFTER the dry work ("Case the Pardini first"); day 7 is "Range day or home lane" (kind air, `range: true`:
+  Bullseye at a range, else 15 easy shots, ~20 min); 11-7 is "Easy lane". So all 84 days are workouts (progress
+  "of 84"); kind `rest` is left only for the days added by "Rest instead". Spec-checked: every day has a session
+  block, no dry-fire block mentions the FWB. Shot
   counts scale with the week's volume, in fives. Kinds: `air` (a Spotter session), `dry` (Pardini dry
   fire - the FWB 65 is NEVER dry-fired, a spring piston slams without a pellet; a spec checks the dry-fire
   text never mentions it), `rest`. Per user: `PlanEnrollment` (the start date; the plan day follows from

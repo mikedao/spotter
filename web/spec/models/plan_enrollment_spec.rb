@@ -17,13 +17,13 @@ RSpec.describe PlanEnrollment do
     expect(enrollment.scheduled_on(2, 1)).to eq(start + 7)
   end
 
-  it "counts finished workouts, not rest days, and lists missed ones" do
+  it "counts finished workouts (every plan day, day 7 too: it fires live) and lists missed ones" do
     travel_to Time.zone.local(2026, 11, 5, 9) do
       enrollment.workouts.create!(week: 1, day: 1, completed_at: Time.current)
-      enrollment.workouts.create!(week: 1, day: 7, completed_at: Time.current)   # a rest day
+      enrollment.workouts.create!(week: 1, day: 7, completed_at: Time.current)   # range day or home lane
       enrollment.workouts.create!(week: 1, day: 2)                                # started, not finished
-      expect(enrollment.done_count).to eq(1)
-      expect(enrollment.workout_count).to eq(72)
+      expect(enrollment.done_count).to eq(2)
+      expect(enrollment.workout_count).to eq(84)
       expect(enrollment.missed.map(&:ref)).to eq([ "1-2", "1-3" ])   # days 1-3 are past; day 4 is today
     end
   end

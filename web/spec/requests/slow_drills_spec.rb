@@ -38,11 +38,11 @@ RSpec.describe "Slow dry fire" do
       expect(body).to include("Start the timer: #{block.shots} shots, 12 s each")
       expect(body).to include(new_slow_drill_path(shots: block.shots, limit: 12, plan_day: "1-2"))
 
-      post slow_drills_path, params: { slow_drill: result.merge(shots: block.shots.to_s, shots_fired: (block.shots - 5).to_s), plan_day: "1-2" }
+      post slow_drills_path, params: { slow_drill: result.merge(shots: block.shots.to_s, shots_fired: (block.shots - 5).to_s, break_seconds: "50"), plan_day: "1-2" }
       get plan_workout_path(1, 2)
       expect(response.body).not_to include("✓ done")
 
-      post slow_drills_path, params: { slow_drill: result.merge(shots: block.shots.to_s, shots_fired: block.shots.to_s), plan_day: "1-2" }
+      post slow_drills_path, params: { slow_drill: result.merge(shots: block.shots.to_s, shots_fired: block.shots.to_s, break_seconds: "80"), plan_day: "1-2" }
       expect(response).to redirect_to(plan_workout_path(1, 2))
       get plan_workout_path(1, 2)
       expect(CGI.unescapeHTML(response.body)).to include("✓ done", "Do it again", "Slow dry fire done for this day")

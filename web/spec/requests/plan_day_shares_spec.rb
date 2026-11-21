@@ -40,7 +40,7 @@ RSpec.describe "Posting a training-plan day to CompetitiveShooter.org" do
   it "posts the day by itself when it is ticked done, once" do
     expect(client).to receive(:post!).once do |body:, topics:, images:|
       expect(body).to include("week 1 day 2", "Felt steady")
-      expect(topics).to eq([ "bullseye-precision-pistol" ])
+      expect(topics).to eq(%w[ bullseye-precision-pistol international-issf-pistol ])
       expect(images.map(&:first)).to eq([ "spotter-plan-day.jpg" ])
       posted
     end

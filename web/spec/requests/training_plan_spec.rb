@@ -24,7 +24,7 @@ RSpec.describe "Training plan" do
   it "shows today's workout on the plan page and on Practice" do
     enroll
     get training_plan_path
-    expect(CGI.unescapeHTML(response.body)).to include("Today's training", "Routine and groups", "Week 1", "of 72 workouts done")
+    expect(CGI.unescapeHTML(response.body)).to include("Today's training", "Routine and groups", "Week 1", "of 84 workouts done")
     get practice_sessions_path
     expect(CGI.unescapeHTML(response.body)).to include("Today's training", "Routine and groups")
   end
@@ -44,11 +44,12 @@ RSpec.describe "Training plan" do
     expect(body).to include('value="1-1-2"', 'value="1-1-3"')   # each starts its own block
   end
 
-  it "does not offer a session for a dry-fire day" do
+  it "offers one session on a dry-fire day: the live air pistol block after the Pardini is cased" do
     enroll
     get plan_workout_path(1, 2)
-    expect(response.body).to include("Safety", "Dry-fire the Pardini only")
-    expect(response.body).not_to include("Start the session")
+    body = CGI.unescapeHTML(response.body)
+    expect(body).to include("Safety", "Dry-fire the Pardini only", "Case the Pardini first", "Start the session: On the lane (FWB 65)")
+    expect(body.scan("Start the session").size).to eq(1)
   end
 
   it "404s a day that is not in the plan, and sends someone without a plan to the overview" do
@@ -86,7 +87,7 @@ RSpec.describe "Training plan" do
     other.create_plan_enrollment!(started_on: Time.zone.today).workouts.create!(week: 1, day: 1, completed_at: Time.current)
     enroll
     get training_plan_path
-    expect(response.body).to include("0</strong> of 72")
+    expect(response.body).to include("0</strong> of 84")
   end
 
   describe "swapping days" do

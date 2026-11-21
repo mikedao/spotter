@@ -64,7 +64,7 @@ class TrainingPlan
       Found.new(plan_day, block) if block&.session
     end
 
-    # Days that are a workout (not a rest or range day): what progress counts.
+    # Days that are a workout (every plan day now; a rest kind is left for safety): what progress counts.
     def workout_days = weeks.flat_map(&:days).reject(&:rest?)
 
     def reload! = (@weeks = @data = nil)
