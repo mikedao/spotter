@@ -5,6 +5,7 @@ RSpec.describe "Slow dry fire timer" do
   let(:user) { create(:user) }
 
   before do
+    stub_const("SlowDrill::LEAD_IN_SECONDS", 2)   # 10 in use; short here, still run
     visit new_session_path
     fill_in "Username", with: user.username
     fill_in "PIN", with: "1010"
@@ -14,7 +15,9 @@ RSpec.describe "Slow dry fire timer" do
   it "takes a let-down shot again, and saves the run once the shots are fired" do
     visit new_slow_drill_path(shots: 2, string: 10, limit: 5, between: 3)
     click_button "Start"
-    expect(page).to have_text("Raise and settle")
+    expect(page).to have_text("Starting soon. Get into position.")
+    expect(page).to have_no_button("Shot")
+    using_wait_time(4) { expect(page).to have_text("Raise and settle") }
     using_wait_time(6) { expect(page).to have_button("Shot") }
     click_button "Let down"
     expect(page).to have_text("1 let down")

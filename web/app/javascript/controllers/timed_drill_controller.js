@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The timed-fire timer (Pardini dry fire). For each string: "ready" and a short
+// The timed-fire timer (Pardini dry fire). Start gives `leadIn` seconds to get into
+// position (counted down, the last three aloud). Then for each string: "ready" and a short
 // random wait (so the start can't be anticipated), a beep, then the string's seconds
 // to fire its shots - with an optional soft tick at each shot's share of the time,
 // to keep the pace smooth - a stop beep, and a rest (none after the last string).
@@ -16,7 +17,7 @@ const CUE_LOAD_S = 4
 
 export default class extends Controller {
   static targets = [ "string", "phase", "count", "shot", "dots", "start", "pause", "stop", "voice", "pace", "form", "stringsDone" ]
-  static values = { strings: Number, shots: Number, seconds: Number, rest: Number, readyMin: Number, readyMax: Number, indexUrl: String, cues: Object }
+  static values = { strings: Number, shots: Number, seconds: Number, rest: Number, readyMin: Number, readyMax: Number, leadIn: Number, indexUrl: String, cues: Object }
 
   connect() {
     this.running = false
@@ -42,6 +43,7 @@ export default class extends Controller {
       this.phases.push({ kind: "ready", n, secs: wait }, { kind: "fire", n, secs: this.secondsValue })
       if (n < this.stringsValue - 1) this.phases.push({ kind: "rest", n, secs: this.restValue })
     }
+    if (this.leadInValue > 0) this.phases.unshift({ kind: "lead", n: 0, secs: this.leadInValue })
     this.done = 0
     this.running = true
     this.paused = false
@@ -152,17 +154,17 @@ export default class extends Controller {
         this.shotTarget.innerHTML = "&nbsp;"
       }
     }
-    if (p.kind === "rest" && remaining <= 3 && remaining > 0 && remaining !== this.shown) this.countdown(remaining)
+    if ((p.kind === "rest" || p.kind === "lead") && remaining <= 3 && remaining > 0 && remaining !== this.shown) this.countdown(remaining)
     this.shown = remaining
     this.paintDots()
   }
 
   label(phase) {
-    return { ready: "Ready. Low ready, wait for the beep.", fire: "Fire", rest: "Rest. Gun down." }[phase.kind]
+    return { lead: "Starting soon. Get into position.", ready: "Ready. Low ready, wait for the beep.", fire: "Fire", rest: "Rest. Gun down." }[phase.kind]
   }
 
   cue(kind, words = null) {
-    const tones = { ready: [ [ 523 ], 0.15 ], fire: [ [ 988 ], 0.5 ], stop: [ [ 988, 659 ], 0.2 ], rest: [ [ 660 ], 0.1 ], done: [ [ 523, 659, 784 ], 0.14 ] }[kind]
+    const tones = { lead: [ [ 440 ], 0.12 ], ready: [ [ 523 ], 0.15 ], fire: [ [ 988 ], 0.5 ], stop: [ [ 988, 659 ], 0.2 ], rest: [ [ 660 ], 0.1 ], done: [ [ 523, 659, 784 ], 0.14 ] }[kind]
     const end = this.beep(...tones)
     // The start beep is the command: no word over it.
     words ||= { ready: [ "ready" ], rest: [ "rest" ], done: [ "done" ] }[kind]

@@ -5,6 +5,7 @@ RSpec.describe "Timed fire timer" do
   let(:user) { create(:user) }
 
   before do
+    stub_const("TimedDrill::LEAD_IN_SECONDS", 2)   # 10 in use; short here, still run
     visit new_session_path
     fill_in "Username", with: user.username
     fill_in "PIN", with: "1010"
@@ -14,7 +15,8 @@ RSpec.describe "Timed fire timer" do
   it "runs a string from ready to the stop beep and saves it" do
     visit new_timed_drill_path(strings: 1, seconds: 5, shots: 5)
     click_button "Start"
-    expect(page).to have_text("Ready. Low ready, wait for the beep.")
+    expect(page).to have_text("Starting soon. Get into position.")
+    using_wait_time(4) { expect(page).to have_text("Ready. Low ready, wait for the beep.") }
     expect(page).to have_text("String 1 of 1")
     using_wait_time(10) { expect(page).to have_css("[data-phase=fire]") }
     expect(page).to have_text(/Shot \d of 5/)

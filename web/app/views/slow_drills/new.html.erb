@@ -20,12 +20,13 @@
      data-slow-drill-shots-value="<%= s[:shots] %>" data-slow-drill-string-value="<%= s[:string_size] %>"
      data-slow-drill-limit-value="<%= s[:limit_seconds] %>" data-slow-drill-between-value="<%= s[:between_seconds] %>"
      data-slow-drill-string-rest-value="<%= s[:string_rest_seconds] %>" data-slow-drill-settle-value="<%= SlowDrill::SETTLE_SECONDS %>"
+     data-slow-drill-lead-in-value="<%= SlowDrill::LEAD_IN_SECONDS %>"
      data-slow-drill-index-url-value="<%= slow_drills_path %>" data-slow-drill-cues-value="<%= @cues.to_json %>"
      data-action="keydown@window->slow-drill#key">
   <%= render(CardComponent.new) do %>
     <div class="flex flex-col items-center gap-3 py-4 text-center">
       <p class="text-lg <%= muted %>" data-slow-drill-target="progress">Ready</p>
-      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-slow-drill-target="phase">Press Start when you are standing ready.</p>
+      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-slow-drill-target="phase">Press Start: you then have <%= SlowDrill::LEAD_IN_SECONDS %> seconds to get into position.</p>
       <p class="text-9xl font-semibold tabular-nums text-gray-400 data-[phase=settle]:text-amber-500 data-[phase=hold]:text-green-600 data-[phase=gap]:text-blue-500 dark:data-[phase=hold]:text-green-400"
          aria-hidden="true" data-slow-drill-target="count">&nbsp;</p>
       <p class="min-h-7 text-lg <%= muted %>" data-slow-drill-target="tally">&nbsp;</p>

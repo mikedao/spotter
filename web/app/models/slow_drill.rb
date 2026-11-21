@@ -6,6 +6,7 @@ class SlowDrill < ApplicationRecord
   DEFAULTS = { shots: 10, string_size: 10, limit_seconds: 12, between_seconds: 10, string_rest_seconds: 60 }.freeze
   LIMITS = { shots: 1..60, string_size: 1..20, limit_seconds: 5..30, between_seconds: 3..60, string_rest_seconds: 10..180 }.freeze
   SETTLE_SECONDS = 3
+  LEAD_IN_SECONDS = 10   # after Start, time to put the phone down and get into position
   # Spoken in the picked voice; all already exported (the hold drill's cues).
   CUES = %w[ raise hold lower rest three two one done ].freeze
 

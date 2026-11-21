@@ -6,6 +6,7 @@ class TimedDrill < ApplicationRecord
   DEFAULTS = { strings: 4, string_seconds: 20, shots: 5, rest_seconds: 30 }.freeze
   LIMITS = { strings: 1..16, string_seconds: 5..60, shots: 1..10, rest_seconds: 10..120 }.freeze
   READY_SECONDS = (4..7)   # the wait from "ready" to the start beep is random in this range
+  LEAD_IN_SECONDS = 10     # after Start, time to put the phone down and get into position
   # Spoken in the shooter's voice; every one is already rendered for every voice
   # (hold drills and the range officer use them): ready, stop, rest, three, two, one, done.
   CUES = %w[ ready stop rest three two one done ].freeze

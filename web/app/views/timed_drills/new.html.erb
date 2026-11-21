@@ -20,11 +20,12 @@
      data-timed-drill-strings-value="<%= s[:strings] %>" data-timed-drill-shots-value="<%= s[:shots] %>"
      data-timed-drill-seconds-value="<%= s[:string_seconds] %>" data-timed-drill-rest-value="<%= s[:rest_seconds] %>"
      data-timed-drill-ready-min-value="<%= TimedDrill::READY_SECONDS.min %>" data-timed-drill-ready-max-value="<%= TimedDrill::READY_SECONDS.max %>"
+     data-timed-drill-lead-in-value="<%= TimedDrill::LEAD_IN_SECONDS %>"
      data-timed-drill-index-url-value="<%= timed_drills_path %>" data-timed-drill-cues-value="<%= @cues.to_json %>">
   <%= render(CardComponent.new) do %>
     <div class="flex flex-col items-center gap-3 py-4 text-center">
       <p class="text-lg <%= muted %>" data-timed-drill-target="string">Ready</p>
-      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-timed-drill-target="phase">Press Start with the gun at low ready.</p>
+      <p class="text-2xl font-semibold" role="status" aria-live="polite" data-timed-drill-target="phase">Press Start: you then have <%= TimedDrill::LEAD_IN_SECONDS %> seconds to get to low ready.</p>
       <p class="text-9xl font-semibold tabular-nums text-gray-400 data-[phase=ready]:text-amber-500 data-[phase=fire]:text-green-600 data-[phase=rest]:text-blue-500 dark:data-[phase=fire]:text-green-400"
          aria-hidden="true" data-timed-drill-target="count">&nbsp;</p>
       <p class="min-h-7 text-lg <%= muted %>" aria-hidden="true" data-timed-drill-target="shot">&nbsp;</p>

@@ -776,7 +776,9 @@ from there). The user commits; don't commit unless asked.
   "ready" + a RANDOM 4-7 s wait (shown as dots, so the start can't be anticipated), a long beep, the string's
   seconds with "Shot k of N" and an optional soft tick at each shot's share of the time (smooth, not fast),
   stop beep + "stop" + "rest", a rest (30 s default; none after the last string) whose last 3 s are counted.
-  A string stopped before its stop beep does not count. `TimedDrill` {strings, shots, string_seconds,
+  A string stopped before its stop beep does not count. **Both dry-fire timers (timed and slow) start with a
+  10 s LEAD-IN** after Start (2026-11-21, the shooter: time to get into position; `LEAD_IN_SECONDS` in each model,
+  counted down, "three two one" aloud; the timed timer's random ready wait comes after it). Specs stub it to 2 s. `TimedDrill` {strings, shots, string_seconds,
   rest_seconds, strings_done, plan_week/day}; `TimedDrill::CUES` = ready stop rest three two one done, all
   already exported for the 19 voices (they are RO / hold-drill pieces; `voicelines.TIMED_DRILL` mirrors, spec-checked).
   Plan blocks carry `timed: { strings, seconds }` (8 dry blocks: Timed sequence, Timed / Rapid fire; "Timed and

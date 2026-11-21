@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The slow dry fire timer (Pardini). Per shot: a few seconds to raise and settle,
+// The slow dry fire timer (Pardini). Start gives `leadIn` seconds to get into position
+// (counted down, the last three aloud). Then per shot: a few seconds to raise and settle,
 // then up to `limit` seconds to break the shot - tap Shot (or Space) as it breaks.
 // A shot not broken in time, or let down (button or Escape), does not count and is
 // taken again, so the run goes on until `shots` are fired. A short rest between shots,
@@ -15,7 +16,7 @@ const CUE_LOAD_S = 4
 
 export default class extends Controller {
   static targets = [ "progress", "phase", "count", "tally", "start", "shot", "letDown", "pause", "stop", "voice", "form", "shotsFired", "letDowns", "breakSeconds" ]
-  static values = { shots: Number, string: Number, limit: Number, between: Number, stringRest: Number, settle: Number, indexUrl: String, cues: Object }
+  static values = { shots: Number, string: Number, limit: Number, between: Number, stringRest: Number, settle: Number, leadIn: Number, indexUrl: String, cues: Object }
 
   connect() {
     this.running = false
@@ -43,7 +44,7 @@ export default class extends Controller {
     this.startTarget.hidden = true
     this.pauseTarget.hidden = this.stopTarget.hidden = false
     this.starting = false
-    this.enter({ kind: "settle", secs: this.settleValue }, 0)
+    this.enter(this.leadInValue > 0 ? { kind: "lead", secs: this.leadInValue } : { kind: "settle", secs: this.settleValue }, 0)
     this.last = performance.now()
     this.timer = setInterval(() => this.tick(), TICK_MS)
   }
@@ -152,19 +153,19 @@ export default class extends Controller {
     this.progressTarget.textContent = `Shot ${this.shotsDone + 1} of ${this.shotsValue} · string ${string}`
     this.tallyTarget.textContent = this.letDowns ? `${this.shotsDone} fired · ${this.letDowns} let down` : `${this.shotsDone} fired`
     if (!this.paused) this.phaseTarget.textContent = this.label(this.phase)
-    const resting = this.phase.kind === "gap" || this.phase.kind === "stringrest"
+    const resting = this.phase.kind === "gap" || this.phase.kind === "stringrest" || this.phase.kind === "lead"
     if (resting && remaining <= 3 && remaining > 0 && remaining !== this.shown) this.countdown(remaining)
     this.shown = remaining
   }
 
   label(phase) {
-    return { settle: "Raise and settle", hold: "Break the shot. Tap Shot, or let down.", gap: "Gun down. Rest.", stringrest: "String done. Gun down, rest." }[phase.kind]
+    return { lead: "Starting soon. Get into position.", settle: "Raise and settle", hold: "Break the shot. Tap Shot, or let down.", gap: "Gun down. Rest.", stringrest: "String done. Gun down, rest." }[phase.kind]
   }
 
   cue(kind) {
-    const tones = { settle: [ [ 523 ], 0.15 ], hold: [ [ 880 ], 0.25 ], gap: [ [ 880, 660 ], 0.12 ], stringrest: [ [ 880, 660 ], 0.12 ], done: [ [ 523, 659, 784 ], 0.14 ] }[kind]
+    const tones = { lead: [ [ 440 ], 0.12 ], settle: [ [ 523 ], 0.15 ], hold: [ [ 880 ], 0.25 ], gap: [ [ 880, 660 ], 0.12 ], stringrest: [ [ 880, 660 ], 0.12 ], done: [ [ 523, 659, 784 ], 0.14 ] }[kind]
     const end = this.beep(...tones)
-    this.speak({ settle: [ "raise" ], hold: [ "hold" ], gap: [ "lower" ], stringrest: [ "lower", "rest" ], done: [ "done" ] }[kind], end)
+    this.speak({ lead: [], settle: [ "raise" ], hold: [ "hold" ], gap: [ "lower" ], stringrest: [ "lower", "rest" ], done: [ "done" ] }[kind], end)
   }
 
   countdown(remaining) {
@@ -174,7 +175,7 @@ export default class extends Controller {
   }
 
   speak(words, at) {
-    if (!this.voiceTarget.checked) return
+    if (!this.voiceTarget.checked || !words?.length) return
     this.sources.forEach((source) => { try { source.stop() } catch { /* already over */ } })
     this.sources = []
     window.speechSynthesis?.cancel()
