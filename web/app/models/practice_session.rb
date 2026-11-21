@@ -20,6 +20,7 @@ class PracticeSession < ApplicationRecord
   validates :target, inclusion: { in: TargetSpec::SPECS.keys }
   validates :status, inclusion: { in: STATUSES }
   validates :course, inclusion: { in: Course::ALL.keys }, allow_nil: true
+  validates :group_of, inclusion: { in: [ 0, 5, 10 ] }, allow_nil: true   # 0 = one group per card
   validates :gun_adjustments, :problems, :fixes, :learned, length: { maximum: 4000 }
   validate :gear_is_the_users_own
   validate :plan_block_is_in_the_plan
@@ -76,7 +77,16 @@ class PracticeSession < ApplicationRecord
     shots.present? && cards.sum { |card| card.scored_shots.count { !it.sighter? } } >= shots
   end
 
-  def group_of = plan_found&.block&.session&.group
+  # Shots per group when the card is measured in runs (5-shot groups without
+  # changing the card), or nil for one group per card. Chosen at Start (column;
+  # 0 = whole card on purpose); older sessions from a plan block take the block's.
+  def group_of
+    chosen = self[:group_of]
+    return chosen if chosen&.positive?
+    return nil if chosen&.zero?
+
+    plan_found&.block&.session&.group
+  end
   def plan_ref = ([ plan_week, plan_day, plan_block ].compact.join("-") if plan_week)
 
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")

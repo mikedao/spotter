@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_20_230321) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_225838) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -153,6 +153,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_20_230321) do
     t.integer "plan_week"
     t.integer "plan_day"
     t.integer "plan_block"
+    t.integer "group_of"
     t.index ["engine_session_id"], name: "index_practice_sessions_on_engine_session_id", unique: true
     t.index ["gun_id"], name: "index_practice_sessions_on_gun_id"
     t.index ["pellet_id"], name: "index_practice_sessions_on_pellet_id"

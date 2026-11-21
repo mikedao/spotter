@@ -3,18 +3,6 @@
 <h1 class="mb-1 text-2xl font-semibold">New session</h1>
 <%= render(WizardStepsComponent.new(current: :start)) %>
 
-<% if @plan %>
-  <% spec = @plan.block.session %>
-  <div class="mb-4"><%= render(CardComponent.new(title: "From your plan")) do %>
-    <p class="font-medium"><%= @plan.title %><% if @plan.block.shots %> <span class="font-normal text-gray-600 dark:text-gray-300">· <%= @plan.block.shots %> shots</span><% end %></p>
-    <p class="mt-1 text-gray-700 dark:text-gray-200"><%= @plan.block.detail %></p>
-    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-      Set below: <%= spec.course == "match" ? "a match" : "practice" %>, <%= spec.per_card %> shots a card.
-      <% if spec.tags.any? %>The session is tagged <%= spec.tags.to_sentence %>.<% end %>
-      Change anything you like.
-    </p>
-  <% end %></div>
-<% end %>
 
 <%= render(CardComponent.new(title: "Ready")) do %>
   <% passed = "text-green-700 dark:text-green-300" %>
@@ -52,18 +40,47 @@
     </dd>
   </dl>
 
-  <%= form_with model: PracticeSession.new, url: practice_sessions_path, id: "start_session", class: "space-y-5" do |f| %>
+  <%= form_with model: PracticeSession.new, url: practice_sessions_path, id: "start_session", class: "space-y-5", data: { controller: "start-choice" } do |f| %>
     <%= f.hidden_field :target, value: @target.key %>
     <%= f.hidden_field :camera, value: @camera %>
     <%= f.hidden_field :mic, value: @mic %>
     <%= render(GearFieldsComponent.new(form: f, choice: @gear, target: @target.key, return_to: "setup")) %>
+    <% plan_spec = @plan&.block&.session %>
+    <%# The plan block's card: its own per_card, never more than the block's shots. %>
+    <% plan_per_card = plan_spec && [ plan_spec.per_card, @plan.block.shots || plan_spec.per_card ].min %>
+    <% option = "flex cursor-pointer gap-3 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950" %>
     <fieldset>
       <legend class="mb-2 text-sm font-medium">What are you shooting?</legend>
       <div class="grid gap-2 sm:grid-cols-2">
+        <% if @plan %>
+          <%# The plan block this session was started for: its own option, picked. %>
+          <% block = @plan.block %>
+          <% cards = block.shots ? Array.new(block.shots / plan_per_card, plan_per_card) + [ block.shots % plan_per_card ].reject(&:zero?) : [] %>
+          <label class="<%= option %> sm:col-span-2" data-plan-option>
+            <%= f.radio_button :mode, "plan", checked: true, class: "mt-1 accent-blue-600",
+                  data: { action: "start-choice#pick", per_card: plan_per_card, group_of: plan_spec.group || 0 } %>
+            <span class="min-w-0">
+              <span class="block text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">From your training plan</span>
+              <span class="block text-lg font-semibold"><%= block.name %></span>
+              <span class="block text-sm text-gray-600 dark:text-gray-300">Week <%= @plan.day.week %> · Day <%= @plan.day.day %> · <%= @plan.day.title %></span>
+              <span class="mt-2 flex flex-wrap gap-1.5 text-sm">
+                <% facts = [ (plan_spec.course ? Course::ALL.fetch(plan_spec.course).name : "Practice"),
+                             ("#{block.shots} shots" if block.shots),
+                             ("#{pluralize(cards.size, 'card')} of #{plan_per_card}#{" (last one #{cards.last})" if cards.size > 1 && cards.last != plan_per_card}" if cards.any?),
+                             ("#{plan_spec.group}-shot groups measured live" if plan_spec.group),
+                             *plan_spec.tags.map { "#{it}" } ].compact %>
+                <% facts.each do |fact| %><span class="rounded bg-white px-2 py-0.5 ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"><%= fact %></span><% end %>
+              </span>
+              <span class="mt-2 block text-gray-700 dark:text-gray-200"><%= block.detail %></span>
+              <span class="mt-1 block text-sm text-gray-600 dark:text-gray-300">Counts for your plan<% if plan_spec.tags.any? %> and is tagged <%= plan_spec.tags.to_sentence %><% end %>. Pick another option to shoot something else instead.</span>
+            </span>
+          </label>
+        <% end %>
         <% ([ [ "", "Practice", "No clock; every shot counts. Change cards whenever you like." ] ] +
             Course::ALL.values.map { [ it.key, it.name, it.description ] }).each do |key, name, about| %>
-          <label class="flex cursor-pointer gap-3 rounded-md border border-gray-300 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
-            <%= f.radio_button :course, key, checked: key == (@plan&.block&.session&.course.to_s), class: "mt-1 accent-blue-600" %>
+          <label class="<%= option %>">
+            <%= f.radio_button :mode, key, checked: !@plan && key.empty?, class: "mt-1 accent-blue-600",
+                  data: { action: "start-choice#pick", per_card: 10, group_of: 0 } %>
             <span><span class="block font-medium"><%= name %></span><span class="text-sm text-gray-600 dark:text-gray-300"><%= about %></span></span>
           </label>
         <% end %>
@@ -72,9 +89,23 @@
         In a match or final the range officer calls each command and the clock runs; shots out of time score zero.
       </p>
     </fieldset>
-    <div>
-      <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
-      <%= f.number_field :per_card, value: (@plan&.block&.session&.per_card || 10), min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24" %>
+    <div class="flex flex-wrap gap-x-8 gap-y-4">
+      <div>
+        <%= f.label :per_card, "Shots per card", class: "mb-1 block text-sm font-medium" %>
+        <%= f.number_field :per_card, value: (plan_per_card || 10), min: 1, max: 60, class: "#{TextFieldComponent::INPUT} w-24",
+            data: { start_choice_target: "perCard" } %>
+      </div>
+      <fieldset>
+        <legend class="mb-1 text-sm font-medium">Groups</legend>
+        <div class="flex flex-wrap gap-2">
+          <% [ [ 0, "One per card" ], [ 5, "Every 5 shots" ] ].each do |value, label| %>
+            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 px-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:border-gray-700 dark:has-[:checked]:bg-blue-950">
+              <%= f.radio_button :group_of, value, checked: value == (plan_spec&.group || 0), class: "accent-blue-600" %> <%= label %>
+            </label>
+          <% end %>
+        </div>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Every 5 shots: the range screen measures each group of five live, without changing the card.</p>
+      </fieldset>
     </div>
   <% end %>
 

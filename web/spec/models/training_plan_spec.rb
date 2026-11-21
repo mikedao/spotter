@@ -56,6 +56,25 @@ RSpec.describe TrainingPlan do
     expect(described_class.week(4)).to be_light
   end
 
+  it "never scales a match or a simulation: a match is 60 shots, a baseline 40, every week" do
+    blocks = described_class.weeks.flat_map(&:days).flat_map(&:blocks)
+    expect(blocks.select { it.session&.course == "match" }.map(&:shots).uniq).to eq([ 60 ])
+    expect(blocks.select { it.name == "Simulation" }.map(&:shots).uniq).to eq([ 40 ])
+  end
+
+  it "says in the text what the week asks: counts follow the volume, in whole series" do
+    words = %w[ zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ]
+    described_class.weeks.flat_map(&:days).each do |day|
+      day.blocks.each do |block|
+        expect(block.detail).not_to include("{"), "#{day.ref} #{block.name}"
+        next unless block.shots && (m = block.detail.match(/\b(#{words.join('|')})\s+(5|10)-shot\b/i))
+
+        expect(words.index(m[1].downcase) * m[2].to_i).to eq(block.shots), "#{day.ref} #{block.name}: #{block.detail}"
+      end
+    end
+    expect(described_class.day(1, 3).block(3).detail).to start_with("Two 5-shot series")   # 15 at full volume, 10 in week 1
+  end
+
   it "applies one-day overrides" do
     expect(described_class.day(12, 6).title).to eq("Test match")
     expect(described_class.day(11, 6).title).to eq("Full match")

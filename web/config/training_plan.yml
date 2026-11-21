@@ -8,7 +8,12 @@
 #                    when days are swapped on the plan page
 #   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire plus a live air pistol
 #                    block on the home lane (every plan day fires live), rest (only the days added by "Rest instead")
-#   block shots      the base count at volume 1.0 (rounded to 5)
+#   block shots      the base count at volume 1.0, scaled by the week's volume in whole SERIES (never below one)
+#   block series     the series the shots come in, 10 or 5 (default 5): what the scaling rounds to
+#   block fixed      true: never scaled (a baseline or a simulation is measured against itself; a match block,
+#                    one with session.course, is always fixed too: a match is 60 shots)
+#   in a detail      {shots} the scaled count, {shots_word} / {Shots_word} it in words, {series} / {Series} the
+#                    number of series in words: the text always says what is asked that week
 #   block drill      { reps, hold } on a hold-drill block: the day page offers the guided timer for it
 #   block slow       { limit } on a slow dry fire block (Pardini): the day page offers the slow-fire timer, shots from
 #                    the block, each to be broken within `limit` seconds or taken again
@@ -54,16 +59,16 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded: raise, settle, hold 8 seconds, lower. Ten holds. On the FWB never press the trigger without a pellet.", drill: { reps: 10, hold: 8 } }
           - { name: "Slow groups", minutes: 20, shots: 20, detail: "5-shot groups. Same routine every shot: stance, raise, settle, align, breathe, press, follow through. Spotter measures each group for you: look at its size and where it sits.", session: { per_card: 10, group: 5, tags: ["Groups"] } }
-          - { name: "Steady-pace series", minutes: 20, shots: 20, detail: "Two 10-shot series, one shot about every 40 seconds, the same routine each time. Judge the rhythm and the spread, not the score.", session: { per_card: 10, tags: ["Rhythm"] } }
+          - { name: "Steady-pace series", minutes: 20, shots: 20, series: 10, detail: "{Series} 10-shot series, one shot about every 40 seconds, the same routine each time. Judge the rhythm and the spread, not the score.", session: { per_card: 10, tags: ["Rhythm"] } }
           - { name: "Diary", minutes: 10, detail: "Tap the flagged shots in review. Write one problem and one fix in the session diary." }
       - title: "Hold and trigger (Pardini)"
         kind: dry
         focus: "See the sights at the break. Teach the trigger finger to work alone."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Dry-fire the Pardini only. Ten holds of 8 seconds, no trigger press. Lower if it falls apart.", drill: { reps: 10, hold: 8 } }
-          - { name: "Slow dry fire", minutes: 20, shots: 20, detail: "Raise, settle, press. Call where the sights were at the break. In 10-shot strings, resting between.", slow: { limit: 12 } }
+          - { name: "Slow dry fire", minutes: 20, shots: 20, series: 10, detail: "Raise, settle, press. Call where the sights were at the break. {Series} 10-shot strings, resting between.", slow: { limit: 12 } }
           - { name: "Timed sequence", minutes: 10, detail: "From low ready, 5 shots in 20 seconds. Four strings, smooth not fast.", timed: { strings: 4, seconds: 20 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten live shots on the air pistol with the same press as the dry work. Call each shot before Spotter announces it.", session: { per_card: 10, tags: ["Called shots"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} live shots on the air pistol with the same press as the dry work. Call each shot before Spotter announces it.", session: { per_card: 10, tags: ["Called shots"] } }
           - { name: "Notes", minutes: 5, detail: "Which shots felt good? Did the live shots break like the dry ones?" }
       - title: "Trigger and follow-through"
         kind: air
@@ -71,14 +76,14 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups (Spotter measures each one). Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 10, group: 5, tags: ["Trigger control", "Follow-through"] } }
-          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "Three 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
+          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "{Series} 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
       - title: "Rhythm"
         kind: air
         focus: "The same rhythm from shot to shot."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Rhythm series", minutes: 40, shots: 40, detail: "Four 10-shot series, one shot every 30 to 40 seconds. Afterwards open the Journal's Your rhythm: even gaps should mean even scores.", session: { per_card: 10, tags: ["Rhythm"] } }
+          - { name: "Rhythm series", minutes: 40, shots: 40, series: 10, detail: "{Series} 10-shot series, one shot every 30 to 40 seconds. Afterwards open the Journal's Your rhythm: even gaps should mean even scores.", session: { per_card: 10, tags: ["Rhythm"] } }
           - { name: "Diary", minutes: 10, detail: "One line on whether the rhythm held, and where it broke." }
       - title: "Timed and rapid (Pardini)"
         kind: dry
@@ -87,14 +92,14 @@ phases:
           - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 8-second holds.", drill: { reps: 5, hold: 8 } }
           - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds, from low ready on a beep.", timed: { strings: 8, seconds: 20 } }
           - { name: "Rapid fire", minutes: 15, detail: "Six strings of 5 shots in 10 seconds. Sights must be back on target for every shot, even when it is fast.", timed: { strings: 6, seconds: 10 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then finish with ten unhurried live shots on the air pistol, one about every 40 seconds.", session: { per_card: 10, tags: ["Rhythm"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then finish with {shots_word} unhurried live shots on the air pistol, one about every 40 seconds.", session: { per_card: 10, tags: ["Rhythm"] } }
           - { name: "Notes", minutes: 5, detail: "Where did the rhythm break down?" }
       - title: "Baseline: 40-shot session"
         kind: air
         focus: "A baseline to measure the plan against. Change nothing mid-way."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, then five sighters." }
-          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings. Shoot as you would in a match.", session: { per_card: 10, tags: ["Match simulation"] } }
+          - { name: "Simulation", minutes: 40, shots: 40, fixed: true, detail: "Four 10-shot series, 10 minutes each, whole rings. Shoot as you would in a match.", session: { per_card: 10, tags: ["Match simulation"] } }
           - { name: "Diary", minutes: 10, detail: "Write the score, your worst series and the first thing that went wrong." }
       - title: "Range day or home lane"
         kind: air
@@ -102,7 +107,7 @@ phases:
         focus: "An easy day. If you shoot Bullseye, use it to see what carries over."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye as you normally do and call every shot before you score it. Note where your routine slipped." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: fifteen easy shots on the air pistol, no score to chase. Then five minutes in the journal: is the trend moving the right way?", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, no score to chase. Then five minutes in the journal: is the trend moving the right way?", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: consistency
     name: Consistency
@@ -114,22 +119,22 @@ phases:
         focus: "If the shot has not broken in 8 seconds, lower the arm and start again."
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
-          - { name: "Eight-second strings", minutes: 40, shots: 40, detail: "10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds.", session: { per_card: 10, tags: ["Hold time", "Let-downs"] } }
+          - { name: "Eight-second strings", minutes: 40, shots: 40, series: 10, detail: "{Series} 10-shot strings. Count 8 seconds from settling. Not broken by then: let down and restart. Track the share of shots broken inside 8 seconds.", session: { per_card: 10, tags: ["Hold time", "Let-downs"] } }
           - { name: "Diary", minutes: 10, detail: "Write how many let-downs you needed and when the hold was best." }
       - title: "Hold and trigger (Pardini)"
         kind: dry
         focus: "Only shots that pass the test count: settled, straight press, sights still on at the break."
         blocks:
           - { name: "Long holds", minutes: 10, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Ten holds of 10 seconds, no trigger press.", drill: { reps: 10, hold: 10 } }
-          - { name: "Pass or let down", minutes: 25, shots: 30, detail: "10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count.", slow: { limit: 8 } }
+          - { name: "Pass or let down", minutes: 25, shots: 30, series: 10, detail: "{Series} 10-shot dry strings. A shot counts only if you settled in 8 seconds and the sights stayed put at the break. Otherwise let down; it does not count.", slow: { limit: 8 } }
           - { name: "Timed fire", minutes: 10, detail: "Four strings of 5 shots in 20 seconds.", timed: { strings: 4, seconds: 20 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten live shots on the air pistol under the same rule: not broken in 8 seconds, let down and start again.", session: { per_card: 10, tags: ["Let-downs"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} live shots on the air pistol under the same rule: not broken in 8 seconds, let down and start again.", session: { per_card: 10, tags: ["Let-downs"] } }
       - title: "Series at match pace"
         kind: air
         focus: "One shot every 75 seconds, the same routine from the first to the last."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Match-pace series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each, on a clock. Score every series. Aim for the worst series within 3 points of your best.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
+          - { name: "Match-pace series", minutes: 40, shots: 40, series: 10, detail: "{Series} 10-shot series, 12 minutes each, on a clock. Score every series. Aim for the worst series within 3 points of your best.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
           - { name: "Diary", minutes: 10, detail: "Which series was worst, and what was different?" }
       - title: "Fix your biggest miss"
         kind: air
@@ -146,14 +151,14 @@ phases:
           - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 8-second holds.", drill: { reps: 5, hold: 8 } }
           - { name: "Timed fire", minutes: 20, detail: "Eight strings of 5 shots in 20 seconds. Call each shot.", timed: { strings: 8, seconds: 20 } }
           - { name: "Rapid fire", minutes: 15, detail: "Eight strings of 5 shots in 10 seconds.", timed: { strings: 8, seconds: 10 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten unhurried live shots on the air pistol to finish, each one called.", session: { per_card: 10, tags: ["Called shots"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} unhurried live shots on the air pistol to finish, each one called.", session: { per_card: 10, tags: ["Called shots"] } }
           - { name: "Notes", minutes: 5, detail: "Which string was best, and what was different about it?" }
       - title: "Half match and series review"
         kind: air
         focus: "A scored half match, then find where it fades."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, five sighters." }
-          - { name: "Simulation", minutes: 40, shots: 40, detail: "Four 10-shot series, 10 minutes each, whole rings.", session: { per_card: 10, tags: ["Match simulation"] } }
+          - { name: "Simulation", minutes: 40, shots: 40, fixed: true, detail: "Four 10-shot series, 10 minutes each, whole rings.", session: { per_card: 10, tags: ["Match simulation"] } }
           - { name: "Series review", minutes: 10, detail: "Journal, Series through a session: does one series number fade or start cold?" }
       - title: "Range day or home lane"
         kind: air
@@ -161,7 +166,7 @@ phases:
         focus: "An easy day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye and call every shot first. Slow fire is where the air pistol work shows." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: fifteen easy shots on the air pistol, just the routine. Then a look at the journal's trend and group size.", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, just the routine. Then a look at the journal's trend and group size.", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: pressure
     name: Pressure
@@ -173,7 +178,7 @@ phases:
         focus: "The clock is real. Shots out of time do not count."
         blocks:
           - { name: "Warm-up", minutes: 10, detail: "Hold drills, three sighters." }
-          - { name: "Strict series", minutes: 40, shots: 40, detail: "Four 10-shot series, 12 minutes each by the clock. Out of time scores zero.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
+          - { name: "Strict series", minutes: 40, shots: 40, series: 10, detail: "{Series} 10-shot series, 12 minutes each by the clock. Out of time scores zero.", session: { per_card: 10, tags: ["Match pace", "Series"] } }
           - { name: "Diary", minutes: 10, detail: "Write what happened when the clock got short." }
       - title: "Bullseye stage run (Pardini)"
         kind: dry
@@ -181,7 +186,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Full run, twice", minutes: 35, detail: "Each run: 10 slow shots, 10 timed (2 x 5 in 20 seconds), 10 rapid (2 x 5 in 10 seconds). Call every shot good or bad. A run with a bad call you could have prevented gets repeated." }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten slow live shots on the air pistol. Call each one good or bad before Spotter scores it.", session: { per_card: 10, tags: ["Called shots"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} slow live shots on the air pistol. Call each one good or bad before Spotter scores it.", session: { per_card: 10, tags: ["Called shots"] } }
           - { name: "Notes", minutes: 5, detail: "Which stage held up? Which broke?" }
       - title: "Make-it series"
         kind: air
@@ -195,7 +200,7 @@ phases:
         focus: "The first shot has to be as good as the sixtieth."
         blocks:
           - { name: "Rest between", minutes: 10, detail: "No warm-up and no sighters: this is the point." }
-          - { name: "Cold series", minutes: 40, shots: 40, detail: "Eight 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
+          - { name: "Cold series", minutes: 40, shots: 40, detail: "{Series} 5-shot series. Put the gun down for 3 minutes between each, then start cold. The first shot counts.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 10, detail: "How much worse was shot one than shot five?" }
       - title: "Rhythm and stakes (Pardini)"
         kind: dry
@@ -203,7 +208,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 5, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Five 10-second holds.", drill: { reps: 5, hold: 10 } }
           - { name: "Clean runs", minutes: 35, detail: "Dry Bullseye stages: 10 slow, 10 timed, 10 rapid. Every shot must be called good, or the run starts over. Add a distraction: a ticking metronome or a person walking by." }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten live shots on the air pistol with the distraction still on. No sighters: the first shot counts.", session: { per_card: 10, tags: ["Pressure"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} live shots on the air pistol with the distraction still on. No sighters: the first shot counts.", session: { per_card: 10, tags: ["Pressure"] } }
           - { name: "Notes", minutes: 5, detail: "How many tries did a clean run take?" }
       - title: "Full match"
         kind: air
@@ -218,7 +223,7 @@ phases:
         focus: "An easy day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye. Use the same routine as the air pistol and call each shot." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: fifteen easy shots on the air pistol, the same routine, nothing at stake.", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, the same routine, nothing at stake.", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: test
     name: Test and taper
@@ -236,8 +241,8 @@ phases:
         kind: dry
         focus: "Light slow-fire work with the routine you have built."
         blocks:
-          - { name: "Slow dry fire", minutes: 30, shots: 30, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Ten-shot strings, resting between. Raise, settle, press, call.", slow: { limit: 12 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten live shots on the air pistol, the same routine, each one called.", session: { per_card: 10, tags: ["Called shots"] } }
+          - { name: "Slow dry fire", minutes: 30, shots: 30, series: 10, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. {Series} 10-shot strings, resting between. Raise, settle, press, call.", slow: { limit: 12 } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} live shots on the air pistol, the same routine, each one called.", session: { per_card: 10, tags: ["Called shots"] } }
           - { name: "Notes", minutes: 5, detail: "How does the hold feel compared with week 1?" }
       - title: "Make-it series"
         kind: air
@@ -251,7 +256,7 @@ phases:
         focus: "Practice the first shot again, lighter."
         blocks:
           - { name: "Rest between", minutes: 5, detail: "No warm-up." }
-          - { name: "Cold series", minutes: 30, shots: 30, detail: "Six 5-shot series, 3 minutes apart, each started cold.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
+          - { name: "Cold series", minutes: 30, shots: 30, detail: "{Series} 5-shot series, 3 minutes apart, each started cold.", session: { per_card: 10, group: 5, tags: ["Cold starts"] } }
           - { name: "Diary", minutes: 5, detail: "Shot one against shot five." }
       - title: "Timed and rapid (Pardini)"
         kind: dry
@@ -259,7 +264,7 @@ phases:
         blocks:
           - { name: "Timed fire", minutes: 15, detail: "Safety first: magazine out, chamber open and looked into, snap cap in, muzzle at the backstop. Four strings of 5 in 20 seconds. Call each.", timed: { strings: 4, seconds: 20 } }
           - { name: "Rapid fire", minutes: 15, detail: "Four strings of 5 in 10 seconds. Call each.", timed: { strings: 4, seconds: 10 } }
-          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then ten smooth live shots on the air pistol.", session: { per_card: 10, tags: ["Called shots"] } }
+          - { name: "On the lane (FWB 65)", minutes: 15, shots: 10, detail: "Case the Pardini first. Then {shots_word} smooth live shots on the air pistol.", session: { per_card: 10, tags: ["Called shots"] } }
           - { name: "Notes", minutes: 5, detail: "Anything to carry into Bullseye." }
       - title: "Full match"
         kind: air
@@ -272,7 +277,7 @@ phases:
         kind: air
         focus: "A light day before the final week. Keep it short."
         blocks:
-          - { name: "Easy shots", minutes: 15, shots: 10, detail: "Ten easy shots on the air pistol, just the routine. Stop there, even if it feels good.", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Easy shots", minutes: 15, shots: 10, detail: "{Shots_word} easy shots on the air pistol, just the routine. Stop there, even if it feels good.", session: { per_card: 10, tags: ["Easy lane"] } }
 
 overrides:
   "12-6":
@@ -287,4 +292,4 @@ overrides:
     focus: "See what the plan did for the Pardini."
     blocks:
       - { name: "At the range", minutes: 0, detail: "Shoot the Bullseye you shot before week 1 and compare the score." }
-      - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range: fifteen easy shots on the air pistol to close the plan.", session: { per_card: 10, tags: ["Easy lane"] } }
+      - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range: {shots_word} easy shots on the air pistol to close the plan.", session: { per_card: 10, tags: ["Easy lane"] } }

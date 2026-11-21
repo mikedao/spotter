@@ -91,21 +91,37 @@ class TrainingPlan
 
       def build_day(week, day, phase, fields, volume)
         blocks = fields.fetch("blocks").each_with_index.map do |block, i|
-          shots = scale(block["shots"], volume)
+          series = block.fetch("series", 5)
+          fixed = block["fixed"] == true || block.dig("session", "course").present?
+          shots = fixed ? block["shots"] : scale(block["shots"], volume, series)
           drill = block["drill"]&.then { HoldSpec.new(it.fetch("reps"), it.fetch("hold")) }
           slow = block["slow"]&.then { SlowSpec.new(it.fetch("limit")) }
           timed = block["timed"]&.then { TimedSpec.new(it.fetch("strings"), it.fetch("seconds")) }
           session = block["session"]&.then { SessionSpec.new(it.fetch("per_card"), it["group"], it["course"], it.fetch("tags", [])) }
-          Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), block.fetch("detail"), shots, drill, timed, slow, session)
+          Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), fill(block.fetch("detail"), shots, series), shots, drill, timed, slow, session)
         end
         Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1, fields["range"] == true)
       end
 
-      # Shot counts follow the week's volume, in fives, never below five.
-      def scale(shots, volume)
+      # Shot counts follow the week's volume in whole series (of 5 or 10), never below one series.
+      def scale(shots, volume, series)
         return unless shots
 
-        [ (shots * volume / 5.0).round * 5, 5 ].max
+        [ (shots * volume / series.to_f).round * series, series ].max
+      end
+
+      NUMBER_WORDS = %w[ zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen
+                         sixteen seventeen eighteen nineteen twenty ].freeze
+
+      def word(n) = NUMBER_WORDS[n] || n.to_s
+
+      # The detail's counts, as asked that week: {shots} {shots_word} {Shots_word} {series} {Series}.
+      def fill(detail, shots, series)
+        return detail unless shots
+
+        count = shots / series
+        detail.gsub("{shots}", shots.to_s).gsub("{shots_word}", word(shots)).gsub("{Shots_word}", word(shots).capitalize)
+              .gsub("{series}", word(count)).gsub("{Series}", word(count).capitalize)
       end
   end
 end

@@ -16,10 +16,20 @@ class PracticeSessionsController < ApplicationController
   def create
     params = start_params
     plan_ref = session[:plan_block]   # read before `session` below becomes the new practice session
+    # "What are you shooting?": the plan block ("plan"), practice ("") or a course. Picking
+    # anything but the plan block starts an ordinary session, not counted for the plan.
+    mode = params[:mode]
+    plan_ref = nil if mode && mode != "plan"
+    course = if mode == "plan" then TrainingPlan.find_block(plan_ref)&.block&.session&.course
+    elsif mode then mode.presence
+    else params[:course]
+    end
     RigCheck.stop_for!(Current.user)
     gear = GearParams.new(Current.user, gear_params).attributes
     session = EngineRunner.start!(user: Current.user, target: params[:target], per_card: params[:per_card],
-                                  camera: params[:camera], mic: params[:mic], course: params[:course], gear:)
+                                  camera: params[:camera], mic: params[:mic], course:, gear:)
+    group_of = params[:group_of].presence&.to_i
+    session.update!(group_of:) if [ 0, 5, 10 ].include?(group_of)   # anything else: as before (the plan's, else the card)
     link_to_plan(session, plan_ref)
     self.session.delete(:plan_block)
     redirect_to practice_session_path(session)
@@ -142,7 +152,7 @@ class PracticeSessionsController < ApplicationController
     end
 
     def start_params
-      params.expect(practice_session: [ :target, :per_card, :camera, :mic, :course ])
+      params.expect(practice_session: [ :target, :per_card, :camera, :mic, :course, :mode, :group_of ])
     end
 
     def diary_params
