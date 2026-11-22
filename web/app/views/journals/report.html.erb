@@ -110,7 +110,7 @@
         <% j.newest_first.each do |s| %>
           <tr class="break-inside-avoid align-baseline">
             <td class="py-1 pr-2 whitespace-nowrap"><%= s.started_at.strftime("%b %-d") %></td>
-            <td class="pr-2"><%= Journal::KINDS[s.kind] %></td>
+            <td class="pr-2"><%= Journal::KINDS[s.kind] %><%= " (plan drill, not counted)" unless s.counted? %></td>
             <td class="pr-2"><%= s.count %></td>
             <td class="pr-2 font-semibold"><%= s.per_60 || "–" %></td>
             <td class="pr-2"><%= s.series.any? ? s.series.join(" ") : "–" %></td>

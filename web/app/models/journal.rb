@@ -36,7 +36,10 @@ class Journal
     @summaries ||= scope.includes(:gun, :pellet, :exercises, cards: :shots).order(:started_at).map { SessionSummary.new(it) }
   end
 
-  def charted = @charted ||= summaries.select(&:charted?)
+  # What the numbers and charts count: 10+ shots, and not a training-plan drill
+  # (SessionSummary#counted?). The Sessions table still lists every session.
+  def charted = @charted ||= summaries.select { it.charted? && it.counted? }
+  def left_out_for_plan = summaries.count { it.charted? && !it.counted? }
 
   # The headline tiles. RECENT sessions = the last 5 charted; "before" = the 5
   # before them.

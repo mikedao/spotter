@@ -20,8 +20,18 @@ class SharePicture
     "cards" => "Every card"
   }.freeze
 
+  # Group training (the set shot in 5-shot groups on one card): the groups take the
+  # place of the score pictures - a ring total says little about a group session.
+  GROUP_KINDS = {
+    "groups" => "Groups",
+    "cards" => "Every card",
+    "stats" => "The numbers"
+  }.freeze
+
+  def self.kinds_for(set) = set.grouped? ? GROUP_KINDS : KINDS
+
   def self.build(kind, set, colors: nil, identity: true)
-    klass = { "hero" => Hero, "scorecard" => Scorecard, "stats" => Stats, "cards" => Cards }.fetch(kind.to_s)
+    klass = { "hero" => Hero, "scorecard" => Scorecard, "stats" => Stats, "cards" => Cards, "groups" => Groups }.fetch(kind.to_s)
     klass.new(set, colors:, identity:)
   end
 
@@ -125,7 +135,8 @@ class SharePicture
     # The ISSF target in a `size` px square at x, y with `shots` on it at their final
     # positions, true pellet size: drawn in millimetres in a nested <svg> whose
     # viewBox frames out to `ring` (and clips anything past it).
-    def target(x, y, size, shots, ring: view_ring(shots), numbers: true)
+    # extra: more SVG drawn over the shots, in the target's millimetres (y down).
+    def target(x, y, size, shots, ring: view_ring(shots), numbers: true, extra: nil)
       spec = set.spec
       h = (spec.ring_radius_mm(ring) + spec.step_mm / 2.0).round(2)
       paper, line_paper, line_black = TargetSvgComponent::PAPER, TargetSvgComponent::LINE_ON_PAPER, TargetSvgComponent::LINE_ON_BLACK
@@ -144,6 +155,7 @@ class SharePicture
         parts << %(<circle cx="#{cx}" cy="#{cy}" r="#{r + 0.25}" fill="#000" fill-opacity="0.45"/>)
         parts << %(<circle cx="#{cx}" cy="#{cy}" r="#{r}" fill="#{shot_colour}" fill-opacity="0.92" stroke="#fff" stroke-width="0.32"/>)
       end
+      parts << extra if extra
       %(<svg x="#{x.round(2)}" y="#{y.round(2)}" width="#{size.round(2)}" height="#{size.round(2)}" viewBox="#{-h} #{-h} #{2 * h} #{2 * h}">#{parts.join}</svg>)
     end
 

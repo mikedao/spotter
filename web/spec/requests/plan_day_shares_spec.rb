@@ -83,12 +83,24 @@ RSpec.describe "Posting a training-plan day to CompetitiveShooter.org" do
   end
 
   it "adds the sessions' target and numbers when air pistol was shot for the day" do
-    session = create(:practice_session, user:, status: "ended", ended_at: Time.current, plan_week: 1, plan_day: 1, plan_block: 2)
+    session = create(:practice_session, user:, status: "ended", ended_at: Time.current, plan_week: 1, plan_day: 1, plan_block: 3)   # Steady-pace series
     card = create(:card, practice_session: session, number: 1)
     5.times { |i| create(:shot, card:, number: i + 1, ring: 9, decimal_score: 9.3, x_mm: i * 2.0, y_mm: 1.0) }
     share = PlanDayShare.new(user, 1, 1)
     expect(share.picture_kinds).to eq(%w[ day hero stats ])
     expect(share.topics).to eq([ "international-issf-pistol" ])
+  end
+
+  it "posts the groups, not a score, for a day shot in 5-shot groups" do
+    session = create(:practice_session, user:, status: "ended", ended_at: Time.current, plan_week: 1, plan_day: 1, plan_block: 2)   # Slow groups
+    card = create(:card, practice_session: session, number: 1)
+    10.times { |i| create(:shot, card:, number: i + 1, ring: 9, decimal_score: 9.3, x_mm: (i % 5) * (i < 5 ? 2.0 : 4.0), y_mm: 1.0, fired_at: Time.current + i * 30) }
+    share = PlanDayShare.new(user, 1, 1)
+    expect(share.picture_kinds).to eq(%w[ day groups ])
+    item = share.items.find { it.name == "Slow groups" }
+    expect(item.value).to eq("8.0 mm")
+    expect(item.line).to eq("2 groups of 5, best 8.0 mm, avg 12.0 mm")
+    expect(share.body).to include("Slow groups: 2 groups of 5, best 8.0 mm")
   end
 
   it "serves the day's picture as a JPEG", if: system("which rsvg-convert > /dev/null 2>&1") do

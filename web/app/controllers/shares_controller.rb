@@ -12,7 +12,7 @@ class SharesController < ApplicationController
   # One picture as it will be posted, for the preview.
   def picture
     kind = params[:kind].to_s
-    return head :not_found unless SharePicture::KINDS.key?(kind)
+    return head :not_found unless SharePicture.kinds_for(@set).key?(kind)
 
     picture = SharePicture.build(kind, @set, colors: @colors, identity: @identity)
     expires_now
@@ -39,8 +39,9 @@ class SharesController < ApplicationController
       @set = ShareSet.find(Current.user, params[:session_ids])
       @colors = ShareColorway.key_for(params[:colors].presence || Current.user.share_colors)
       @identity = params[:identity] != "0"
-      @pictures = Array(params[:pictures]).map(&:to_s) & SharePicture::KINDS.keys
-      @pictures = SharePicture::KINDS.keys if action_name == "new" && params[:pictures].nil?
+      @kinds = SharePicture.kinds_for(@set)
+      @pictures = Array(params[:pictures]).map(&:to_s) & @kinds.keys
+      @pictures = @kinds.keys if action_name == "new" && params[:pictures].nil?
       @body = params[:body].to_s.strip.first(CompetitiveShooter::BODY_MAX)
       @topics = (Array(params[:topics]).map(&:to_s) & CompetitiveShooter::TOPICS.keys).first(CompetitiveShooter::MAX_TOPICS)
       @topics = CompetitiveShooter.default_topics(@set.spec.key) if action_name == "new" && params[:topics].nil?

@@ -27,6 +27,21 @@ RSpec.describe Journal do
     expect(j.personal_best.started_at).to eq(Time.zone.parse("2026-09-22 18:00"))   # the first time, not the tie
   end
 
+  it "leaves training-plan drills out of the numbers, but counts plan match simulations and still lists every session" do
+    sessions([ 540, 552, 558, 546 ])
+    drill, baseline, match, _plain = user.practice_sessions.order(:started_at).to_a
+    drill.update!(plan_week: 1, plan_day: 1, plan_block: 2)      # Slow groups: a drill
+    baseline.update!(plan_week: 1, plan_day: 6, plan_block: 2)   # Baseline simulation (Match simulation)
+    match.update!(plan_week: 9, plan_day: 6, plan_block: 2)      # Full match
+
+    j = described_class.new(user)
+    expect(j.summaries.size).to eq(4)
+    expect(j.charted.map(&:session)).to eq(user.practice_sessions.order(:started_at).to_a.drop(1))
+    expect(j.left_out_for_plan).to eq(1)
+    expect(j.recent_pace).to eq((552 + 558 + 546) / 3)
+    expect(j.personal_best.per_60).to eq(558)
+  end
+
   it "waits for 8 sessions before showing a trend" do
     sessions([ 540, 546, 546, 552, 552, 558, 558 ])
     expect(described_class.new(user).trend_ready?).to be(false)

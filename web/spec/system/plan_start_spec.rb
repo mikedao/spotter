@@ -25,15 +25,17 @@ RSpec.describe "Starting a session from the plan" do
     expect(page).to have_css("[data-plan-option]", text: /from your training plan/i)
     expect(page).to have_text("On the lane (FWB 65)")
     expect(find("input[value='plan']")).to be_checked
-    expect(per_card).to eq("5")
+    expect(per_card).to eq("10")
     expect(groups).to eq("0")
     page.save_screenshot(Rails.root.join("tmp/screenshots/plan_start.png")) if ENV["SCREENSHOTS"]
 
+    fill_in "Shots per card", with: "7"
     find("label", text: "No clock; every shot counts").click
     expect(per_card).to eq("10")
 
+    fill_in "Shots per card", with: "7"
     find("[data-plan-option]").click
-    expect(per_card).to eq("5")
+    expect(per_card).to eq("10")
   end
 
   it "fills in 5-shot groups for a block that shoots them" do

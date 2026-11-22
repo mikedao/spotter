@@ -159,25 +159,25 @@ RSpec.describe "Training plan" do
       expect(started.exercises.map(&:name)).to contain_exactly("Trigger control", "Follow-through")
     end
 
-    def start_with(**fields) = { practice_session: start[:practice_session].merge(fields) }
+    def start_form(**fields) = { practice_session: start[:practice_session].merge(fields) }
 
     it "starts the plan block when it is the choice: its course, its groups, linked and tagged" do
       post setup_path, params: { plan_block: "9-6-2" }   # Full match
       expect(EngineRunner).to receive(:start!).with(hash_including(course: "match")).and_return(started)
-      post practice_sessions_path, params: start_with(mode: "plan", group_of: "0")
+      post practice_sessions_path, params: start_form(mode: "plan", group_of: "0")
       expect(started.reload).to have_attributes(plan_week: 9, plan_day: 6, plan_block: 2)
       expect(started[:group_of]).to eq(0)   # whole card, chosen: the method then says nil
 
       post setup_path, params: { plan_block: "1-3-2" }   # Trigger groups: practice in 5-shot groups
       expect(EngineRunner).to receive(:start!).with(hash_including(course: nil, per_card: "10")).and_return(started)
-      post practice_sessions_path, params: start_with(mode: "plan", per_card: "10", group_of: "5")
+      post practice_sessions_path, params: start_form(mode: "plan", per_card: "10", group_of: "5")
       expect(started.reload).to have_attributes(plan_day: 3, plan_block: 2, group_of: 5)
     end
 
     it "starts an ordinary session, not counted for the plan, when something else is picked" do
       post setup_path, params: { plan_block: "1-3-2" }
       expect(EngineRunner).to receive(:start!).with(hash_including(course: "final")).and_return(started)
-      post practice_sessions_path, params: start_with(mode: "final", group_of: "0")
+      post practice_sessions_path, params: start_form(mode: "final", group_of: "0")
       expect(started.reload).to have_attributes(plan_week: nil)
       expect(started[:group_of]).to eq(0)
       expect(started.group_of).to be_nil
@@ -186,20 +186,20 @@ RSpec.describe "Training plan" do
 
     it "measures 5-shot groups in a session outside the plan when asked, and ignores a value it doesn't know" do
       post setup_path
-      post practice_sessions_path, params: start_with(mode: "", group_of: "5")
+      post practice_sessions_path, params: start_form(mode: "", group_of: "5")
       expect(started.reload.group_of).to eq(5)
       started.update!(group_of: nil)
-      post practice_sessions_path, params: start_with(mode: "", group_of: "7")
+      post practice_sessions_path, params: start_form(mode: "", group_of: "7")
       expect(started.reload.group_of).to be_nil
     end
 
-    it "fills shots per card from the plan block, never more than the block's shots" do
+    it "fills shots per card from the plan block" do
       user.update!(last_camera: "0", last_mic: "none")
-      post setup_path, params: { plan_block: "12-2-2" }   # the lane in the taper: 5 shots
+      post setup_path, params: { plan_block: "12-2-2" }   # the lane in the taper: one card of 10
       get setup_start_path
-      expect(TrainingPlan.find_block("12-2-2").block.shots).to eq(5)
-      expect(response.body).to match(/name="practice_session\[per_card\]"[^>]*value="5"|value="5"[^>]*name="practice_session\[per_card\]"/)
-      expect(response.body).to include('data-per-card="5"', 'data-action="start-choice#pick"')
+      expect(TrainingPlan.find_block("12-2-2").block.shots).to eq(10)
+      expect(response.body).to match(/name="practice_session\[per_card\]"[^>]*value="10"|value="10"[^>]*name="practice_session\[per_card\]"/)
+      expect(response.body).to include('data-per-card="10"', 'data-action="start-choice#pick"')
     end
 
     it "preloads the Start step: the block's instructions, cards and tags" do
@@ -208,7 +208,7 @@ RSpec.describe "Training plan" do
       get setup_start_path
       body = CGI.unescapeHTML(response.body)
       expect(body).to include("From your training plan", "Trigger groups", "Week 1 · Day 3 · Trigger and follow-through",
-                              "#{TrainingPlan.find_block('1-3-2').block.shots} shots", "3 cards of 10 (last one 5)",
+                              "#{TrainingPlan.find_block('1-3-2').block.shots} shots", "2 cards of 10",
                               "5-shot groups measured live", "Counts for your plan and is tagged Trigger control and Follow-through")
       expect(body).to match(/value="plan"[^>]*checked|checked[^>]*value="plan"/)
       expect(body).to match(/value="5"[^>]*checked[^>]*name="practice_session\[group_of\]"|name="practice_session\[group_of\]"[^>]*value="5"[^>]*checked|checked="checked"[^>]*name="practice_session\[group_of\]"[^>]*value="5"/)
@@ -267,12 +267,15 @@ RSpec.describe "Training plan" do
       enrollment.link_session!(started, week: 1, day: 1, block: 2)
       get practice_session_path(started)
       body = CGI.unescapeHTML(response.body)
-      expect(body).to include("Week 1 · Day 1 · Slow groups", "5-shot groups. Same routine every shot", "Cards of 10, measured in groups of 5")
+      expect(body).to include("Slow groups", "Week 1 · Day 1", "Cards of 10, measured in groups of 5")
+      # The instructions sit in the bar itself, in view without opening it: a reminder while shooting.
+      bar = Nokogiri::HTML(response.body).at_css("[data-plan-block] summary")
+      expect(bar.at_css("[data-plan-instructions]").text).to start_with("5-shot groups. Same routine every shot")
     end
 
     it "shows nothing extra on a session that was not started from the plan" do
       get practice_session_path(started)
-      expect(response.body).not_to include("instructions ▾")
+      expect(response.body).not_to include("data-plan-block")
     end
   end
 

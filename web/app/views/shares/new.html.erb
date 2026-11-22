@@ -35,7 +35,7 @@
   <fieldset>
     <legend class="sr-only">Pictures to post</legend>
     <div class="grid gap-4 sm:grid-cols-2">
-      <% SharePicture::KINDS.each do |kind, label| %>
+      <% @kinds.each do |kind, label| %>
         <label class="group block cursor-pointer">
           <span class="relative block overflow-hidden rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-800">
             <img src="<%= preview.(kind) %>" alt="<%= label %>, as it will be posted" loading="lazy"

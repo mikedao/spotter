@@ -93,7 +93,8 @@ class TrainingPlan
         blocks = fields.fetch("blocks").each_with_index.map do |block, i|
           series = block.fetch("series", 5)
           fixed = block["fixed"] == true || block.dig("session", "course").present?
-          shots = fixed ? block["shots"] : scale(block["shots"], volume, series)
+          # Live fire comes in whole cards of ten (no half-used cards); dry fire by its series.
+          shots = fixed ? block["shots"] : scale(block["shots"], volume, block["session"] ? 10 : series)
           drill = block["drill"]&.then { HoldSpec.new(it.fetch("reps"), it.fetch("hold")) }
           slow = block["slow"]&.then { SlowSpec.new(it.fetch("limit")) }
           timed = block["timed"]&.then { TimedSpec.new(it.fetch("strings"), it.fetch("seconds")) }

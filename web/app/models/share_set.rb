@@ -126,6 +126,34 @@ class ShareSet
     end
   end
 
+  # --- groups (shot in runs of 5 on one card: PracticeSession#group_of) ---------
+
+  ShotGroup = Data.define(:label, :shots, :size_mm, :complete, :of)
+
+  # Is any session of the set shot in groups? Then its pictures are about group
+  # size, not score (SharePicture::Groups).
+  def grouped? = sessions.any?(&:group_of)
+
+  # Every group of the set's grouped sessions, in firing order, labelled G1, G2...
+  def groups
+    @groups ||= begin
+      n = 0
+      sessions.select(&:group_of).flat_map do |s|
+        s.cards.sort_by(&:number).flat_map do |card|
+          on_card = card.shots.select { counts?(it) }
+          CardStats.new(on_card, spec).groups(of: s.group_of).map do |g|
+            n += 1
+            ShotGroup.new(label: "G#{n}", shots: g.shots, size_mm: g.size_mm, complete: g.complete, of: s.group_of)
+          end
+        end
+      end
+    end
+  end
+
+  def complete_groups = groups.select { it.complete && it.size_mm }
+  def best_group = complete_groups.min_by(&:size_mm)
+  def mean_group_mm = (complete_groups.any? ? (complete_groups.sum(&:size_mm) / complete_groups.size).round(1) : nil)
+
   def card_total(card) = round(card.shots.sum { value(it) })
   def card_inner_tens(card) = card.shots.count { inner_ten?(it) }
 

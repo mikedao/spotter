@@ -36,6 +36,7 @@
       <p class="<%= muted %>">
         Nothing to show yet<%= " for these filters" if j.filters.except(:target).any? %>. A session appears here once it has
         at least <%= SessionSummary::MIN_SHOTS %> shots (sighters don't count).
+        <% if j.left_out_for_plan.positive? %>Training-plan sessions count only when they are match simulations; the others are listed below.<% end %>
       </p>
     <% end %>
   <% else %>
@@ -128,7 +129,8 @@
       <%# Tick sessions and share them as one post: a day of training (SharesController). %>
       <%= form_with url: new_share_path, method: :get, id: "share_sessions" do %>
       <div class="flex flex-wrap items-center justify-between gap-2 pb-3">
-        <p class="text-sm <%= muted %>">Tick sessions to share them together as a day of training.</p>
+        <p class="text-sm <%= muted %>">Tick sessions to share them together as a day of training.
+          <% if j.left_out_for_plan.positive? %>Training-plan sessions are listed but left out of the numbers and charts, except match simulations.<% end %></p>
         <%= render(ButtonComponent.new(type: :submit, variant: :secondary, size: :sm)) { "Share selected to CompetitiveShooter.org" } %>
       </div>
       <div id="sessions" class="-mx-4 -mb-4 overflow-x-auto sm:-mx-5 sm:-mb-5">
@@ -199,7 +201,7 @@
                 </td>
                 <td class="px-3 py-2">
                   <%= link_to "#{s.started_at.strftime('%b %-d, %H:%M')}", practice_session_path(s.session), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
-                  <span class="block text-xs <%= muted %>"><%= Journal::KINDS[s.kind] %></span>
+                  <span class="block text-xs <%= muted %>"><%= Journal::KINDS[s.kind] %><% unless s.counted? %> · plan drill, not in the numbers<% end %></span>
                 </td>
                 <td class="px-3 py-2"><%= s.count %></td>
                 <td class="px-3 py-2 font-semibold"><%= s.per_60 || "–" %></td>

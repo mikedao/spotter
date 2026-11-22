@@ -72,7 +72,12 @@ RSpec.describe TrainingPlan do
         expect(words.index(m[1].downcase) * m[2].to_i).to eq(block.shots), "#{day.ref} #{block.name}: #{block.detail}"
       end
     end
-    expect(described_class.day(1, 3).block(3).detail).to start_with("Two 5-shot series")   # 15 at full volume, 10 in week 1
+    expect(described_class.day(1, 3).block(3).detail).to start_with("Four 5-shot series")   # 20 shots in week 1
+  end
+
+  it "asks for live fire in whole cards of ten, never a half-used card" do
+    live = described_class.weeks.flat_map(&:days).flat_map(&:blocks).select(&:session)
+    expect(live.map(&:shots)).to all(satisfy { it.positive? && (it % 10).zero? })
   end
 
   it "applies one-day overrides" do

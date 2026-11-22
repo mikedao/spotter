@@ -29,7 +29,7 @@
   <div class="grid gap-4 sm:grid-cols-2">
     <% @share.picture_kinds.each do |kind| %>
       <img src="<%= plan_day_share_picture_path(@share.day.week, @share.day.day, kind) %>" loading="lazy"
-           alt="<%= kind == "day" ? "The day's picture" : SharePicture::KINDS[kind] %>, as it will be posted"
+           alt="<%= kind == "day" ? "The day's picture" : SharePicture::KINDS.merge(SharePicture::GROUP_KINDS)[kind] %>, as it will be posted"
            class="block h-auto w-full rounded-lg border border-gray-200 bg-gray-950 dark:border-gray-800">
     <% end %>
   </div>

@@ -9,7 +9,8 @@
 #   kind             air = Spotter sessions (one per shooting block), dry = Pardini dry fire plus a live air pistol
 #                    block on the home lane (every plan day fires live), rest (only the days added by "Rest instead")
 #   block shots      the base count at volume 1.0, scaled by the week's volume in whole SERIES (never below one)
-#   block series     the series the shots come in, 10 or 5 (default 5): what the scaling rounds to
+#   block series     the series the shots come in, 10 or 5 (default 5): what the scaling rounds to. A LIVE block
+#                    (one with a session) always rounds to whole TENS, never below 10: no half-used cards
 #   block fixed      true: never scaled (a baseline or a simulation is measured against itself; a match block,
 #                    one with session.course, is always fixed too: a match is 60 shots)
 #   in a detail      {shots} the scaled count, {shots_word} / {Shots_word} it in words, {series} / {Series} the
@@ -76,7 +77,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Trigger groups", minutes: 30, shots: 30, detail: "5-shot groups (Spotter measures each one). Hold the sight picture for 2 seconds after the break. If it jumps before the shot, the trigger was not a surprise.", session: { per_card: 10, group: 5, tags: ["Trigger control", "Follow-through"] } }
-          - { name: "Last-shot series", minutes: 15, shots: 15, detail: "{Series} 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
+          - { name: "Last-shot series", minutes: 15, shots: 20, detail: "{Series} 5-shot series. The fifth shot must be as careful as the first.", session: { per_card: 10, group: 5, tags: ["Follow-through"] } }
           - { name: "Diary", minutes: 5, detail: "One line on what the trigger felt like today." }
       - title: "Rhythm"
         kind: air
@@ -107,7 +108,7 @@ phases:
         focus: "An easy day. If you shoot Bullseye, use it to see what carries over."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye as you normally do and call every shot before you score it. Note where your routine slipped." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, no score to chase. Then five minutes in the journal: is the trend moving the right way?", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 20, detail: "No range today: {shots_word} easy shots on the air pistol, no score to chase. Then five minutes in the journal: is the trend moving the right way?", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: consistency
     name: Consistency
@@ -142,7 +143,7 @@ phases:
         blocks:
           - { name: "Hold drills", minutes: 10, detail: "Pardini unloaded, ten 8-second holds.", drill: { reps: 10, hold: 8 } }
           - { name: "Find it", minutes: 5, detail: "Journal, Where the misses go: pick the direction with the most misses. For a right-hander low often means anticipation or dropping the head, left or right means finger position or grip pressure, high means rushing or the heel of the hand pushing. Left-handers mirror." }
-          - { name: "Fix it", minutes: 35, shots: 35, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it.", session: { per_card: 10, group: 5, tags: ["Fault finding"] } }
+          - { name: "Fix it", minutes: 35, shots: 40, detail: "5-shot groups, one cause at a time. Change one thing, shoot a group, judge it.", session: { per_card: 10, group: 5, tags: ["Fault finding"] } }
           - { name: "Diary", minutes: 10, detail: "Write what you changed and whether the group moved." }
       - title: "Timed, rapid, transitions (Pardini)"
         kind: dry
@@ -166,7 +167,7 @@ phases:
         focus: "An easy day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye and call every shot first. Slow fire is where the air pistol work shows." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, just the routine. Then a look at the journal's trend and group size.", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 20, detail: "No range today: {shots_word} easy shots on the air pistol, just the routine. Then a look at the journal's trend and group size.", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: pressure
     name: Pressure
@@ -223,7 +224,7 @@ phases:
         focus: "An easy day."
         blocks:
           - { name: "At the range", minutes: 0, detail: "Shoot Bullseye. Use the same routine as the air pistol and call each shot." }
-          - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range today: {shots_word} easy shots on the air pistol, the same routine, nothing at stake.", session: { per_card: 10, tags: ["Easy lane"] } }
+          - { name: "Otherwise: home lane", minutes: 20, shots: 20, detail: "No range today: {shots_word} easy shots on the air pistol, the same routine, nothing at stake.", session: { per_card: 10, tags: ["Easy lane"] } }
 
   - key: test
     name: Test and taper
@@ -292,4 +293,4 @@ overrides:
     focus: "See what the plan did for the Pardini."
     blocks:
       - { name: "At the range", minutes: 0, detail: "Shoot the Bullseye you shot before week 1 and compare the score." }
-      - { name: "Otherwise: home lane", minutes: 20, shots: 15, detail: "No range: {shots_word} easy shots on the air pistol to close the plan.", session: { per_card: 10, tags: ["Easy lane"] } }
+      - { name: "Otherwise: home lane", minutes: 20, shots: 20, detail: "No range: {shots_word} easy shots on the air pistol to close the plan.", session: { per_card: 10, tags: ["Easy lane"] } }

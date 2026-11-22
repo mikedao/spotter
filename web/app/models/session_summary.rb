@@ -33,6 +33,11 @@ class SessionSummary
 
   def count = shots.size
   def charted? = count >= MIN_SHOTS
+
+  # Does it count in the journal's numbers? Training-plan drills (groups, rhythm,
+  # cold starts...) are shot to a brief, not to score, so they would drag the
+  # trend about (the shooter, 2026-11-21): only plan match simulations count.
+  def counted? = session.plan_week.nil? || session.plan_match_simulation?
   def rings = @rings ||= shots.map { it.penalized? ? 0 : it.final_ring.to_i }
   def total = rings.sum
   def per_60 = charted? ? (total * 60.0 / count).round : nil

@@ -87,6 +87,12 @@ class PracticeSession < ApplicationRecord
 
     plan_found&.block&.session&.group
   end
+  # A plan block shot as a match simulation (the baseline, the half and full
+  # matches: tagged "Match simulation" in training_plan.yml) - the only plan
+  # sessions the journal's numbers count.
+  MATCH_SIMULATION = "Match simulation"
+  def plan_match_simulation? = plan_found&.block&.session&.tags.to_a.include?(MATCH_SIMULATION)
+
   def plan_ref = ([ plan_week, plan_day, plan_block ].compact.join("-") if plan_week)
 
   def title = [ course_info&.name, target_spec.name, started_at.strftime("%b %-d, %H:%M") ].compact.join(" · ")

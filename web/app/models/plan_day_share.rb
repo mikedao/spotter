@@ -19,9 +19,13 @@ class PlanDayShare
 
   # One session's numbers, for a shooting block: competition shots (sighters out),
   # scored as the session is, and its groups when the block shoots in runs.
+  # Shot in groups, it is about group size: no score.
   SessionNumbers = Data.define(:session, :shots, :score, :average, :groups) do
-    def text = [ ("#{score} over #{shots} shots" if shots.positive?), ("avg #{average}" if average),
-                 ("groups #{groups.join(' · ')} mm" if groups.any?) ].compact.join(" · ").presence || "no shots"
+    def text
+      return "#{shots} shots · groups #{groups.join(' · ')} mm" if groups.any?
+
+      [ ("#{score} over #{shots} shots" if shots.positive?), ("avg #{average}" if average) ].compact.join(" · ").presence || "no shots"
+    end
   end
 
   attr_reader :user, :enrollment, :day
@@ -84,8 +88,15 @@ class PlanDayShare
     @session_set = nil
   end
 
-  # "day" is the day's own picture; the rest are a session share's.
-  def picture_kinds = [ "day", *(%w[ hero stats ] if session_set) ]
+  # "day" is the day's own picture; the rest are a session share's: the target and
+  # the numbers, or for group training (5-shot groups on one card) the groups.
+  def picture_kinds
+    extra = if session_set.nil? then []
+    elsif session_set.grouped? then %w[ groups ]
+    else %w[ hero stats ]
+    end
+    [ "day", *extra ]
+  end
 
   def picture(kind, colors: user.share_colors)
     kind == "day" ? PlanDayPicture.new(self, colors:) : SharePicture.build(kind, session_set, colors:)
@@ -144,10 +155,18 @@ class PlanDayShare
       numbers = shot.map { session_numbers(it) }
       count = numbers.sum(&:shots)
       groups = numbers.flat_map(&:groups)
+      done = shot.any?(&:completes_plan_block?)
+      if groups.any?
+        # Group training: the best group is the headline, then every group's size.
+        best, mean = groups.min, (groups.sum / groups.size).round(1)
+        of = shot.filter_map(&:group_of).first
+        detail = "best of #{groups.size} groups of #{of} · avg #{mean} mm"
+        line = "#{groups.size} groups of #{of}, best #{best} mm, avg #{mean} mm"
+        return Item.new(block, block.name, "#{best} mm", detail, done, line, numbers)
+      end
+
       score = numbers.sum(&:score)
       score = score.round(1) if score.is_a?(Float)
-      detail = [ "#{count} shots", ("groups #{groups.join(' · ')} mm" if groups.any?) ].compact.join(" · ")
-      line = "#{score} over #{count} shots#{" · groups #{groups.join(', ')} mm" if groups.any?}"
-      Item.new(block, block.name, count.positive? ? score.to_s : "0", detail, shot.any?(&:completes_plan_block?), line, numbers)
+      Item.new(block, block.name, count.positive? ? score.to_s : "0", "#{count} shots", done, "#{score} over #{count} shots", numbers)
     end
 end
