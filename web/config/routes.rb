@@ -56,6 +56,8 @@ Rails.application.routes.draw do
   post "plan/rest", to: "plan_schedules#add_rest", as: :add_plan_rest
   delete "plan/rest", to: "plan_schedules#remove_rest", as: :remove_plan_rest
   delete "plan/swap", to: "plan_schedules#reset", as: :reset_plan_days
+  post "plan/match", to: "plan_schedules#make_match", as: :plan_match
+  delete "plan/match", to: "plan_schedules#make_range"
   get "plan/:week/:day", to: "plan_workouts#show", as: :plan_workout, constraints: { week: /\d+/, day: /\d+/ }
   patch "plan/:week/:day", to: "plan_workouts#update", constraints: { week: /\d+/, day: /\d+/ }
   get "plan/:week/:day/share", to: "plan_day_shares#show", as: :plan_day_share, constraints: { week: /\d+/, day: /\d+/ }

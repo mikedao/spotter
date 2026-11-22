@@ -1,13 +1,17 @@
 # The picture of a training-plan day posted to CompetitiveShooter.org
 # (PlanDayShare): the day's title and focus, a row per block with what was done
 # ("10/10", a check when it finished the block), the note, and the plan's
-# progress, in the share pictures' colorways. Nothing on it is cut off: titles
-# shrink and wrap (ShareSvg's house rule).
+# progress, in the share pictures' colorways. The composer's Look sets the colors,
+# the name, a headline of the shooter's own, and whether the note and the progress
+# are on it. Nothing on it is cut off: titles shrink and wrap (ShareSvg's house rule).
 class PlanDayPicture < SharePicture
   ROW_H = 200
   ROW_GAP = 28
 
-  def initialize(share, colors: nil) = super(share, colors:, identity: true)
+  def initialize(share, colors: nil, look: nil)
+    @look = look || share.default_look.then { colors ? it.with(colors: ShareColorway.key_for(colors)) : it }
+    super(share, colors: @look.colors, identity: @look.identity)
+  end
 
   def filename = "spotter-plan-day.jpg"
 
@@ -18,12 +22,12 @@ class PlanDayPicture < SharePicture
       width = W - 2 * MARGIN
       parts = [ eyebrow(MARGIN, 170, "Training plan · #{share.heading}", 40, t.accent) ]
 
-      lines, size = ShareSvg.lines_for(share.day.title, 92, width, 2, 56)
+      lines, size = ShareSvg.lines_for(@look.headline || share.day.title, 92, width, 2, 56)
       y = 170 + 40 + size
       lines.each { parts << text(MARGIN, y, it, size, t.text, weight: 800); y += (size * 1.12).round }
 
       minutes = share.day.minutes
-      sub = [ share.user.display_name, share.date_text, share.kind_text, ("#{minutes} min" if minutes.positive?) ].compact.join("  ·  ")
+      sub = [ (share.user.display_name if identity?), (share.day.title if @look.headline), share.date_text, share.kind_text, ("#{minutes} min" if minutes.positive?) ].compact.join("  ·  ")
       sub_lines, sub_size = ShareSvg.lines_for(sub, 42, width, 2, 30)
       y += 4
       sub_lines.each { parts << text(MARGIN, y, it, sub_size, t.sub, weight: 500); y += (sub_size * 1.3).round }
@@ -38,7 +42,7 @@ class PlanDayPicture < SharePicture
         y += ROW_H + ROW_GAP
       end
 
-      if share.note.present?
+      if @look.note && share.note.present?
         y += 20
         parts << eyebrow(MARGIN, y, "Note", 28, t.muted)
         note_lines, note_size = ShareSvg.lines_for(share.note, 38, width, 4, 28)
@@ -83,12 +87,15 @@ class PlanDayPicture < SharePicture
     def footer_day(bottom)
       y = bottom - 90
       done = share.done_count.to_s
-      parts = [ eyebrow(MARGIN, y - 92, "Training plan", 28, t.muted) ]
-      parts << text(MARGIN, y, done, 96, t.text, weight: 800)
-      x = MARGIN + tw(done, 96) + 10
-      rest = "/#{share.workout_count}"
-      parts << text(x, y, rest, 52, t.text, weight: 700, opacity: 0.55)
-      parts << text(x + tw(rest, 52) + 14, y, "days done", 40, t.star, weight: 700)
+      parts = []
+      if @look.progress
+        parts << eyebrow(MARGIN, y - 92, "Training plan", 28, t.muted)
+        parts << text(MARGIN, y, done, 96, t.text, weight: 800)
+        x = MARGIN + tw(done, 96) + 10
+        rest = "/#{share.workout_count}"
+        parts << text(x, y, rest, 52, t.text, weight: 700, opacity: 0.55)
+        parts << text(x + tw(rest, 52) + 14, y, "days done", 40, t.star, weight: 700)
+      end
       label = "Logged with Spotter"
       size = 64
       right = W - MARGIN

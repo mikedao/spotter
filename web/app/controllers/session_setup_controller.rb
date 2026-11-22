@@ -156,14 +156,14 @@ class SessionSetupController < ApplicationController
     @mic_ok = Current.user.sound_checked?(@mic)
     @mic_checked_at = Current.user.sound_checked_at if @mic_ok
     @gear = GearChoice.new(user: Current.user, target: @target.key)
-    @plan = (TrainingPlan.find_block(session[:plan_block]) if Current.user.plan_enrollment)   # what the plan has set for this session
+    @plan = (TrainingPlan.find_block(session[:plan_block], enrollment: Current.user.plan_enrollment) if Current.user.plan_enrollment)   # what the plan has set for this session
   end
 
   private
     # Started from a shooting block of the training plan ("3-1-2"): the Start step is
     # preloaded with it, and Start links the session to it.
     def remember_plan_block
-      if Current.user.plan_enrollment && TrainingPlan.find_block(params[:plan_block])
+      if Current.user.plan_enrollment && TrainingPlan.find_block(params[:plan_block], enrollment: Current.user.plan_enrollment)
         session[:plan_block] = params[:plan_block]
       else
         session.delete(:plan_block)

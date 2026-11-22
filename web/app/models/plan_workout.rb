@@ -10,7 +10,7 @@ class PlanWorkout < ApplicationRecord
   validates :note, length: { maximum: 4000 }
 
   def done? = completed_at.present?
-  def plan_day = TrainingPlan.day(week, day)
+  def plan_day = plan_enrollment.day(week, day)
 
   def complete!(note: self.note) = update!(completed_at: completed_at || Time.current, note: note.to_s.strip.presence)
   def reopen!(note: self.note) = update!(completed_at: nil, note: note.to_s.strip.presence)

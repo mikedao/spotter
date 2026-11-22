@@ -27,7 +27,9 @@ class TrainingPlan
     def light? = volume < 1
   end
 
-  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :blocks, :light, :range) do
+  # variant: nil as written, "match" for a range day a shooter made a match (PlanEnrollment#match_days).
+  Day = ::Data.define(:week, :day, :phase, :title, :kind, :focus, :blocks, :light, :range, :variant) do
+    def match? = variant == "match"
     def air? = kind == "air"
     def dry? = kind == "dry"
     def rest? = kind == "rest"
@@ -43,7 +45,21 @@ class TrainingPlan
   class << self
     def weeks = (@weeks ||= build)
     def week(number) = (weeks[number - 1] if number.between?(1, WEEKS))
-    def day(week, day) = (self.week(week)&.days&.at(day - 1) if day.between?(1, DAYS_PER_WEEK))
+    # match: the range day as a match instead (only a range day has one).
+    def day(week, day, match: false)
+      found = (self.week(week)&.days&.at(day - 1) if day.between?(1, DAYS_PER_WEEK))
+      match && found&.range? ? match_day(found) : found
+    end
+
+    # A range day turned into a full match: the yml's `match_day`, on that day's slot.
+    # It stays the week's range day (one per week), so it swaps like one.
+    def match_day(range_day)
+      (@match_days ||= {})[range_day.ref] ||= begin
+        fields = data.fetch("match_day")
+        week = self.week(range_day.week)
+        build_day(range_day.week, range_day.day, range_day.phase, fields.merge("range" => true), week.volume, variant: "match")
+      end
+    end
     def name = data.fetch("name")
     def summary = data.fetch("summary")
     def total_days = WEEKS * DAYS_PER_WEEK
@@ -55,11 +71,12 @@ class TrainingPlan
     end
 
     # "3-1-2" -> the shooting block (it has a session of its own) with that reference, else nil.
-    def find_block(ref)
+    # With an enrollment, a range day it made a match resolves to the match.
+    def find_block(ref, enrollment: nil)
       week, day, number = ref.to_s.split("-", 3).map { Integer(it, 10, exception: false) }
       return unless week && day && number
 
-      plan_day = self.day(week, day)
+      plan_day = enrollment ? enrollment.day(week, day) : self.day(week, day)
       block = plan_day&.block(number)
       Found.new(plan_day, block) if block&.session
     end
@@ -67,7 +84,7 @@ class TrainingPlan
     # Days that are a workout (every plan day now; a rest kind is left for safety): what progress counts.
     def workout_days = weeks.flat_map(&:days).reject(&:rest?)
 
-    def reload! = (@weeks = @data = nil)
+    def reload! = (@weeks = @data = @match_days = nil)
 
     private
       def data = (@data ||= YAML.safe_load_file(Rails.root.join("config/training_plan.yml")))
@@ -89,7 +106,7 @@ class TrainingPlan
         end.sort_by(&:number)
       end
 
-      def build_day(week, day, phase, fields, volume)
+      def build_day(week, day, phase, fields, volume, variant: nil)
         blocks = fields.fetch("blocks").each_with_index.map do |block, i|
           series = block.fetch("series", 5)
           fixed = block["fixed"] == true || block.dig("session", "course").present?
@@ -101,7 +118,7 @@ class TrainingPlan
           session = block["session"]&.then { SessionSpec.new(it.fetch("per_card"), it["group"], it["course"], it.fetch("tags", [])) }
           Block.new(i + 1, block.fetch("name"), block.fetch("minutes"), fill(block.fetch("detail"), shots, series), shots, drill, timed, slow, session)
         end
-        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1, fields["range"] == true)
+        Day.new(week, day, phase, fields.fetch("title"), fields.fetch("kind"), fields.fetch("focus"), blocks, volume < 1, fields["range"] == true, variant)
       end
 
       # Shot counts follow the week's volume in whole series (of 5 or 10), never below one series.

@@ -1,6 +1,6 @@
 # Small pieces the training plan screens share.
 module PlanHelper
-  KIND_LABELS = { "air" => "Air pistol", "dry" => "Dry fire + lane", "rest" => "Rest" }.freeze
+  KIND_LABELS = { "air" => "Air pistol", "dry" => "Dry fire + air pistol", "rest" => "Rest" }.freeze
   KIND_STYLES = {
     "air" => "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200",
     "dry" => "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",

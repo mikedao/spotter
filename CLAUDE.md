@@ -653,14 +653,19 @@ from there). The user commits; don't commit unless asked.
   /developers list - a new topic there needs adding here), 10 posts an hour. Pictures say "Scored by
   Spotter" with Spotter's own mark, never the site's logo (their `via` rules forbid posing as the site).
   NOT yet posted for real (specs stub the API).
-  **Training-plan DAYS post BY THEMSELVES** (2026-11-20, the shooter's call - the one exception to "preview
-  then Post"): ticking a workout day done (`PlanWorkoutsController#update`, not done -> done, with a key)
-  queues `PlanDayPostJob` (async adapter in dev: in the Puma process). `PlanDayShare` builds it: caption
-  (each measured block "✓ Hold drills: 10 of 10 holds of 8 s", the note, plan progress), topic Bullseye for a
-  dry (Pardini) day else ISSF pistol, `PlanDayPicture` (a row per block with its value, "Logged with Spotter")
-  + the day's finished sessions' hero and stats. ONCE per day (`shared_posts.plan_week/plan_day`; untick and
-  retick does not repost); a failure is kept in `plan_workouts.share_error` and shown on the day with "Look
-  and post it". Preview any day at `/plan/W/D/share` (also "Post it now" there).
+  **Training-plan days: a post COMPOSER, never automatic** (2026-11-21, the shooter; it posted by itself for
+  one day, 11-20/21). Ticking a day done or saving its note opens `/plan/W/D/share` (`PlanDaySharesController`)
+  until the day has been posted. Pick up to 4 pictures from `PlanDayShare#available_kinds` (posted in that
+  order): the day's card (`PlanDayPicture`), Plan progress (`PlanProgressPicture`: the calendar grid, done /
+  missed / this day ringed, A D R M marks, days in a row), and the sessions' pictures (`SharePicture.kinds_for`:
+  for GROUP training - any session with `group_of` - Groups / Every card / The numbers, else the score ones). A
+  `PlanDayShare::Look` (colors, name and gear, the day card's own HEADLINE, show note, show progress) redraws the
+  previews in place (`post_composer_controller.js`, any `data-preview-param` field); caption (prefilled: each
+  measured block, the note, progress) and topics (Bullseye + ISSF on a dry day) are editable. A failed post comes
+  back with everything kept. `SharePicture::Groups`: each 5-shot group framed on itself, widest pair drawn, best
+  outlined, best / average in the footer - no ring total (the shooter: "the scores aren't accurate for group
+  training"). Group blocks also read as groups on the day card, caption and day summary ("best 22.7 mm").
+  `plan_workouts.share_error` is left over, unused.
 - **Session report / PDF** (2026-11-12): `/practice/:id/report` (Export card),
   `layout "report"`: paper, LIGHT ONLY (no dark: classes), no app menu; "Save as
   PDF" = the browser's print dialog (`print_controller.js`), no PDF gem - targets
@@ -804,6 +809,21 @@ from there). The user commits; don't commit unless asked.
   targets from the Journal's baseline. Specs: models/training_plan, models/plan_enrollment,
   requests/training_plan, system/training_plan.
 
+- **Training plan changes, 2026-11-21** (the shooter, one after another):
+  - The Start step for a plan block: "What are you shooting?" leads with the block as its OWN choice (`mode=plan`):
+    name, day, course, shots, cards, groups, tags, instructions; Practice / a course instead = an ordinary session,
+    not linked. "Shots per card" and "Groups" (one per card / every 5, `practice_sessions.group_of`, 0 = whole card,
+    nil = the plan block's) follow the choice (`start_choice_controller.js`). The session page's "Plan" bar keeps
+    the block's INSTRUCTIONS in view while shooting.
+  - Counts: live blocks scale in whole TENS (no half-used cards, never below 10); dry blocks by `series:`; `fixed:`
+    blocks (baseline / half-match simulations) and match blocks never scale (a match is 60); detail text takes
+    {shots} {shots_word} {Series}..., so the words match the count. Spec-checked.
+  - Dry days' live block is "Air pistol (FWB 65)", badge "Dry fire + air pistol" ("lane" read as a second range day).
+  - "Make it a match": any week's range day becomes the yml's `match_day` (60-shot match, tagged Match simulation)
+    and back (`plan_enrollments.match_days`, `PlanEnrollment#day` / `TrainingPlan.find_block(ref, enrollment:)`;
+    every lookup with a user goes through the enrollment). Refused once a session was shot for that day.
+  - The JOURNAL leaves plan sessions out of its numbers and charts unless they are match simulations
+    (`SessionSummary#counted?`); they stay in the Sessions table, marked.
 - **Hold drills** (2026-11-19, the shooter's ask: a guided timer, in plan days, standalone, in the Journal).
   `/holds` (menu "Hold drills"): settings form + recent drills; `/holds/new?reps=&hold=&rest=&plan_day=`
   is the timer (`hold_drill_controller.js`): per rep a 3 s raise-and-settle, the hold, then a rest (none

@@ -86,6 +86,38 @@ RSpec.describe PlanEnrollment do
     end
   end
 
+  describe "a range day made a match" do
+    it "turns the week's range day into a full match, and back" do
+      enrollment.make_match!("3-7")
+      day = enrollment.day(3, 7)
+      expect(day).to be_match
+      expect(day).to be_range                    # still the week's one range day
+      expect(day.title).to eq("Match day")
+      match = day.blocks.find(&:session)
+      expect(match.shots).to eq(60)
+      expect(match.session.course).to eq("match")
+      expect(TrainingPlan.find_block("3-7-#{match.number}", enrollment:).block.name).to eq("Match")
+      expect(TrainingPlan.day(3, 7)).not_to be_match   # the plan itself is unchanged
+      expect(enrollment.calendar[2].find(&:range?).title).to eq("Match day")
+
+      enrollment.make_range!("3-7")
+      expect(enrollment.day(3, 7).title).to eq("Range day or home lane")
+    end
+
+    it "refuses a day that is not a range day, or one with a session shot for it" do
+      expect { enrollment.make_match!("3-2") }.to raise_error(described_class::Refused, /Only a range day/)
+      create(:practice_session, user:, plan_week: 4, plan_day: 7, plan_block: 2)
+      expect { enrollment.make_match!("4-7") }.to raise_error(described_class::Refused, /stays as it is/)
+    end
+
+    it "counts the match in the journal as a match simulation" do
+      enrollment.make_match!("2-7")
+      block = enrollment.day(2, 7).blocks.find(&:session)
+      session = create(:practice_session, user:, plan_week: 2, plan_day: 7, plan_block: block.number)
+      expect(session).to be_plan_match_simulation
+    end
+  end
+
   describe "rest days" do
     it "makes a day a rest day and pushes it and everything after it a day later" do
       enrollment.workouts.create!(week: 1, day: 2, completed_at: Time.current)

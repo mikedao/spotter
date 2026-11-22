@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_225838) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_22_003041) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -105,6 +105,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_225838) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "schedule"
+    t.json "match_days", default: [], null: false
     t.index ["user_id"], name: "index_plan_enrollments_on_user_id", unique: true
   end
 

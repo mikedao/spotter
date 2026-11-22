@@ -122,6 +122,16 @@
                     <%= button_to "✕ Remove", remove_plan_rest_path(ref: day.ref, open: number), method: :delete, form: { class: "shrink-0" },
                           class: "mr-1 min-h-11 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" %>
                   <% else %>
+                    <% if day.range? %>
+                      <%# The week's range day can be a full match instead (and back). %>
+                      <% if day.match? %>
+                        <%= button_to "Range day instead", plan_match_path(ref: day.ref, open: number), method: :delete, form: { class: "shrink-0" },
+                              class: "min-h-11 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" %>
+                      <% elsif !finished %>
+                        <%= button_to "Make it a match", plan_match_path(ref: day.ref, open: number), method: :post, form: { class: "shrink-0" },
+                              class: "min-h-11 cursor-pointer rounded px-3 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950" %>
+                      <% end %>
+                    <% end %>
                     <%= button_to "Rest instead", add_plan_rest_path(ref: day.ref, open: number), method: :post, form: { class: "shrink-0", data: { turbo_confirm: "Make this a rest day? It and every day after it move one day later." } },
                           class: "min-h-11 cursor-pointer rounded px-3 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" %>
                   <% end %>

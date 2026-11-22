@@ -36,7 +36,7 @@ RSpec.describe "A finished training-plan day's summary" do
     expect(text).to include("Hold drills", "10/10", "10 of 10 holds of 8 s · 80 s held")
     expect(text).to include("Slow dry fire", "15/15", "6.0 s to break", "94% first time")
     expect(text).to include("Timed sequence", "3/4", "Not finished as planned", "3 of 4 strings of 5 in 20 s")
-    expect(text).to include("On the lane (FWB 65)", "93 over 10 shots", "avg 9.3")
+    expect(text).to include("Air pistol (FWB 65)", "93 over 10 shots", "avg 9.3")
     expect(response.body).to include(%(href="#{practice_session_path(session)}"))
     expect(text).to include("Your note", "Trigger felt clean")
     expect(text).not_to include("Hold drills done for this day")   # the summary replaces the run lists
@@ -46,6 +46,6 @@ RSpec.describe "A finished training-plan day's summary" do
     patch plan_workout_path(1, 2), params: { done: "1" }
     get plan_workout_path(1, 2)
     lane = Nokogiri::HTML(response.body).at_css("li[data-block='#{TrainingPlan.day(1, 2).blocks.find(&:session).number}']")
-    expect(lane.text).to include("On the lane (FWB 65)", "Not done")
+    expect(lane.text).to include("Air pistol (FWB 65)", "Not done")
   end
 end

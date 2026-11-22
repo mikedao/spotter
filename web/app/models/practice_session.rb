@@ -69,7 +69,7 @@ class PracticeSession < ApplicationRecord
 
   # The training plan block this session was started for (TrainingPlan::Found), if any: what the
   # shooter set out to do in it. Nil for a day started as a whole (before blocks had sessions).
-  def plan_found = plan_block && TrainingPlan.find_block(plan_ref)
+  def plan_found = plan_block && TrainingPlan.find_block(plan_ref, enrollment: user&.plan_enrollment)
   # Shots per group when the plan block measures a card in runs (10 shots, two 5-shot groups).
   # Shot as the plan block asked: at least its shot count, sighters not counted.
   def completes_plan_block?

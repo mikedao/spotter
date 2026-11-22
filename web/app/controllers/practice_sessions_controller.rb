@@ -20,7 +20,7 @@ class PracticeSessionsController < ApplicationController
     # anything but the plan block starts an ordinary session, not counted for the plan.
     mode = params[:mode]
     plan_ref = nil if mode && mode != "plan"
-    course = if mode == "plan" then TrainingPlan.find_block(plan_ref)&.block&.session&.course
+    course = if mode == "plan" then TrainingPlan.find_block(plan_ref, enrollment: Current.user.plan_enrollment)&.block&.session&.course
     elsif mode then mode.presence
     else params[:course]
     end
@@ -144,7 +144,7 @@ class PracticeSessionsController < ApplicationController
     # A session started from a training plan block belongs to it, and carries its exercise tags.
     def link_to_plan(practice_session, plan_ref)
       week, day, block = plan_ref.to_s.split("-").map(&:to_i)
-      Current.user.plan_enrollment&.link_session!(practice_session, week:, day:, block:) if TrainingPlan.find_block(plan_ref)
+      Current.user.plan_enrollment&.link_session!(practice_session, week:, day:, block:) if TrainingPlan.find_block(plan_ref, enrollment: Current.user.plan_enrollment)
     end
 
     def set_session

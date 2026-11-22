@@ -25,6 +25,21 @@ class PlanSchedulesController < ApplicationController
     back alert: e.message
   end
 
+  # A week's range day becomes a full match, and back.
+  def make_match
+    @enrollment.make_match!(params[:ref])
+    back notice: "That range day is a match now: a full 60 shots."
+  rescue PlanEnrollment::Refused => e
+    back alert: e.message
+  end
+
+  def make_range
+    @enrollment.make_range!(params[:ref])
+    back notice: "Back to a range day."
+  rescue PlanEnrollment::Refused => e
+    back alert: e.message
+  end
+
   # Back to the order the plan was written in.
   def reset
     @enrollment.reset_schedule!

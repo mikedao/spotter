@@ -20,10 +20,10 @@ RSpec.describe "Starting a session from the plan" do
 
   it "picks the plan block, with its card and groups, and swaps them as the choice changes" do
     visit plan_workout_path(12, 2)
-    click_button "Start the session: On the lane (FWB 65)"
+    click_button "Start the session: Air pistol (FWB 65)"
     visit setup_start_path
     expect(page).to have_css("[data-plan-option]", text: /from your training plan/i)
-    expect(page).to have_text("On the lane (FWB 65)")
+    expect(page).to have_text("Air pistol (FWB 65)")
     expect(find("input[value='plan']")).to be_checked
     expect(per_card).to eq("10")
     expect(groups).to eq("0")

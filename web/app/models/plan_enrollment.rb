@@ -46,7 +46,17 @@ class PlanEnrollment < ApplicationRecord
     TrainingPlan.parse(order[n - 1])
   end
 
-  def today = position&.then { |week, day| TrainingPlan.day(week, day) }
+  def today = position&.then { |week, day| self.day(week, day) }
+
+  # The plan's day as this shooter has it: a range day made a match is the match.
+  def day(week, day) = TrainingPlan.day(week, day, match: match_day?("#{week}-#{day}"))
+  def match_day?(ref) = Array(match_days).include?(ref.to_s)
+
+  # "Make it a match" (the shooter, 2026-11-21): a week's range day becomes a full
+  # 60-shot match, and back. Refused for a day that is not a range day, or once a
+  # session has been shot for it (its block numbers would point elsewhere).
+  def make_match!(ref) = set_match!(ref, true)
+  def make_range!(ref) = set_match!(ref, false)
 
   # Is today a rest day the shooter added (the plan has started and is not over)?
   def rest_today? = day_number.between?(1, order.size) && order[day_number - 1].match?(PAUSE)
@@ -113,7 +123,7 @@ class PlanEnrollment < ApplicationRecord
   def link_session!(practice_session, week:, day:, block:)
     raise ArgumentError, "not this user's session" unless practice_session.user_id == user_id
 
-    found = TrainingPlan.find_block("#{week}-#{day}-#{block}") or return
+    found = TrainingPlan.find_block("#{week}-#{day}-#{block}", enrollment: self) or return
     transaction do
       practice_session.update!(plan_week: week, plan_day: day, plan_block: block)
       tags = found.block.session.tags.filter_map { find_or_create_exercise(it) }
@@ -122,7 +132,21 @@ class PlanEnrollment < ApplicationRecord
   end
 
   private
-    def plan_day_for(ref) = ref.match?(PAUSE) ? Pause.new(ref) : TrainingPlan.day(*TrainingPlan.parse(ref))
+    def plan_day_for(ref) = ref.match?(PAUSE) ? Pause.new(ref) : day(*TrainingPlan.parse(ref))
+
+    def set_match!(ref, on)
+      ref = ref.to_s
+      plan_day = TrainingPlan.parse(ref)&.then { TrainingPlan.day(*it) }
+      raise Refused, "Only a range day can be made a match." unless plan_day&.range?
+      return self if match_day?(ref) == on
+
+      if user.practice_sessions.for_plan_day(plan_day.week, plan_day.day).exists?
+        raise Refused, "A session has been shot for that day already, so it stays as it is."
+      end
+
+      update!(match_days: on ? (Array(match_days) | [ ref ]) : (Array(match_days) - [ ref ]))
+      self
+    end
 
     # Saves a new order unless a calendar week would get two range days (a Pardini day
     # at the range: the shooter has one a week).

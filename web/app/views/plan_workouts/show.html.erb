@@ -145,17 +145,12 @@
       <p class="mt-3 border-t border-gray-200 pt-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-200">
         <% if post %>
           ✓ Posted to CompetitiveShooter.org: <%= link_to "see the post", post.url, class: "font-medium text-blue-700 underline dark:text-blue-300", target: "_blank", rel: "noopener" %>
-          · <%= link_to "what it showed", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
-        <% elsif @workout&.share_error.present? %>
-          <span role="alert" class="text-red-800 dark:text-red-300">The post to CompetitiveShooter.org didn't go out: <%= @workout.share_error %></span>
-          <%= link_to "Look and post it", plan_day_share_path(@day.week, @day.day), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
-        <% elsif done && current_user.cso_connected? && @workout.completed_at > 2.minutes.ago %>
-          Posting to CompetitiveShooter.org… (reload to see it) · <%= link_to "Preview the post", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
+          · <%= link_to "post it again", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
         <% elsif done %>
-          Not posted to CompetitiveShooter.org. <%= link_to "Preview and post it", plan_day_share_path(@day.week, @day.day), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
+          Not posted to CompetitiveShooter.org. <%= link_to "Make the post", plan_day_share_path(@day.week, @day.day), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
         <% else %>
-          <%= current_user.cso_connected? ? "Marking it done posts it to CompetitiveShooter.org." : "With a CompetitiveShooter.org key in Settings, marking it done posts it there." %>
-          <%= link_to "Preview the post", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
+          Mark it done and the post to CompetitiveShooter.org comes up, to make your own before anything goes out.
+          <%= link_to "Have a look now", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
         <% end %>
       </p>
     <% end %>

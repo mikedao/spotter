@@ -48,7 +48,7 @@ RSpec.describe "Training plan" do
     enroll
     get plan_workout_path(1, 2)
     body = CGI.unescapeHTML(response.body)
-    expect(body).to include("Safety", "Dry-fire the Pardini only", "Case the Pardini first", "Start the session: On the lane (FWB 65)")
+    expect(body).to include("Safety", "Dry-fire the Pardini only", "Case the Pardini first", "Start the session: Air pistol (FWB 65)")
     expect(body.scan("Start the session").size).to eq(1)
   end
 
@@ -88,6 +88,23 @@ RSpec.describe "Training plan" do
     enroll
     get training_plan_path
     expect(response.body).to include("0</strong> of 84")
+  end
+
+  it "makes a week's range day a match from the calendar, and back" do
+    enroll
+    get training_plan_path
+    expect(response.body).to include("Make it a match")
+    post plan_match_path(ref: "2-7", open: 2)
+    expect(response).to redirect_to(training_plan_path(open: 2))
+    follow_redirect!
+    expect(CGI.unescapeHTML(response.body)).to include("a full 60 shots", "Match day", "Range day instead")
+    get plan_workout_path(2, 7)
+    expect(CGI.unescapeHTML(response.body)).to include("Match day", "Start the session: Match")
+    delete plan_match_path(ref: "2-7")
+    expect(user.plan_enrollment.reload.match_days).to be_empty
+    post plan_match_path(ref: "2-3")
+    follow_redirect!
+    expect(response.body).to include("Only a range day can be made a match")
   end
 
   describe "swapping days" do

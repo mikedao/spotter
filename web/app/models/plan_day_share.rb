@@ -1,8 +1,8 @@
-# A day of the training plan as a post to CompetitiveShooter.org: posted by itself
-# when the day is ticked done (PlanDayPostJob), and previewed at /plan/W/D/share.
-# One picture of the day (PlanDayPicture: each block and what was done in it) and,
-# when air pistol sessions were shot for the day, their target and numbers (as a
-# session's own share), up to the site's 4. The caption says the same in words.
+# A day of the training plan as a post to CompetitiveShooter.org, made in the
+# composer at /plan/W/D/share (it comes up when the day is ticked done; nothing is
+# posted without Post). Up to the site's 4 pictures from available_kinds: the day's
+# own card (PlanDayPicture), the plan's progress (PlanProgressPicture) and the
+# sessions' pictures (the groups for group training); the caption says it in words.
 #
 #   share = PlanDayShare.new(user, 1, 2)
 #   share.body      # => "Training plan, week 1 day 2: Hold and trigger (Pardini)\n..."
@@ -28,12 +28,29 @@ class PlanDayShare
     end
   end
 
+  # How the post looks, chosen in the composer (plan_day_shares/show): the colors,
+  # the name and gear, and for the day's own card a headline of your own and
+  # whether it shows the note and the plan's progress.
+  Look = Data.define(:colors, :identity, :headline, :note, :progress) do
+    def self.from(params, user)
+      params = params.to_h.symbolize_keys
+      new(colors: ShareColorway.key_for(params[:colors].presence || user.share_colors),
+          identity: params[:identity] != "0",
+          headline: params[:headline].to_s.squish.first(HEADLINE_MAX).presence,
+          note: params[:show_note] != "0",
+          progress: params[:show_progress] != "0")
+    end
+
+    def to_params = { colors:, identity: identity ? 1 : 0, headline: headline.to_s, show_note: note ? 1 : 0, show_progress: progress ? 1 : 0 }
+  end
+  HEADLINE_MAX = 60
+
   attr_reader :user, :enrollment, :day
 
   def initialize(user, week, day)
     @user = user
     @enrollment = user.plan_enrollment or raise Invalid, "Join the training plan first."
-    @day = TrainingPlan.day(week.to_i, day.to_i) or raise ActiveRecord::RecordNotFound
+    @day = @enrollment.day(week.to_i, day.to_i) or raise ActiveRecord::RecordNotFound
     raise Invalid, "A rest day has nothing to post." if @day.rest?
   end
 
@@ -98,17 +115,37 @@ class PlanDayShare
     [ "day", *extra ]
   end
 
-  def picture(kind, colors: user.share_colors)
-    kind == "day" ? PlanDayPicture.new(self, colors:) : SharePicture.build(kind, session_set, colors:)
+  # Every picture the composer offers for this day, in order, with its label: the
+  # day's own card, the plan's progress, and the sessions' pictures (the groups for
+  # group training, else the target and score...).
+  def available_kinds
+    kinds = { "day" => "The day", "progress" => "Plan progress" }
+    session_set ? kinds.merge(SharePicture.kinds_for(session_set).transform_keys(&:to_s)) : kinds
+  end
+
+  def default_look = Look.from({}, user)
+
+  def picture(kind, colors: nil, look: nil)
+    look ||= colors ? default_look.with(colors: ShareColorway.key_for(colors)) : default_look
+    case kind
+    when "day" then PlanDayPicture.new(self, look:)
+    when "progress" then PlanProgressPicture.new(self, colors: look.colors, identity: look.identity)
+    else SharePicture.build(kind, session_set, colors: look.colors, identity: look.identity)
+    end
   end
 
   def posted = user.shared_posts.newest_first.where(plan_week: day.week, plan_day: day.day)
 
-  def post!
-    images = picture_kinds.map { |k| p = picture(k); [ p.filename, p.jpeg ] }
+  # Posts the picked pictures (in the composer's order) with the caption and topics.
+  def post!(kinds: picture_kinds, body: self.body, topics: self.topics, look: default_look)
+    kinds = (available_kinds.keys & kinds).first(CompetitiveShooter::MAX_IMAGES)   # in the composer's order
+    raise Invalid, "Pick at least one picture to post." if kinds.empty?
+
+    images = kinds.map { |k| p = picture(k, look:); [ p.filename, p.jpeg ] }
     result = CompetitiveShooter.new(user.cso_api_key).post!(body:, topics:, images:)
+    user.update!(share_colors: look.colors)
     user.shared_posts.create!(post_id: result["id"].to_s, url: result["url"].to_s, session_ids: session_set&.ids.to_a,
-                              pictures: picture_kinds, plan_week: day.week, plan_day: day.day)
+                              pictures: kinds, plan_week: day.week, plan_day: day.day)
   end
 
   private

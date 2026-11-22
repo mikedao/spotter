@@ -32,7 +32,15 @@ RSpec.describe "Training plan" do
     shot("plan_day")
 
     click_button "Mark done"
-    expect(page).to have_text("Done. Nice work.")
+    # The post composer comes up; nothing is posted without Post.
+    expect(page).to have_text("Post the day to CompetitiveShooter.org")
+    expect(page).to have_css("img[src*='/share/day']")
+    find("label", text: "Crimson").click
+    expect(page).to have_css("img[src*='colors=crimson']", count: 2)
+    fill_in "Headline", with: "My day"
+    expect(page).to have_css("img[src*='headline=My+day']", count: 2)
+    shot("plan_composer")
+    click_link "Not now"
     expect(page).to have_button("Not done after all")
 
     click_link "← Training plan"
