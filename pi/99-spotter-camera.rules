@@ -1,0 +1,2 @@
+# Spotter: re-apply the camera's settings whenever the C920 (046d:082d) is plugged in.
+ACTION=="add", SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="082d", ATTR{index}=="0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="spotter-camera-controls.service"

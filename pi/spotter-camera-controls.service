@@ -1,0 +1,9 @@
+# Applies camera-controls.sh's settings. Started by spotter-camera.service and by
+# 99-spotter-camera.rules whenever the C920 is plugged in. Install: pi/README.md.
+[Unit]
+Description=Spotter: apply the camera's focus / exposure / white balance
+After=spotter-camera.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/spotter-camera-controls

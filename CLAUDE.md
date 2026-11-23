@@ -1168,6 +1168,13 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   ~22.5 Mbit/s. Focus LOCKED at 187 (swept); exposure / WB / sharpness stay AUTO
   (manual exposure is broken on the Kiyo - see pi/README.md); trigger = the laptop's
   mic (gun). Jitter with this: ~1 um centre, ~2-3 um scale.
+  **The Kiyo BROKE (2026-11-23): the Pi now streams a Logitech C920.** Its settings
+  are in `pi/camera-controls.sh` (focus MANUAL 30, exposure MANUAL 666 + gain 40,
+  WB 4970 K; swept and benched on the rig, table in pi/README.md), applied after
+  the stream starts AND on every plug-in by a udev rule: a C920 forgets them
+  without power and ustreamer reopens a replugged camera itself (it came up on
+  autofocus: sharpness 16 vs 118 tuned). Tuned: edge 0.06 px, rings 0.075 mm,
+  geometry noise 0.0026 mm. NOT yet: a real shot on the C920.
 - Still to do on the Pi: measure the latency from the Pi 3.
 
 ## Domain facts (verified against a physical card)
