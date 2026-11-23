@@ -70,8 +70,7 @@ namespace :spotter do
     dir.join("server-key.pem").tap { it.write(key.to_pem); it.chmod(0o600) }
     dir.join("server.pem").write(cert.to_pem + ca.to_pem)   # chain: the server's, then the CA's
 
-    port = ENV.fetch("SPOTTER_HTTPS_PORT", "3443")
     puts "Server certificate for #{(names + ips).join(', ')}"
-    puts "Restart bin/dev, then open https://#{names.first}:#{port} on the laptop."
+    puts "Restart bin/dev, then open #{SpotterHttps.url(names.first)} on the laptop."
   end
 end

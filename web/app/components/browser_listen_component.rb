@@ -17,6 +17,6 @@ class BrowserListenComponent < ApplicationComponent
   def https_url
     return if request.ssl? || request.host.in?(%w[ localhost 127.0.0.1 ])
 
-    "https://#{request.host}:#{ENV.fetch('SPOTTER_HTTPS_PORT', '3443')}#{request.fullpath}"
+    SpotterHttps.url(request.host, request.fullpath)
   end
 end

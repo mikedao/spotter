@@ -1080,7 +1080,8 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   `Procfile.dev` passes to `rails server -b`; development.rb allows `.local`
   hosts and Action Cable origins from `.local` names and IPs (without that the
   page loads but nothing updates live and the announcer is silent). Range screen:
-  `http://Sussudio.local:3000` on the laptop. Installing as an app needs HTTPS
+  `http://Sussudio.local` on the laptop (ports 80 / 443 since 2026-11-23: `PORT` and
+  `SPOTTER_HTTPS_PORT` in the Studio's `web/.env`; https links drop `:443`, `SpotterHttps`). Installing as an app needs HTTPS
   off localhost, so not from the laptop. The Studio is too far from the firing
   line for a mic: sessions run CAMERA ONLY until the laptop can send the trigger.
   **BUILT 2026-11-13: the BROWSER as the trigger** (the shooter's idea): session 8

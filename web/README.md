@@ -38,6 +38,8 @@ The rig, set in the environment of `bin/dev`:
 | `SPOTTER_CAMERA` | none | optional rig camera (index or the Pi's stream URL), pre-selected only if the device search finds it (a URL always) |
 | `SPOTTER_MIC` | none | optional rig microphone name, pre-selected only if the device search finds it |
 | `SPOTTER_ENGINE_DIR` | `../engine` | where `phase1.py` and `.venv` are |
+| `PORT` | 3000 | http port (bin/dev; `web/.env` on the Studio: 80) |
+| `SPOTTER_HTTPS_PORT` | 3443 | https port once `spotter:tls` has run; 0 = no https (Studio: 443) |
 | `SPOTTER_WEB_URL` | `http://127.0.0.1:$PORT` | where the engine posts its events |
 | `SPOTTER_TIME_ZONE` | Eastern | shown times |
 
@@ -107,7 +109,10 @@ From another device on the same Wi-Fi: put `SPOTTER_BIND=0.0.0.0` in `web/.env`,
 (the browser as the shot trigger) the page must be https: run `bin/rails spotter:tls`
 once, restart `bin/dev`, trust `storage/tls/spotter-ca.pem` on that device
 (macOS: open it, Keychain Access > "Spotter local CA" > Trust > Always Trust), and open
-`https://<this Mac>.local:3443`. Anyone on that network can then see
+`https://<this Mac>.local:3443`. To use the standard ports instead (no port to type:
+`http://<this Mac>.local`, `https://<this Mac>.local`), add `PORT=80` and
+`SPOTTER_HTTPS_PORT=443` to `web/.env` (macOS lets an ordinary user bind them; the Mac
+Studio runs this way). Anyone on that network can then see
 and change calls - fine at home, think twice elsewhere. The events API only accepts an engine the web app started (each session's own
 run token).
 
