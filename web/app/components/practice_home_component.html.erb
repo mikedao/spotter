@@ -1,0 +1,89 @@
+<section aria-labelledby="today-heading" class="mb-6">
+  <h2 id="today-heading" class="mb-3 text-lg font-semibold">What are we doing today?</h2>
+
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <%# Today's plan day: the first choice, full width, when there is one. %>
+    <% if home.enrollment %>
+      <% day = home.plan_day %>
+      <% if day %>
+        <%= link_to helpers.plan_workout_path(day.week, day.day), id: "plan-today",
+              class: class_names(TILE, home.plan_day_done? ? PLAIN : HERO, "sm:col-span-2 lg:col-span-3") do %>
+          <span class="<%= KICKER %> <%= home.plan_day_done? ? 'text-blue-700 dark:text-blue-300' : 'text-blue-100' %>">
+            Today's training · Week <%= day.week %> · Day <%= day.day %> · <%= day.phase.name %><% if helpers.plan_minutes(day) %> · <%= helpers.plan_minutes(day) %><% end %>
+          </span>
+          <span class="mt-1 text-2xl font-semibold"><%= day.title %><% if home.plan_day_done? %> <span class="text-green-700 dark:text-green-300">✓ done</span><% end %></span>
+          <span class="mt-1 <%= home.plan_day_done? ? 'text-gray-600 dark:text-gray-300' : 'text-blue-50' %>"><%= day.focus %></span>
+          <span class="mt-auto pt-3 font-medium"><%= home.plan_day_done? ? "Review the day →" : "Open today's workout →" %></span>
+        <% end %>
+      <% else %>
+        <%= link_to helpers.training_plan_path, id: "plan-today", class: class_names(TILE, PLAIN, "sm:col-span-2 lg:col-span-3") do %>
+          <span class="<%= KICKER %> text-blue-700 dark:text-blue-300">Today's training</span>
+          <% if home.enrollment.rest_today? %>
+            <span class="mt-1 text-2xl font-semibold">Rest day</span>
+            <span class="mt-1 text-gray-600 dark:text-gray-300">You added this one. The plan picks up tomorrow.</span>
+          <% elsif home.enrollment.starts_in.positive? %>
+            <span class="mt-1 text-2xl font-semibold">The plan starts <%= helpers.plan_date(home.enrollment.started_on) %></span>
+            <span class="mt-1 text-gray-600 dark:text-gray-300">In <%= helpers.pluralize(home.enrollment.starts_in, "day") %>.</span>
+          <% else %>
+            <span class="mt-1 text-2xl font-semibold">The 12 weeks are done</span>
+            <span class="mt-1 text-gray-600 dark:text-gray-300">See how it went.</span>
+          <% end %>
+          <span class="mt-auto pt-3 font-medium">Training plan →</span>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <%# Live fire: a new session, or back to the one running. One camera, one session at a time. %>
+    <% if (live = home.live_session) %>
+      <%= link_to helpers.practice_session_path(live), class: class_names(TILE, LIVE) do %>
+        <span class="<%= KICKER %> text-green-100">Live fire · running now</span>
+        <span class="mt-1 text-2xl font-semibold">Back to the range screen</span>
+        <span class="mt-1 text-green-50"><%= live.title %></span>
+      <% end %>
+    <% elsif (other = home.someone_else_shooting) %>
+      <div class="<%= class_names(TILE, 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400') %>">
+        <span class="<%= KICKER %>">Live fire</span>
+        <span class="mt-1 text-2xl font-semibold">New session</span>
+        <span class="mt-1"><strong><%= other.user.name %></strong> is shooting (since <%= other.started_at.strftime("%H:%M") %>). One session at a time on this rig.</span>
+      </div>
+    <% else %>
+      <%= button_to helpers.setup_path, method: :post, class: class_names(TILE, shoot_first? ? HERO : PLAIN, "w-full cursor-pointer"),
+            form_class: "contents", form: { data: { turbo_submits_with: "Looking for cameras…" } } do %>
+        <span class="<%= KICKER %> <%= shoot_first? ? 'text-blue-100' : 'text-blue-700 dark:text-blue-300' %>">Live fire</span>
+        <span class="mt-1 text-2xl font-semibold">New session</span>
+        <span class="mt-1 <%= shoot_first? ? 'text-blue-50' : 'text-gray-600 dark:text-gray-300' %>">Practice, a match or a final. Checks the camera and the sound, then you shoot.</span>
+        <span class="mt-auto pt-3 text-sm <%= shoot_first? ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400' %>"><%= last_text(:session) %></span>
+      <% end %>
+    <% end %>
+
+    <% tiles.each do |kicker, title, blurb, path, kind| %>
+      <%= link_to path, class: class_names(TILE, PLAIN) do %>
+        <span class="<%= KICKER %> text-blue-700 dark:text-blue-300"><%= kicker %></span>
+        <span class="mt-1 text-2xl font-semibold"><%= title %></span>
+        <span class="mt-1 text-gray-600 dark:text-gray-300"><%= blurb %></span>
+        <% if kind %><span class="mt-auto pt-3 text-sm text-gray-500 dark:text-gray-400"><%= last_text(kind) %></span><% end %>
+      <% end %>
+    <% end %>
+
+    <%= link_to helpers.training_plan_path, class: class_names(TILE, PLAIN) do %>
+      <span class="<%= KICKER %> text-blue-700 dark:text-blue-300">Look ahead</span>
+      <span class="mt-1 text-2xl font-semibold">Training plan</span>
+      <span class="mt-1 text-gray-600 dark:text-gray-300">
+        <%= home.enrollment ? "The calendar: swap days around, or rest instead." : "Twelve weeks, an hour a day, followed from here." %>
+      </span>
+    <% end %>
+  </div>
+</section>
+
+<section aria-labelledby="lately-heading" class="mb-6">
+  <h2 id="lately-heading" class="mb-3 text-lg font-semibold">Lately</h2>
+  <dl class="<%= class_names("grid grid-cols-2 gap-3", stats.size == 4 ? "lg:grid-cols-4" : "lg:grid-cols-3") %>">
+    <% stats.each do |label, value, note| %>
+      <div class="rounded-lg border border-gray-200 bg-white p-3 last:odd:col-span-2 lg:last:odd:col-span-1 dark:border-gray-800 dark:bg-gray-900">
+        <dt class="text-sm text-gray-600 dark:text-gray-300"><%= label %></dt>
+        <dd class="text-2xl font-semibold tabular-nums"><%= value %></dd>
+        <dd class="text-xs text-gray-500 dark:text-gray-400"><%= note %></dd>
+      </div>
+    <% end %>
+  </dl>
+</section>

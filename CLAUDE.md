@@ -367,6 +367,15 @@ from there). The user commits; don't commit unless asked.
 - **Voice prewarm: ONE per voice, 2 cores** (`speak.py prewarm` takes a lock in
   the cache; 2026-11-12 three at once, all cores each, pushed the load to ~170
   and slowed a live engine).
+- **Practice = the HOME page** (2026-11-23, the shooter: "a summary, and big buttons to decide what we do
+  today"). `PracticeHome` (numbers) + `PracticeHomeComponent`: BUTTONS FIRST, then a "Lately" row (last
+  session per 60, the Journal's recent pace, days trained of the last 7 + days in a row, live OR dry; plan
+  progress). Whole-tile buttons, ONE blue at a time: today's plan day (full width) while it is still to do, else New
+  session; New session becomes "Back to the range screen" while yours runs; then Hold / Slow dry fire /
+  Timed fire (each "Last: yesterday"), Journal, Training plan. Then the latest 5 sessions
+  (`RECENT_SESSIONS`), the rest under "Show all N" ON THE PAGE (not a Journal link: the Journal shows one
+  target at a time and has no Delete).
+  `StartSessionComponent` went (folded in); `PlanTodayComponent` is now on the plan page only.
 - **Flash messages are TOASTS** (`FlashComponent` + `flash_controller.js`, 2026-11-12):
   fixed over the top of the page (no layout shift); a notice fades after 5 s
   (held while hovered), an alert stays until closed (role="alert").

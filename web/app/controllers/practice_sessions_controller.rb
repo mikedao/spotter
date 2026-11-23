@@ -1,9 +1,12 @@
 class PracticeSessionsController < ApplicationController
+  RECENT_SESSIONS = 5   # Practice lists these; the rest open under "Show all"
+
   before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume trigger destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
     @running = EngineRunner.running
+    @home = PracticeHome.new(Current.user, running: @running)
   end
 
   # The range screen: live while the session runs, its record afterwards.

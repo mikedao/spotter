@@ -51,8 +51,9 @@ RSpec.describe "Training plan" do
   it "shows today's workout above New session on Practice" do
     user.create_plan_enrollment!(started_on: Time.zone.today)
     visit practice_sessions_path
-    expect(page).to have_text("Today's training")
+    expect(page).to have_text(/today's training/i)      # the tile's kicker is uppercased by CSS
     expect(page).to have_button("New session")
+    expect(page.text.index("Routine and groups")).to be < page.text.index("New session")
     shot("plan_practice")
   end
 
