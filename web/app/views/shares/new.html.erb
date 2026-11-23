@@ -53,21 +53,7 @@
   </fieldset>
 
   <div class="space-y-5 lg:sticky lg:top-4">
-    <fieldset>
-      <legend class="text-sm font-medium">Colors</legend>
-      <div class="mt-1.5 flex flex-wrap gap-2">
-        <% ShareColorway::THEMES.each do |key, theme| %>
-          <label class="cursor-pointer">
-            <input type="radio" name="colors" value="<%= key %>" <%= "checked" if key == @colors %> class="peer sr-only"
-                   data-action="share-preview#refresh">
-            <span class="flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm peer-checked:border-blue-600 peer-checked:ring-2 peer-checked:ring-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-600 dark:border-gray-700">
-              <span class="size-4 rounded-full border border-black/15" style="background: linear-gradient(135deg, <%= theme.bg1 %> 50%, <%= theme.accent %> 50%)"></span>
-              <%= theme.label %>
-            </span>
-          </label>
-        <% end %>
-      </div>
-    </fieldset>
+    <%= render ColorwayPickerComponent.new(checked: @colors, input_data: { action: "share-preview#refresh" }) %>
 
     <label class="flex cursor-pointer items-start gap-3">
       <input type="checkbox" <%= "checked" if @identity %> class="mt-1 size-5 accent-blue-600" data-action="share-preview#refresh" data-share-preview-target="identity">

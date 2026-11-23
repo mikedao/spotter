@@ -65,7 +65,7 @@ class SharePicture::Stats < SharePicture
     def split_bars(x, top, width)
       rows = set.split
       n = [ set.shots.size, 1 ].max
-      parts = [ eyebrow(x, top, "Where they landed", 30, t.accent) ]
+      parts = [ eyebrow(x, top, "Where they landed", 30, t.highlight) ]
       row_h = 112
       label_w = 200
       track = width - label_w - 150
@@ -75,7 +75,7 @@ class SharePicture::Stats < SharePicture
         size = label.length > 2 ? 34 : 54
         parts << text(x, y + 62, label, size, t.text, weight: 800)
         parts << rect(x + label_w, y + 24, track, 50, t.text, rx: 12, opacity: 0.08)
-        parts << rect(x + label_w, y + 24, [ track * share, share.positive? ? 12 : 0 ].max, 50, i.zero? ? t.accent : t.text, rx: 12, opacity: (i.zero? ? nil : 0.75)) if share.positive?
+        parts << rect(x + label_w, y + 24, [ track * share, share.positive? ? 12 : 0 ].max, 50, i.zero? ? t.highlight : t.text, rx: 12, opacity: (i.zero? ? nil : 0.75)) if share.positive?
         parts << text(x + width, y + 62, "#{(share * 100).round}%", 40, t.text, weight: 700, anchor: "end")
         parts << text(x + width, y + 96, "#{count} shot#{'s' unless count == 1}", 24, t.muted, anchor: "end")
       end
@@ -87,7 +87,7 @@ class SharePicture::Stats < SharePicture
     def rose(cx, cy, radius)
       counts = set.misses_by_direction
       total = counts.sum
-      parts = [ eyebrow(cx, cy - radius - 130, "Where the misses go", 30, t.accent, anchor: "middle") ]
+      parts = [ eyebrow(cx, cy - radius - 130, "Where the misses go", 30, t.highlight, anchor: "middle") ]
       parts << text(cx, cy + radius + 125, "#{total} of #{set.shots.size} shots scored #{set.miss_ring} or worse", 26, t.muted, anchor: "middle")
       [ 1, 0.66, 0.33 ].each do |f|
         parts << %(<circle cx="#{cx}" cy="#{cy}" r="#{(radius * f).round(1)}" fill="none" stroke="#{t.text}" stroke-opacity="0.12" stroke-width="2"/>)
@@ -112,7 +112,7 @@ class SharePicture::Stats < SharePicture
         # y up on the target, down in SVG.
         p0 = [ cx + r * Math.cos(a0), cy - r * Math.sin(a0) ]
         p1 = [ cx + r * Math.cos(a1), cy - r * Math.sin(a1) ]
-        parts << %(<path d="M#{cx} #{cy}L#{p0.map { it.round(1) }.join(' ')}A#{r.round(1)} #{r.round(1)} 0 0 0 #{p1.map { it.round(1) }.join(' ')}Z" fill="#{t.accent}" fill-opacity="0.85" stroke="#{t.bg2}" stroke-width="4"/>)
+        parts << %(<path d="M#{cx} #{cy}L#{p0.map { it.round(1) }.join(' ')}A#{r.round(1)} #{r.round(1)} 0 0 0 #{p1.map { it.round(1) }.join(' ')}Z" fill="#{t.highlight}" fill-opacity="0.85" stroke="#{t.bg2}" stroke-width="4"/>)
         mid = i * 45 * Math::PI / 180
         lr = [ r + 34, 70 ].max
         parts << text(cx + lr * Math.cos(mid), cy - lr * Math.sin(mid) + 14, count, 38, t.text, weight: 800, anchor: "middle")

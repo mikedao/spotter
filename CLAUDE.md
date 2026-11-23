@@ -642,7 +642,10 @@ from there). The user commits; don't commit unless asked.
   automatic), all four pictures, and a "day of training" = sessions TICKED BY HAND on the journal.
   `ShareSet` (one or more finished sessions, one target type; counted as the session pages count),
   `SharePicture::{Hero,Scorecard,Stats,Cards}` draw SVG in fl-shooters' look (`ShareColorway` and
-  `ShareSvg` are copies of theirs - keep in step; the hero's band is their
+  `ShareSvg` are copies of theirs - keep in step (2026-11-23: all their themes, in Dark / Light / Bold rows,
+  `ColorwayPickerComponent`; Spotter keeps "midnight" as its default; `highlight` for anything drawn straight on
+  the background, `accent` only under `on_accent`; shots fall back to blue where the accent vanishes on the black
+  or the paper; spec/models/share_colorway_spec.rb checks contrast and that no fl-shooters theme is missing); the hero's band is their
   `target_share_controller.js#drawBand` redrawn as SVG), turned into JPEG by **`rsvg-convert`** (not
   libvips' svgload: image_processing blocks it process-wide as untrusted, and unblocking it would let
   Active Storage read SVGs) then vips. Page: `/share/new?session_ids[]=..` (`SharesController`,

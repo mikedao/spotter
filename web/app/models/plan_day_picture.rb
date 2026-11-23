@@ -20,7 +20,7 @@ class PlanDayPicture < SharePicture
 
     def draw
       width = W - 2 * MARGIN
-      parts = [ eyebrow(MARGIN, 170, "Training plan · #{share.heading}", 40, t.accent) ]
+      parts = [ eyebrow(MARGIN, 170, "Training plan · #{share.heading}", 40, t.highlight) ]
 
       lines, size = ShareSvg.lines_for(@look.headline || share.day.title, 92, width, 2, 56)
       y = 170 + 40 + size

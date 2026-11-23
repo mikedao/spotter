@@ -85,7 +85,7 @@ class SharePicture
     # title (shrinks, then wraps - never cut off), and who, when and how many.
     # Returns [ svg, y below it ].
     def header(label)
-      parts = [ eyebrow(MARGIN, 170, label, 40, t.accent) ]
+      parts = [ eyebrow(MARGIN, 170, label, 40, t.highlight) ]
       lines, size = ShareSvg.lines_for(set.title, 92, W - 2 * MARGIN, 2, 56)
       y = 170 + 40 + size
       lines.each do |line|
@@ -160,8 +160,13 @@ class SharePicture
     end
 
     # The shots in the colorway's accent - except where it would vanish on the black
-    # (the site blue): there the range screen's own blue.
-    def shot_colour = t == ShareColorway::THEMES["classic"] ? TargetSvgComponent::SHOT : t.accent
+    # aiming mark (Site blue's navy, Hi-vis's near-black) or on the white paper
+    # (Cobalt's white): there the range screen's own blue.
+    def shot_colour
+      dark_ok = ShareColorway.contrast(t.accent, "#000000") >= 3
+      paper_ok = ShareColorway.contrast(t.accent, "#ffffff") >= 1.2
+      dark_ok && paper_ok ? t.accent : TargetSvgComponent::SHOT
+    end
 
     # 1-8 in the middle of each band on the four axes, as printed (TargetSvgComponent).
     def ring_numbers(spec, ring, line_paper, line_black)

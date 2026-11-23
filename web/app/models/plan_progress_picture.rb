@@ -19,7 +19,7 @@ class PlanProgressPicture < SharePicture
 
     def draw
       width = W - 2 * MARGIN
-      parts = [ eyebrow(MARGIN, 170, "Training plan", 40, t.accent) ]
+      parts = [ eyebrow(MARGIN, 170, "Training plan", 40, t.highlight) ]
       lines, size = ShareSvg.lines_for(TrainingPlan.name, 84, width, 2, 52)
       y = 170 + 40 + size
       lines.each { parts << text(MARGIN, y, it, size, t.text, weight: 800); y += (size * 1.12).round }

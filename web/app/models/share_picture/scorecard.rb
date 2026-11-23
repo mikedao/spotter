@@ -62,10 +62,10 @@ class SharePicture::Scorecard < SharePicture
 
       total = set.number_text(series.total)
       total_size = (h * 0.56).clamp(30, 80)
-      colour = best ? t.accent : t.text
+      colour = best ? t.highlight : t.text
       parts << text(W - MARGIN, top + h / 2.0 + total_size * 0.36, total, total_size, colour, weight: 800, anchor: "end", opacity: (series.complete ? nil : 0.55))
       tag = best ? "Best" : (worst ? "Worst" : (series.complete ? nil : "#{series.shots.size} shots"))
-      parts << eyebrow(W - MARGIN - tw(total, total_size) - 16, top + h / 2.0 + 9, tag, 22, best ? t.accent : t.muted, anchor: "end") if tag
+      parts << eyebrow(W - MARGIN - tw(total, total_size) - 16, top + h / 2.0 + 9, tag, 22, best ? t.highlight : t.muted, anchor: "end") if tag
       parts.join
     end
 end

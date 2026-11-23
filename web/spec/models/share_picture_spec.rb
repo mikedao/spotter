@@ -31,6 +31,21 @@ RSpec.describe SharePicture do
     expect(SharePicture.build("scorecard", set).svg).to include("&lt;b&gt;&amp;")
   end
 
+  it "draws every picture in every colorway" do
+    ShareColorway.keys.each do |colors|
+      SharePicture::KINDS.each_key do |kind|
+        expect { Nokogiri::XML(SharePicture.build(kind, set, colors:).svg) { it.strict } }.not_to raise_error, "#{kind} in #{colors}"
+      end
+    end
+  end
+
+  it "draws the shots in the accent, unless it would vanish on the black or the paper" do
+    shots = ->(colors) { SharePicture.build("cards", set, colors:).svg.scan(/r="2\.25" fill="(#\h{6})"/).flatten.uniq }
+    expect(shots.("midnight")).to eq([ "#f59e0b" ])
+    expect(shots.("hivis")).to eq([ TargetSvgComponent::SHOT ])
+    expect(shots.("cobalt")).to eq([ TargetSvgComponent::SHOT ])
+  end
+
   it "falls back to the default colorway for an unknown one" do
     expect(SharePicture.build("stats", set, colors: "nope").theme).to eq(ShareColorway.find("midnight"))
   end

@@ -1,0 +1,17 @@
+<fieldset>
+  <legend class="text-sm font-medium">Colors</legend>
+  <% ShareColorway.rows.each do |row, themes| %>
+    <div class="mt-2 flex flex-wrap items-center gap-2">
+      <span class="w-full text-sm text-gray-600 dark:text-gray-300"><%= row %></span>
+      <% themes.each do |key, theme| %>
+        <label class="group cursor-pointer" title="<%= theme.label %>">
+          <%= tag.input type: "radio", name: "colors", value: key, checked: (key == checked).presence, class: "peer sr-only", data: input_data %>
+          <span class="<%= DOT %>">
+            <span class="size-7 shrink-0 rounded-full border border-black/20 dark:border-white/30" style="<%= self.class.swatch(theme) %>"></span>
+            <span class="sr-only text-sm group-has-checked:not-sr-only group-has-checked:pr-1"><%= theme.label %></span>
+          </span>
+        </label>
+      <% end %>
+    </div>
+  <% end %>
+</fieldset>

@@ -2,7 +2,6 @@
 <% muted = "text-gray-600 dark:text-gray-300" %>
 <% posted = @share.posted.to_a %>
 <% look = @look %>
-<% pill = "flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm peer-checked:border-blue-600 peer-checked:ring-2 peer-checked:ring-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-600 dark:border-gray-700" %>
 
 <p class="mb-1 text-sm"><%= link_to "← #{@share.day.title}", plan_workout_path(@share.day.week, @share.day.day), class: "text-blue-700 underline dark:text-blue-300" %></p>
 <h1 class="mb-1 text-2xl font-semibold">Post the day to CompetitiveShooter.org</h1>
@@ -51,21 +50,7 @@
   </fieldset>
 
   <div class="space-y-5 lg:sticky lg:top-4">
-    <fieldset>
-      <legend class="text-sm font-medium">Colors</legend>
-      <div class="mt-1.5 flex flex-wrap gap-2">
-        <% ShareColorway::THEMES.each do |key, theme| %>
-          <label class="cursor-pointer">
-            <input type="radio" name="colors" value="<%= key %>" <%= "checked" if key == look.colors %> class="peer sr-only"
-                   data-preview-param="colors" data-action="post-composer#refresh">
-            <span class="<%= pill %>">
-              <span class="size-4 rounded-full border border-black/15" style="background: linear-gradient(135deg, <%= theme.bg1 %> 50%, <%= theme.accent %> 50%)"></span>
-              <%= theme.label %>
-            </span>
-          </label>
-        <% end %>
-      </div>
-    </fieldset>
+    <%= render ColorwayPickerComponent.new(checked: look.colors, input_data: { preview_param: "colors", action: "post-composer#refresh" }) %>
 
     <label class="flex cursor-pointer items-start gap-3">
       <%= hidden_field_tag :identity, 0, id: nil %>

@@ -36,7 +36,7 @@ class SharePicture::Groups < SharePicture
         x = left + (i % cols) * (size + GAP)
         gy = top + (i / cols) * (size + LABEL_H + GAP)
         if group == best
-          parts << rect(x - 10, gy - 10, size + 20, size + 20, t.accent, rx: 12)
+          parts << rect(x - 10, gy - 10, size + 20, size + 20, t.highlight, rx: 12)
         else
           parts << rect(x - 6, gy - 6, size + 12, size + 12, t.edge, rx: 10, opacity: t.edge_op)
         end
@@ -84,7 +84,7 @@ class SharePicture::Groups < SharePicture
 
       a, b = CardStats.new(group.shots, set.spec).widest_pair
       %(<line x1="#{a.final_x_mm.round(2)}" y1="#{(-a.final_y_mm).round(2)}" x2="#{b.final_x_mm.round(2)}" y2="#{(-b.final_y_mm).round(2)}" ) +
-        %(stroke="#{t.accent}" stroke-width="0.9" stroke-linecap="round" stroke-opacity="0.95"/>)
+        %(stroke="#{shot_colour}" stroke-width="0.9" stroke-linecap="round" stroke-opacity="0.95"/>)
     end
 
     def label(group, x, y, size, best)
@@ -94,7 +94,7 @@ class SharePicture::Groups < SharePicture
       name = best ? "#{group.label} · best" : group.label
       name_size = ShareSvg.fit_size(name, 34, size - tw(value, value_size) - 24, 18)
       base = y + 62
-      [ text(x, base, name, name_size, best ? t.accent : t.sub, weight: 700),
+      [ text(x, base, name, name_size, best ? t.highlight : t.sub, weight: 700),
         text(x + size, base, value, value_size, t.text, weight: 800, anchor: "end") ].join
     end
 
