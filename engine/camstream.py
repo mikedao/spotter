@@ -5,7 +5,7 @@ Serve a camera as an MJPEG stream, the way the Raspberry Pi at the target will.
     ./.venv/bin/python camstream.py --device 0 --port 8080
     # then: phase1.py shot --auto --device http://localhost:8080/stream
 
-On the Pi itself use `ustreamer` instead (see ../pi/): it forwards the Kiyo's own
+On the Pi itself use `ustreamer` instead (see ../pi/): it forwards the camera's own
 MJPEG frames without decoding them, which a Pi 3 can do all day. This script
 decodes and re-encodes, so it is for testing streaming on the laptop - the same
 path the engine will see, without a Pi.

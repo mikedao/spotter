@@ -36,7 +36,7 @@ Then follow the steps every rig shares, starting with
 | | | notes |
 |---|---|---|
 | **Pellet trap** | your usual 10 m trap | Any trap that holds a 17 x 17 cm (pistol) or 8 x 8 cm (rifle) card flat. |
-| **Webcam** | 1080p, sharp | Developed on a Razer Kiyo. Any webcam with a sharp 1920 x 1080 picture should do. |
+| **Webcam** | 1080p, sharp | Developed on a Razer Kiyo, now runs on a Logitech C920. Any webcam with a sharp 1920 x 1080 picture should do; one with **manual focus and exposure** can be tuned to your rig (Rig D, or any Linux laptop). |
 | **Camera mount** | something rigid | A small tripod, a clamp, or a bracket near the trap. It must not sag or sway. |
 | **Targets** | standard ISSF 10 m paper cards | Air pistol or air rifle. |
 | **Backlight** | a white USB COB LED strip, e.g. [this one](https://www.amazon.com/dp/B0CDKVYPFN) | Lights the card from behind (see "Light it"). Strongly recommended. |
@@ -165,13 +165,31 @@ Pi 3 is enough), a microSD card with Raspberry Pi OS, and a power bank. A Pi 3
 runs off any ordinary USB power bank. A Pi 5 wouldn't: it needs 5 V / 5 A,
 which power banks don't provide.
 
-**Setting up the Pi.** Follow [pi/README.md](../pi/README.md): it installs
-`ustreamer` as a service, so the stream starts when the Pi boots. In the setup
-wizard, choose the camera by its stream URL: `http://spotter.local:8080/stream`.
+**Setting up the Pi.** Put the repo (or just its `pi/` folder) on the Pi and run
+`cd pi && sudo ./install.sh`. It installs `ustreamer` as a service, so the
+stream starts when the Pi boots. In the setup wizard, choose the camera by its
+stream URL: `http://spotter.local:8080/stream`. Details in
+[pi/README.md](../pi/README.md).
 
-The Pi has an advantage on a Mac: through the Pi you **can** lock the webcam's
-focus (`v4l2-ctl`), which macOS doesn't allow. Do it once the camera is placed;
-pi/README.md shows how to find the sharpest setting.
+**Tune the camera to your rig.** The Pi has an advantage on a Mac: through it
+the webcam's focus and exposure **can** be set, which macOS doesn't allow.
+Once the camera is placed, with a clean card up and the light as it will be
+for shooting, run from the laptop:
+
+```bash
+ssh-copy-id <your Pi login>@spotter.local                 # once: no password prompts
+cd engine && ./.venv/bin/python camtune.py --pi <your Pi login>@spotter.local
+```
+
+It takes about 6 minutes (`--quick`: about 3). Don't touch the camera or the
+card meanwhile. It sweeps focus, exposure, gain and white balance, scores each
+setting with the engine, compares the best with the camera's own automatics,
+and saves the winner as a profile for that camera model. The Pi applies it every
+time the stream starts and whenever the camera is plugged in (a webcam forgets
+its settings when unplugged). A camera that already has a profile in the repo
+(`pi/cameras/`, e.g. the Logitech C920) starts from it, but re-run camtune for
+your own distance and light. If the card goes out of sight mid-run (light
+switched off, card moved), it stops and puts the camera back as it was.
 
 **Wi-Fi.** A 1080p stream is about 20-25 Mbit/s, close to what a Pi 3's 2.4 GHz
 Wi-Fi manages. Keep the Pi in good range of the router. **Close ustreamer's own
@@ -210,11 +228,13 @@ trap, above it or below it all work.
 - **Out of the way of your hands:** you will change cards often. A bump after
   a card change is fine (the next card gets a fresh measurement); a bump
   mid-card needs **Re-find target** on the range screen.
-- **Focus:** focus once on the card and lock it, if you can. On Linux and on
-  a Pi (Rig D), `v4l2-ctl` locks a webcam's focus (see
-  [pi/README.md](../pi/README.md) for finding the sharpest setting). macOS
-  can't lock it, so on a Mac autofocus stays on. It copes, because each
-  picture is measured on its own.
+- **Focus:** lock it on the card, if you can. On a Pi (Rig D) or a Linux
+  laptop, `camtune.py` finds the sharpest focus and the best exposure by
+  itself (see Rig D; on a Linux laptop, `camtune.py --local /dev/video0
+  --device 0`). It is worth it: the Logitech C920's autofocus fitted the
+  aiming mark's edge to 0.26 px, tuned 0.06 px. macOS can't set a webcam's
+  focus, so on a Mac autofocus stays on. It copes, because each picture is
+  measured on its own.
 
 ### How far away
 
@@ -234,8 +254,8 @@ from the lens to the centre of the card, along the line of sight:
 
 "No farther than" is where the camera check's distance test stops passing
 (0.25 mm per pixel). Beyond 0.32 mm per pixel it fails. The development rig's
-Kiyo sits at about 25 cm and reads 0.20 mm per pixel. Use the table to start,
-then let the camera check's **Distance** line decide.
+camera (a Kiyo at about 25 cm, now a C920) reads 0.20 mm per pixel. Use the
+table to start, then let the camera check's **Distance** line decide.
 
 **Off to the side, that is very close to the card.** At 22 cm and 35 degrees,
 the lens is about 13 cm to the side of the card's centre and 18 cm in front of
@@ -287,7 +307,9 @@ through the paper.
   behind doesn't reflect into the camera.
 - **Steadier pictures.** With the card lit from behind, room lights and
   daylight matter much less, and the webcam's automatic exposure (which can't
-  be locked on a Mac) has less to chase.
+  be locked on a Mac) has less to chase. A camera tuned by camtune has its
+  exposure FIXED, so it doesn't follow the light at all: keep the light
+  steady, or tune again.
 
 ### Setting one up
 
@@ -474,7 +496,11 @@ session: record your own call on every shot (step 6).
   and record your ring. Your call always wins over the system's. Over time
   your calls also train the learned scorer.
 - **Card change, new light, camera moved?** Run through the camera check again
-  (it runs every session anyway).
+  (it runs every session anyway). A tuned camera (Rig D) keeps its focus and
+  exposure fixed: after **moving the camera or changing the light for good**,
+  run `camtune.py` again.
+- **A new or different webcam?** On a Pi, plug it in: a model with a profile
+  in `pi/cameras/` is set up at once; for any other, run `camtune.py` (Rig D).
 
 ## Troubleshooting
 
@@ -487,6 +513,10 @@ session: record your own call on every shot (step 6).
 | Most shots "found without a sound" | Trigger level too high for this mic. Lower it in the sound check, to just under your quietest shot (around +45 for a mic at the target). |
 | Shots heard but "not scored, view moving" | The camera or card moves on impact. Stiffen the mount, or move the camera off the trap. |
 | Ring fit poor only sometimes | Glare coming and going, or a changing light. Steady the light. |
+| Focus line borderline, picture soft (Rig D) | The camera is on autofocus or has no profile yet. Run `camtune.py` (Rig D). |
+| Picture suddenly too dark or too bright (Rig D) | The light changed, and a tuned camera's exposure is fixed. Restore the light, or run `camtune.py` again. |
+| Camera settings lost after unplugging it (Rig D) | The settings applier isn't installed: run `sudo ./install.sh` on the Pi again. |
+| camtune: "Can't run v4l2-ctl on ..." | No ssh key yet: `ssh-copy-id <login>@spotter.local`, and `install.sh` on the Pi. |
 | "Not flat" in the same place on every card | The holder lets one edge curl. Clamp it, or turn the cards 180 degrees. |
 | Holes in the black aren't found | Front light only. Backlight the card ("Light it"). |
 | The range screen on another device doesn't update or talk | Use the `.local` name, and https for its mic. Keep the range screen open: leaving it stops its mic and announcer. |
@@ -570,5 +600,9 @@ sudo usermod -aG video,audio $USER      # then log out and back in
 
 Webcams show up as `/dev/video0`, `/dev/video1`, ... (many have two: the
 picture and a metadata device). The wizard's previews show which one is the
-camera. `avahi-daemon` makes the laptop reachable as `<hostname>.local` from a
+camera. On Linux the webcam's focus and exposure can be tuned to the rig, with
+a clean card up: `sudo apt install v4l-utils`, then from `engine/`,
+`./.venv/bin/python camtune.py --local /dev/video0 --device 0` (the settings
+last until the camera is unplugged; re-apply with `v4l2-ctl` from the profile
+it writes in `pi/cameras/`). `avahi-daemon` makes the laptop reachable as `<hostname>.local` from a
 phone or tablet (Rig B); `hostname` prints the name.

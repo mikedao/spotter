@@ -48,6 +48,7 @@ fitted to every printed ring, per frame:
 | synthetic, 0-45 deg, exact truth | worst 0.018 mm | 0.2 mm |
 | old ellipse-only model, same test | 1.6-6.3 mm | 0.2 mm |
 | geometry score noise, real Kiyo (`bench`) | 0.003 mm | 0.2 mm |
+| geometry score noise, Logitech C920 tuned, ~30 deg (`bench`) | 0.0026-0.0031 mm | 0.2 mm |
 | ring fit residual, real card | 0.20 mm RMS, structured | see card flatness |
 
 ## Architecture
@@ -113,6 +114,7 @@ cd engine
 ./.venv/bin/python phase1.py listen --seconds 120      # what the default mic hears (--mic NAME)
 ./.venv/bin/python phase1.py shot --auto              # hands-free, mic-triggered
 ./.venv/bin/python selftest.py             # synthetic check, no camera
+./.venv/bin/python camtune.py --pi mdao@spotter.local   # tune the Pi's camera (clean card up)
 ./voice/.venv/bin/python voice/speak.py say --voice af_heart "ready"   # the announcer
 ```
 
@@ -122,8 +124,10 @@ officer; `kill -USR1 <pid>` ends a match's sighting time ("Start match").
 Add `--image out/snap_raw.png` to any command to work from a file.
 Add `--target rifle` for air rifle.
 
-Rig: Razer Kiyo on **OpenCV device index 0** on the laptop (`cameras.py`
-re-checks this; it was 2 on the previous machine).
+Rig: a **Logitech C920 on the Pi** (`http://spotter.local:8080/stream`), tuned by
+`camtune.py` (profile `pi/cameras/046d-082d.conf`). It replaced the Razer Kiyo,
+which BROKE on 2026-11-23; every measurement before that date is the Kiyo's.
+A camera on the laptop: `cameras.py` gives the index (the Kiyo was 2, then 0).
 macOS blocks camera access until Terminal/VS Code is granted it in
 System Settings > Privacy & Security > Camera, then fully restarted.
 
@@ -190,7 +194,19 @@ bin/dev                                          # http://localhost:3000 (+ http
 - Restart `bin/dev` after `bundle install` (a new gem, e.g. `rqrcode`, isn't
   loaded by a running server: "uninitialized constant ... RQRCode").
 
-## Where we left off (2026-11-12, end of day)
+## Where we left off (2026-11-23)
+
+**The Kiyo broke; the Pi now streams a Logitech C920**, and setting up ANY camera
+is now three steps (pi/README.md): `cd pi && sudo ./install.sh` on the Pi,
+`ssh-copy-id` once, `engine/camtune.py --pi USER@spotter.local` with a clean card
+up (sweeps + bench, writes `pi/cameras/<usb id>.conf`, applied on every stream
+start and plug-in). See the C920 note under "Deployment direction". **Still to do:**
+run the new `install.sh` on the Pi (needs the shooter's sudo; the installed
+service still sets the Kiyo's focus 187 before start); a real shot on the C920;
+`camtune --local` (a Linux laptop's own camera) has never run; the wizard
+could offer to tune a camera with no profile.
+
+## Earlier: 2026-11-12, end of day
 
 All committed. Moving to another computer (see "Setting up a machine"; nothing
 to copy unless the real-shot evidence / old sessions are wanted).
@@ -1060,7 +1076,7 @@ Built and committed:
 ## Deployment direction: Pi = camera, laptop = everything else (2026-11)
 
 The shooter has a **Raspberry Pi 3** and shoots alone. Decided: the Pi at the
-target ONLY streams the Kiyo (MJPEG over Wi-Fi; `ustreamer` on the Pi, which
+target ONLY streams the camera (the Kiyo, a C920 since 2026-11-23; MJPEG over Wi-Fi; `ustreamer` on the Pi, which
 forwards the camera's own MJPEG without re-encoding); the laptop at the firing
 line runs the engine and the web app. Reasons: a Pi 3 cannot run the engine
 (geometry fit ~0.25 s/frame on the laptop, likely 10-20x slower on a Pi 3, and the
@@ -1158,7 +1174,8 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   shot). Levels move between days/placements (session 10: +58..+62 missed at
   +62), so set the level LOW, near the quietest real shot - a false trigger
   costs nothing.
-  **Later option: the trigger from the Kiyo's mic ON THE PI.** It hears
+  **Later option: the trigger from the camera's mic ON THE PI** (measured with
+  the Kiyo's; the C920 has one too, untested). It hears
   IMPACTS at the target (the hole exists when it sounds; no coughs, cocking
   clicks or announcer) - the original +45 dB / 180 ms tuning. Plan: a Pi service
   (like spotter-camera) streaming raw PCM from `arecord` to whoever connects; the

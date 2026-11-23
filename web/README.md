@@ -51,13 +51,15 @@ first shot:
    and shows a preview picture from each camera, so you pick the one pointed at
    the target by what it sees (macOS's names are only a hint: their order doesn't
    always match the camera numbers), or a stream URL; and the target. "Look
-   again" searches again. A new camera brings its own microphone (Kiyo with
-   Kiyo, iPhone with iPhone) when there is one.
+   again" searches again. A new camera brings its own microphone (a webcam
+   with its own mic, iPhone with iPhone) when there is one.
 2. *Camera check*, live: the engine's `locate --json --watch` re-checks about
    once a second for two minutes, and the page updates the view with the fitted
    rings, a sharpness number (turn the focus for the highest) and plain verdicts
    (focus, ring fit, framing, distance, flatness, light) as you aim and focus.
    **Next unlocks at "Ready to shoot"**; "Continue anyway" is the escape.
+   A camera on the Pi is focused and exposed by its tuned profile, not by hand
+   (`engine/camtune.py`, see [pi/README.md](../pi/README.md)).
 3. *Microphone*, the sound check: `listen --json` shows a live level meter
    against the trigger level (with "measuring the room" and a countdown), and
    each sound as it happens, marked "would trigger" against the engine's own

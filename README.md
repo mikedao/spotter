@@ -136,13 +136,21 @@ Settings. Every phrase is pre-rendered and in git, so it works with no setup.
 Building one? [docs/building-a-rig.md](docs/building-a-rig.md) goes step by step
 from parts to a passing camera check.
 
-- **Camera:** any webcam with a sharp 1080p picture (developed on a Razer Kiyo).
-  It can sit **off to the side**, out of the line of fire (tested to 45 deg):
-  perspective and lens distortion are solved from the printed rings in every
-  frame.
+- **Camera:** any webcam with a sharp 1080p picture (developed on a Razer Kiyo,
+  now runs on a Logitech C920). It can sit **off to the side**, out of the line
+  of fire (tested to 45 deg): perspective and lens distortion are solved from
+  the printed rings in every frame.
+- **Tuned to the rig, automatically:** `engine/camtune.py` sweeps the camera's
+  focus, exposure, gain and white balance against a clean card, scores every
+  setting with the engine, and saves the best as a profile for that camera
+  (`pi/cameras/`). On the C920 it took the edge fit from 0.26 px on its
+  automatics to 0.06 px. Needs the camera on a Pi or a Linux machine: macOS
+  can't set a webcam's controls.
 - **Or stream it:** a Raspberry Pi 3 at the target streams the camera over Wi-Fi
   (`http://spotter.local:8080/stream`), and the computer at the firing line
-  runs everything else. See [pi/README.md](pi/README.md).
+  runs everything else. One `sudo ./install.sh` on the Pi sets it up, and the
+  camera's profile is re-applied on every start and plug-in. See
+  [pi/README.md](pi/README.md).
 - **Microphone (optional):** says *when* to look, never where. A mic at the
   firing line hears the gun. Without one, the camera finds each shot by itself
   in about 2 seconds, so shots fired less than ~5 s apart can be missed.
@@ -188,7 +196,7 @@ the geometry, which is where all the interesting work is.
 |---|---|---|
 | geometry, synthetic cards 0-45 deg off-axis, exact truth | worst **0.018 mm** | 0.2 mm |
 | the same test, aiming-mark ellipse only (the old model) | 1.6-6.3 mm | 0.2 mm |
-| geometry noise, real camera ~37 deg off-axis (`bench`) | **0.003 mm** | 0.2 mm |
+| geometry noise, real cameras 30-37 deg off-axis (`bench`; Kiyo, and C920 tuned) | **0.003 mm** | 0.2 mm |
 | hole detector, synthetic holes at known positions | 0.0008 mm | |
 | ring fit residual, real cards | 0.08-0.20 mm RMS | |
 | ring matches the shooter's call, real shots (unseen card) | 9 of 10 | |
@@ -224,6 +232,7 @@ vision code. From `engine/`:
 ./.venv/bin/python phase1.py listen            # what the microphone hears
 ./.venv/bin/python phase1.py bench --label light-on   # measure the rig, A/B a change
 ./.venv/bin/python cameras.py                  # list cameras and their indices
+./.venv/bin/python camtune.py --pi USER@spotter.local   # tune the Pi's camera to the rig
 ```
 
 `--target rifle` switches to air rifle. `--device` takes a camera index or a
