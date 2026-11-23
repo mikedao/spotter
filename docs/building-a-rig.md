@@ -4,6 +4,13 @@ This guide is for building a spotter at home: a webcam pointed at a paper
 target, a laptop that runs the software, and (optionally) a microphone that
 hears your shots. There are no custom electronics and no soldering.
 
+> [!WARNING]
+> **Spotter is a work in progress, and you build and use a rig at your own
+> risk.** Everything you put near the trap can be hit by a stray pellet or a
+> ricochet. Keep it out of the line of fire and behind something solid, as each
+> rig below describes. I am not responsible for damaged equipment, injury or
+> any other loss. See the warning in the [README](../README.md).
+
 By the end you will have a rig that passes the app's camera check, hears your
 shots (or finds them by camera alone), and scores a real card.
 

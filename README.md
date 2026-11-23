@@ -10,6 +10,22 @@ low") and see it on a range screen in your browser. Afterwards you review
 every shot, record your own call, and track your progress toward a match
 score over weeks.
 
+> [!WARNING]
+> **This is a work in progress.** Spotter is a personal project under active
+> development, built and tested on one home rig. Features change, things break,
+> and scores have not been checked against an official electronic target or a
+> scoring gauge. Don't rely on it for anything that matters, such as match
+> results or records.
+>
+> **Use it at your own risk.** A rig puts a camera, and maybe a laptop or a
+> Raspberry Pi, close to a pellet trap. A stray pellet, a ricochet or a mount
+> that gives way can damage them, and nothing in this project prevents that.
+> **I am not responsible for damaged or lost equipment, injury, or any other
+> loss** from building or using a rig or running this software. Your range is
+> your responsibility: a safe backstop, everything downrange out of the line of
+> fire, and the safety rules of your sport. The software comes as is, without
+> any warranty (see "No Liability" in the [licence](LICENSE)).
+
 ![The fitted rings on a real card, camera off to the side](docs/ring-fit.png)
 
 ## What's in it
@@ -288,6 +304,9 @@ Not yet built: CSV export, announcer personalities, the microphone trigger on
 the Pi, and the learned scorer trained from reviewed calls.
 
 ## Licence
+
+Provided as is, with no warranty and no liability for damage or loss (see the
+warning at the top of this page).
 
 [PolyForm Noncommercial 1.0.0](LICENSE): free to use, change and share for
 any **noncommercial** purpose - personal training, hobby projects and research,
