@@ -68,6 +68,7 @@ The engine files below live in `engine/`; run engine commands from there.
 | `audio.py` | Camera-mic shot TRIGGER (not positioning): impulse events vs running floor |
 | `report.py` | Posts engine events to the web app (`--report-to`), off the scoring thread |
 | `camstream.py` | Serves a local camera as MJPEG: tests the Pi stream path on the laptop |
+| `camtune.py` | Tunes a camera ON THE RIG (focus / exposure / gain / WB sweeps scored by the engine, bench vs automatics) -> `pi/cameras/<usb id>.conf` |
 | `liveview.py` | The engine's live picture (rings drawn on) for the range screen, `shot --auto --stream-port` |
 | `web/` | Rails 8.1 range screen + shot review (SQLite, Hotwire, ViewComponent, RSpec). See `web/README.md` |
 | `docs/engine-events.md` | THE contract between engine and web app. Change both sides together |
@@ -172,6 +173,9 @@ bin/dev                                          # http://localhost:3000 (+ http
   `bin/dev` (the engine inherits it), then restart that app.
 - Re-check the camera index with `cameras.py` (Kiyo was 2, then 0, on the last
   two machines); the setup wizard shows pictures, so pick by what it sees.
+- **The Pi / a new camera:** `cd pi && sudo ./install.sh` on the Pi, `ssh-copy-id`
+  from the laptop, then `engine/camtune.py --pi USER@spotter.local` with a clean
+  card up (pi/README.md). A camera in `pi/cameras/` starts from its profile.
 - Stale on the 2026-11-11 laptop: a root-level `.venv`, `__pycache__`,
   `calib.json` and `out/` from before the `engine/` split - unused, ignore.
 - **A database made before 2026-11-11's sign-in change** has email + password,
@@ -1168,13 +1172,26 @@ power banks and tool-battery USB adapters do not provide (USB-PD caps 5 V at
   ~22.5 Mbit/s. Focus LOCKED at 187 (swept); exposure / WB / sharpness stay AUTO
   (manual exposure is broken on the Kiyo - see pi/README.md); trigger = the laptop's
   mic (gun). Jitter with this: ~1 um centre, ~2-3 um scale.
-  **The Kiyo BROKE (2026-11-23): the Pi now streams a Logitech C920.** Its settings
-  are in `pi/camera-controls.sh` (focus MANUAL 30, exposure MANUAL 666 + gain 40,
-  WB 4970 K; swept and benched on the rig, table in pi/README.md), applied after
-  the stream starts AND on every plug-in by a udev rule: a C920 forgets them
-  without power and ustreamer reopens a replugged camera itself (it came up on
-  autofocus: sharpness 16 vs 118 tuned). Tuned: edge 0.06 px, rings 0.075 mm,
-  geometry noise 0.0026 mm. NOT yet: a real shot on the C920.
+  **The Kiyo BROKE (2026-11-23): the Pi now streams a Logitech C920.** It came up
+  on AUTOFOCUS (sharpness 16 vs 118 tuned): ustreamer reopened the new camera
+  itself, so the service's start-up settings never ran, and a C920 forgets its
+  settings without power. Now ANY camera is set up the same way (pi/README.md):
+  `pi/install.sh` on the Pi, then `engine/camtune.py --pi USER@spotter.local`
+  from the laptop with a clean card up - sweeps focus (coarse, then fine; picks
+  the best EDGE FIT among the >= 80%-sharpest), exposure (longest that clips
+  nothing, capped at 70% of the stream's frame time), gain (until the paper reads
+  ~200), locks white balance, benches against the automatics, and writes a
+  PROFILE `pi/cameras/<vendor>-<product>.conf` (commit it) that it also puts in
+  the Pi's `/etc/spotter/cameras/`. `spotter-camera-controls` applies the profile
+  matching the camera's USB id after every stream start AND every plug-in (udev).
+  C920 on this rig: focus 30, exposure 700, gain 64, WB ~5000: edge 0.06 px,
+  rings 0.078 mm, geometry noise 0.0031 mm (automatics 0.26 / 0.102 / 0.0060).
+  Gotchas: one plain ssh per control (a ControlMaster's background master held
+  captured pipes and hung a restore); the Pi's address is resolved ONCE (macOS
+  mDNS took 5-30 s per lookup at times); a run that loses the card (the light
+  went off mid-run) stops, writes no profile and restores the camera. `bench`'s
+  numbers are `phase1.bench_stats` (shared). NOT yet: a real shot on the C920;
+  the wizard offering to tune an untuned camera.
 - Still to do on the Pi: measure the latency from the Pi 3.
 
 ## Domain facts (verified against a physical card)

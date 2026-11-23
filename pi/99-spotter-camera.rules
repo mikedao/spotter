@@ -1,2 +1,3 @@
-# Spotter: re-apply the camera's settings whenever the C920 (046d:082d) is plugged in.
-ACTION=="add", SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="082d", ATTR{index}=="0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="spotter-camera-controls.service"
+# Spotter: re-apply the camera's tuned settings whenever a USB camera is plugged in
+# (any camera: spotter-camera-controls picks its profile by USB id).
+ACTION=="add", SUBSYSTEM=="video4linux", ATTR{index}=="0", SUBSYSTEMS=="usb", TAG+="systemd", ENV{SYSTEMD_WANTS}+="spotter-camera-controls.service"

@@ -4,46 +4,73 @@ A Raspberry Pi 3 (hostname `spotter`) next to the target streams the camera to
 the laptop; the laptop runs the engine and the web app. Set up 2026-11-12 with
 the Razer Kiyo; since 2026-11-23 (the Kiyo broke) a **Logitech C920** (046d:082d).
 
-## Setup (Raspberry Pi OS)
+## Setup: any camera, three steps
 
-```bash
-sudo apt update && sudo apt install -y ustreamer v4l-utils
-v4l2-ctl --list-devices          # the camera: /dev/video0 (video1 is metadata)
-sed "s/YOUR_USER/$USER/" spotter-camera.service | sudo tee /etc/systemd/system/spotter-camera.service
-sudo install -m 755 camera-controls.sh /usr/local/bin/spotter-camera-controls
-sudo cp spotter-camera-controls.service /etc/systemd/system/
-sudo cp 99-spotter-camera.rules /etc/udev/rules.d/ && sudo udevadm control --reload
-sudo systemctl daemon-reload && sudo systemctl enable --now spotter-camera
-```
+1. **On the Pi** (Raspberry Pi OS), with this repo (or just its `pi/` folder) on it:
 
-It starts on boot and restarts if the stream stops. The camera's settings live
-in `camera-controls.sh`, applied after the stream starts AND on every plug-in
-(the udev rule): a C920 forgets its settings without power, and ustreamer reopens
-a replugged camera by itself, so settings applied only at service start were lost
-(found 2026-11-23: the C920 came up on autofocus). A different camera needs its
-own ids in the rule and its own sweep below.
+   ```bash
+   cd pi && sudo ./install.sh
+   ```
+
+   Installs ustreamer + v4l-utils, the stream service (`spotter-camera`, on boot,
+   restarts if it stops), the settings applier and its udev rule, and the known
+   camera profiles. Safe to re-run after a `git pull`.
+
+2. **From the laptop, once:** `ssh-copy-id USER@spotter.local` (camtune sets the
+   camera's controls over ssh, no password prompts).
+
+3. **A camera with no profile yet** (the Pi's log says "no settings for ..."): put
+   a CLEAN card on the trap, lights as they will be for shooting, then from the laptop
+
+   ```bash
+   cd engine && ./.venv/bin/python camtune.py --pi USER@spotter.local   # ~6 min; --quick ~3
+   ```
+
+   It sweeps focus, exposure, gain and white balance, scoring every frame with
+   the engine (sharpness, aiming-mark edge fit, ring fit, clipping), benches the
+   result against the camera's own automatics, and writes
+   `pi/cameras/<vendor>-<product>.conf` - installed on the Pi at once and applied
+   from then on. Commit the profile so the next person with that camera starts
+   from it. It stops and puts the camera back if the card goes out of sight
+   (light switched off mid-run: 2026-11-23) or on Ctrl+C.
+
+A camera already in `cameras/` works out of the box, but focus depends on the
+camera-to-card DISTANCE and exposure on the LIGHT: re-run camtune after moving
+the camera or changing the lighting. A camera on a Mac can't be tuned (macOS
+offers no way to set a webcam's controls from code): plug it into the Pi.
+
+**Why settings are applied on every plug-in:** a webcam like the C920 forgets
+its settings without power, and ustreamer reopens a replugged camera by itself,
+so settings applied only at service start were lost (2026-11-23: after swapping
+the Kiyo for the C920 it came up on autofocus, sharpness 16 vs 118 tuned).
+`spotter-camera-controls` (camera-controls.sh) runs after every stream start AND
+on every USB camera plug-in, finds the camera's USB id and applies its profile
+from `/etc/spotter/cameras/` (yours, so camtune writes it without sudo), one
+control per `v4l2-ctl` call, in order. No profile = the camera's automatics.
 
 ## Using it
 
 - In the app's camera step: `http://spotter.local:8080/stream`
   (`spotter.local` resolves on the home network; else the Pi's IP, `hostname -I`).
 - ustreamer's own page: `http://spotter.local:8080/`, state as JSON at `/state`.
-- `systemctl status spotter-camera` / `journalctl -u spotter-camera` on the Pi.
+- On the Pi: `systemctl status spotter-camera`, `journalctl -u spotter-camera-controls`
+  (which profile was applied), `v4l2-ctl -d /dev/video0 --list-ctrls` (the values now).
 
-## Logitech C920 settings (swept 2026-11-23 on the rig, ~30 deg, pistol card)
+## Logitech C920 (046d:082d), 2026-11-23, rig ~30 deg, pistol card
 
-Scored with `phase1.py locate` / `bench` per setting:
+Swept by hand first, then by camtune from the camera's automatics, which found
+the same focus (30) on its own:
 
 | setting | value | why |
 |---|---|---|
-| focus | MANUAL 30 (0-250, steps of 5) | autofocus: sharpness 16, edge 0.30 px, rings 0.117 mm. 30: sharpness ~100-118, edge 0.06-0.075 px, rings 0.075. 35 as sharp, edge 0.105; 25 and 40 half as sharp; rings lost beyond ~60. RE-SWEEP if the distance changes |
-| exposure | MANUAL 666 (66.7 ms), dynamic framerate OFF | unlike the Kiyo, manual exposure WORKS: brightness follows it, no clipping anywhere 50-1000; sharpness peaks 666-800 |
-| gain | 40 | bench, 15 frames: 666/g40 geom noise 0.0026 mm, contrast 153; 666/g0 0.0048, 117; 800/g0 0.0084, 126; auto (gain 86) 0.0038, 141. All far inside 0.2 mm - picked for contrast and no auto-exposure hunting between a shot's before and after |
-| white balance | MANUAL 4970 K | what auto had settled on; locked so it can't drift |
+| focus | MANUAL 30 (0-250, steps of 5) | autofocus: edge fit 0.26-0.30 px, rings 0.10-0.12 mm. 30: edge 0.06 px, rings 0.075. 35 as sharp, edge a little worse; 25 and 40 half as sharp; rings lost beyond ~60 |
+| exposure | MANUAL 700 (70 ms; camtune caps at 70% of the 10 fps frame time), dynamic framerate OFF | unlike the Kiyo, manual exposure WORKS: brightness follows it, nothing clips anywhere 50-1000 |
+| gain | 64 | paper 205 at 700/g64 (129 at gain 0); 96+ worsens the edge fit. Bench vs automatics: geometry noise 0.0031 vs 0.0060 mm, contrast 166 vs 139, 0 phantoms (by hand: 666/g40 0.0026 mm, contrast 153 - all far inside 0.2 mm) |
+| white balance | MANUAL ~5000 K | what auto settles on; locked so it can't drift |
 | format | MJPEG 1920x1080 (up to 30 fps), stream 10 fps | 2304x1296 is 2 fps only |
 
-Manual exposure means a LIGHTING change (garage door open, lights) is not
-followed: re-run the camera check, and re-sweep exposure if the light changes for good.
+Manual exposure does not follow a LIGHTING change (garage door, lights): the
+camera check shows it; re-run camtune if the light changes for good.
 
 ## Measured with the Kiyo (2026-11-12, home Wi-Fi)
 
@@ -51,20 +78,12 @@ The Kiyo offered 1920x1080 MJPEG at 30 fps only; `--desired-fps=10` gives
 7-8 fps captured, ~22.5 Mbit/s, ~370 KB a frame. Enough: the engine needs a
 fresh frame about once a second.
 
-## Kiyo focus (locked, 2026-11-12; the sweep method still applies)
+## Kiyo focus (locked, 2026-11-12; camtune automates this sweep)
 
 Swept `focus_absolute` 0-255 in 5s, then 178-192 in 1s, scoring each frame with
 `phase1.py locate` (sharpness = Laplacian variance, plus the ring fit). A sharp,
 narrow peak: 187 = sharpness 629, rings 0.073 mm (auto focus: 466); half that 10
-steps either side, rings lost beyond 170-205. RE-SWEEP if the camera-to-card
-distance changes (the C920 steps focus in 5s):
-
-```bash
-v4l2-ctl -d /dev/video0 -c focus_automatic_continuous=0
-for v in $(seq 0 5 255); do v4l2-ctl -d /dev/video0 -c focus_absolute=$v; sleep 2.5
-  curl -s -o f_$(printf %03d $v).jpg http://localhost:8080/snapshot; done
-python3 -m http.server 8090     # the laptop scores them with `phase1.py locate --json`
-```
+steps either side, rings lost beyond 170-205.
 
 ## Kiyo exposure, white balance, sharpening: were left ON AUTO (tested 2026-11-12)
 

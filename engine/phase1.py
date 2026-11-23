@@ -2091,48 +2091,17 @@ def _shot_auto(a, spec):
     _print_log(max(st["scored"], 1))
 
 
-def cmd_bench(a):
+def bench_stats(frames, tfs, infos, spec):
     """
-    Measure the rig as it stands, for A/B comparisons (camera light on vs off,
-    room lights, a new position). Nothing on the card may change during a run.
-
-    Each run appends one labelled row to out/bench.csv and prints every row so
-    far, so conditions can be compared side by side. Needs no calib.json.
-
-      geom noise  how far the REPORTED target mm of a fixed point wanders
-                  frame to frame, from re-solving the geometry each time.
-                  This is score noise that has nothing to do with holes.
-      phantoms    regions `shot` would report between two frames where
-                  nothing changed. Anything above 0 is a false shot.
-      ring RMS    perspective fit quality; edge RMS is focus.
-      pix noise   sensor noise, grey levels; sat% = clipped pixels on card.
+    The measurements behind `bench` (and camtune.py's comparisons), from
+    frames of an UNCHANGING card with their fitted geometry: geometry noise
+    (how far the reported mm of fixed image points wander), phantom shots
+    between consecutive frames, ring/edge fit, pixel noise, clipping, contrast.
+    Returns {"row": numbers, "phantoms": [(pair, x, y, diam, peak)],
+    "phantom_pairs": [(i, diff, holes)], "off_card": n}.
     """
-    import csv
-    import time
-    from datetime import datetime
     from geometry import register, new_light
     from scoring import ring_radius_mm
-
-    if a.image:
-        sys.exit("bench measures the live camera; --image does not apply")
-    spec = SPECS[a.target]
-    cap = target0.open_camera(a.device, 1920, 1080)
-    for _ in range(10):                         # let auto-exposure settle
-        cap.read()
-    print(f"\n  bench '{a.label}': {a.rounds} rounds of {a.frames} frame(s). "
-          "Do not touch anything.")
-    frames, tfs, infos = [], [], []
-    for i in range(a.rounds):
-        g, _ = target0.grab_gray(cap, a.frames)
-        tf, info = establish(g, spec, verbose=False)
-        if tf is None:
-            cap.release()
-            sys.exit(f"  round {i+1}: target not found ({info.get('reason')})")
-        frames.append(g); tfs.append(tf); infos.append(info)
-        print(f"    round {i+1}/{a.rounds}", end="\r")
-        time.sleep(0.15)
-    cap.release()
-    print()
 
     ref = tfs[0]
     H, W = frames[0].shape[:2]
@@ -2160,9 +2129,8 @@ def cmd_bench(a):
         m = np.array([t.to_mm(px, py) for t in tfs])
         sds.append(float(np.hypot(*m.std(axis=0, ddof=1))))
     geom_mean, geom_worst = float(np.mean(sds)), float(np.max(sds))
-    cen_sd = sds[0]
 
-    phantoms, ph_list, off_card = [], [], 0
+    phantoms, ph_list, pairs, off_card = [], [], [], 0
     for i, ((g0, t0), (g1, t1)) in enumerate(zip(zip(frames, tfs),
                                                  zip(frames[1:], tfs[1:]))):
         diff = new_light(g1, register(g0, t0, t1, g1.shape))
@@ -2175,14 +2143,75 @@ def cmd_bench(a):
             x, y = t1.to_mm(h["xw"], h["yw"])
             ph_list.append((i + 1, x, y, h["diam_px"], h["peak"]))
         if hd:
-            # Where false shots sit says why: scattered blobs = light/exposure
-            # flicker; along printed lines = movement / registration.
-            vis = cv2.cvtColor(np.clip(diff * 4, 0, 255).astype(np.uint8),
-                               cv2.COLOR_GRAY2BGR)
-            for h in hd:
-                cv2.circle(vis, (int(h["xw"]), int(h["yw"])), 30, (0, 0, 255), 2)
-            OUT.mkdir(exist_ok=True)
-            cv2.imwrite(str(OUT / f"bench_{a.label}_phantom_{i+1}.png"), vis)
+            pairs.append((i, diff, hd))
+
+    row = {"perspective": all(i.get("perspective") for i in infos),
+           "geom_noise_mm": round(geom_mean, 4),
+           "geom_worst_mm": round(geom_worst, 4),
+           "centre_sd_mm": round(sds[0], 4),
+           "phantoms_max": max(phantoms) if phantoms else 0,
+           "ring_rms_mm": round(float(np.mean([i.get("rms_mm", np.nan) for i in infos])), 3),
+           "edge_rms_px": round(float(np.mean([i.get("edge_rms_px", np.nan) for i in infos])), 2),
+           "pix_noise": round(pix_noise, 2), "sat_pct": round(sat, 2),
+           "paper": round(paper), "black": round(black),
+           "contrast": round(paper - black)}
+    return {"row": row, "phantoms": ph_list, "phantom_pairs": pairs,
+            "off_card": off_card}
+
+
+def cmd_bench(a):
+    """
+    Measure the rig as it stands, for A/B comparisons (camera light on vs off,
+    room lights, a new position). Nothing on the card may change during a run.
+
+    Each run appends one labelled row to out/bench.csv and prints every row so
+    far, so conditions can be compared side by side. Needs no calib.json.
+
+      geom noise  how far the REPORTED target mm of a fixed point wanders
+                  frame to frame, from re-solving the geometry each time.
+                  This is score noise that has nothing to do with holes.
+      phantoms    regions `shot` would report between two frames where
+                  nothing changed. Anything above 0 is a false shot.
+      ring RMS    perspective fit quality; edge RMS is focus.
+      pix noise   sensor noise, grey levels; sat% = clipped pixels on card.
+    """
+    import csv
+    import time
+    from datetime import datetime
+
+    if a.image:
+        sys.exit("bench measures the live camera; --image does not apply")
+    spec = SPECS[a.target]
+    cap = target0.open_camera(a.device, 1920, 1080)
+    for _ in range(10):                         # let auto-exposure settle
+        cap.read()
+    print(f"\n  bench '{a.label}': {a.rounds} rounds of {a.frames} frame(s). "
+          "Do not touch anything.")
+    frames, tfs, infos = [], [], []
+    for i in range(a.rounds):
+        g, _ = target0.grab_gray(cap, a.frames)
+        tf, info = establish(g, spec, verbose=False)
+        if tf is None:
+            cap.release()
+            sys.exit(f"  round {i+1}: target not found ({info.get('reason')})")
+        frames.append(g); tfs.append(tf); infos.append(info)
+        print(f"    round {i+1}/{a.rounds}", end="\r")
+        time.sleep(0.15)
+    cap.release()
+    print()
+
+    st = bench_stats(frames, tfs, infos, spec)
+    ref = tfs[0]
+    for i, diff, hd in st["phantom_pairs"]:
+        # Where false shots sit says why: scattered blobs = light/exposure
+        # flicker; along printed lines = movement / registration.
+        vis = cv2.cvtColor(np.clip(diff * 4, 0, 255).astype(np.uint8),
+                           cv2.COLOR_GRAY2BGR)
+        for h in hd:
+            cv2.circle(vis, (int(h["xw"]), int(h["yw"])), 30, (0, 0, 255), 2)
+        OUT.mkdir(exist_ok=True)
+        cv2.imwrite(str(OUT / f"bench_{a.label}_phantom_{i+1}.png"), vis)
+    ph_list, off_card = st["phantoms"], st["off_card"]
     if ph_list:
         print(f"\n  false shots ({len(ph_list)}), frame pair / target mm / "
               "size / strength:")
@@ -2194,24 +2223,12 @@ def cmd_bench(a):
         print(f"\n  ({off_card} change(s) off the card ignored, as `shot` "
               "ignores them)")
 
-    persp = all(i.get("perspective") for i in infos)
-    ring_rms = float(np.mean([i.get("rms_mm", np.nan) for i in infos]))
-    edge_rms = float(np.mean([i.get("edge_rms_px", np.nan) for i in infos]))
-
     OUT.mkdir(exist_ok=True)
     snap = OUT / f"bench_{a.label}.png"
     cv2.imwrite(str(snap), np.clip(frames[0], 0, 255).astype(np.uint8))
     row = {"when": datetime.now().strftime("%Y-%m-%d %H:%M"), "label": a.label,
            "rounds": a.rounds, "frames": a.frames,
-           "view_deg": round(ref.tilt_deg, 1), "perspective": persp,
-           "geom_noise_mm": round(geom_mean, 4),
-           "geom_worst_mm": round(geom_worst, 4),
-           "centre_sd_mm": round(cen_sd, 4),
-           "phantoms_max": max(phantoms) if phantoms else 0,
-           "ring_rms_mm": round(ring_rms, 3), "edge_rms_px": round(edge_rms, 2),
-           "pix_noise": round(pix_noise, 2), "sat_pct": round(sat, 2),
-           "paper": round(paper), "black": round(black),
-           "contrast": round(paper - black)}
+           "view_deg": round(ref.tilt_deg, 1), **st["row"]}
     path = OUT / "bench.csv"
     new = not path.exists()
     with open(path, "a", newline="") as f:

@@ -1,19 +1,30 @@
 #!/bin/sh
-# Spotter: the C920's settings, from the 2026-11-23 sweep on the rig (pi/README.md).
-# Run on every camera plug-in (udev) and every stream start: a C920 forgets its
-# settings when it loses power, and ustreamer reopens a replugged camera on its
-# own, so a setting applied only when the service starts is lost on a replug.
-# ONE control per v4l2-ctl call (several in one call broke the Kiyo's frames), and
-# the auto switches BEFORE the values they guard (a manual value is ignored while
-# its auto is on).
-DEV=/dev/video0
-sleep 3   # let ustreamer open the camera and start streaming first
-for c in \
-  focus_automatic_continuous=0 focus_absolute=30 \
-  auto_exposure=1 exposure_dynamic_framerate=0 exposure_time_absolute=666 gain=40 \
-  white_balance_automatic=0 white_balance_temperature=4970 \
-  power_line_frequency=2
-do
+# spotter-camera-controls [--now] [DEVICE]: apply the camera's tuned settings.
+#
+# Looks up the camera's USB id and applies /etc/spotter/cameras/<vendor>-<product>.conf
+# (written by engine/camtune.py; the repo's pi/cameras/ are installed there by
+# install.sh). A camera with no profile is left on its own automatics.
+# Run after every stream start (spotter-camera.service) and every plug-in (the
+# udev rule): a webcam like the C920 forgets its settings without power, and
+# ustreamer reopens a replugged camera by itself, so settings applied only when
+# the service starts are lost (2026-11-23: the C920 came up on autofocus).
+# ONE control per v4l2-ctl call (several in one call broke the Kiyo's frames),
+# in the profile's order (an auto switch before the value it guards).
+NOW=
+[ "$1" = "--now" ] && { NOW=1; shift; }
+DEV=${1:-/dev/video0}
+DIR=${SPOTTER_CAMERA_PROFILES:-/etc/spotter/cameras}
+[ -n "$NOW" ] || sleep 3   # let ustreamer open the camera and start streaming
+[ -e "$DEV" ] || { echo "spotter-camera-controls: no $DEV"; exit 0; }
+prop() { udevadm info -q property -n "$DEV" | sed -n "s/^$1=//p"; }
+VID=$(prop ID_VENDOR_ID); PID=$(prop ID_MODEL_ID); NAME=$(prop ID_MODEL)
+PROFILE="$DIR/$VID-$PID.conf"
+if [ ! -f "$PROFILE" ]; then
+  echo "spotter-camera-controls: no settings for $NAME ($VID:$PID) in $DIR -" \
+       "it runs on its own automatics. Tune it from the laptop: engine/camtune.py --pi $(hostname).local"
+  exit 0
+fi
+echo "spotter-camera-controls: $NAME ($VID:$PID) <- $PROFILE"
+grep -E '^[a-z_]+=-?[0-9]+$' "$PROFILE" | while IFS= read -r c; do
   v4l2-ctl -d "$DEV" -c "$c" || echo "spotter-camera-controls: could not set $c"
 done
-v4l2-ctl -d "$DEV" --get-ctrl=focus_absolute,exposure_time_absolute,gain,white_balance_temperature
