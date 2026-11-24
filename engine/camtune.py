@@ -71,9 +71,14 @@ NAMES = {
 }
 
 SETTLE_S = 2.5          # after a change: focus motor / exposure loop, + stream lag
-PAPER_LOW = 190         # paper this dark at the longest exposure -> add gain
-PAPER_AIM = 215
-PAPER_MAX = 240
+# The white paper's level (75th percentile inside ring 1, 0-255). Kept well
+# BELOW white: behind a backlit card a new hole is light coming through, and it
+# must stand out from the paper around it - the camera check wants a rise of 40
+# or more. The first rule ("longest exposure that clips nothing") put the paper
+# at 231 under the 2026-11-24 backlight: ~24 levels left for a hole on white.
+PAPER_MAX = 200
+PAPER_AIM = 185         # gain brings a dim picture up to about here
+PAPER_LOW = 160         # paper this dark at the longest exposure -> add gain
 SAT_MAX_PCT = 0.1       # clipped share of the card allowed
 
 
@@ -104,7 +109,16 @@ class Controls:
 
     def run(self, cmd, check=True):
         args = self.ssh + [cmd] if self.ssh else ["sh", "-c", cmd]
-        r = subprocess.run(args, capture_output=True, text=True, timeout=30)
+        # A call normally takes ~0.4 s; one hung 30 s on a Wi-Fi stall
+        # (2026-11-24) and ended a run. Setting a control twice is harmless.
+        for attempt in range(3):
+            try:
+                r = subprocess.run(args, capture_output=True, text=True, timeout=12)
+                break
+            except subprocess.TimeoutExpired:
+                if attempt == 2:
+                    raise
+                print(f"    (no answer from the camera's machine in 12 s; trying again)")
         if check and r.returncode != 0:
             raise RuntimeError(f"{cmd!r}: {(r.stderr or r.stdout).strip()}")
         return r.stdout
@@ -341,6 +355,20 @@ class Tuner:
                 raise Lost("the card was not found at ANY exposure - did the light go out?")
             ok = [min(seen, key=lambda r: r["sat"])]     # everything clips: least
         best = max(ok, key=lambda r: r["value"])
+        # The coarse steps are ~1.7x apart; look between the best and the next
+        # step up for a longer exposure that still keeps the headroom.
+        above = [r["value"] for r in rows if r["value"] > best["value"]]
+        if above:
+            step = c.get("step", 1)
+            mids = sorted({int(round(v / step)) * step for v in
+                           np.geomspace(best["value"], min(above), 5)[1:-1]} - {best["value"]})
+            if mids:
+                self.say(f"  exposure: fine sweep {mids[0]}-{mids[-1]}")
+                fine = self.sweep("exposure", mids, 1 if self.quick else 2, "exposure")
+                okf = [r for r in fine if r["found"] and r["sat"] <= SAT_MAX_PCT
+                       and r["paper"] <= PAPER_MAX]
+                if okf:
+                    best = max(okf, key=lambda r: r["value"])
         exp = best["value"]
         self.set("exposure", exp)
         self.keep("exposure", exp)
@@ -354,7 +382,7 @@ class Tuner:
             okg = [r for r in grows if r["found"] and r["sat"] <= SAT_MAX_PCT
                    and r["paper"] <= PAPER_MAX]
             if okg:
-                bright = [r for r in okg if r["paper"] >= PAPER_AIM - 15]
+                bright = [r for r in okg if r["paper"] >= PAPER_AIM - 10]
                 gain = (min(bright, key=lambda r: r["value"]) if bright
                         else max(okg, key=lambda r: r["value"]))["value"]
         if g:
@@ -516,6 +544,16 @@ def main():
     try:
         g = rig.frame()
         err = rig.masks(g)
+        if err and tuner.automatics():
+            # Settings tuned for another light can hide the card (2026-11-24: a
+            # new backlight blew the old profile's picture out white). Let the
+            # camera's automatics find a picture to start from.
+            print(f"  no target at the current settings ({err});\n"
+                  "  trying the camera's automatics")
+            tuner.apply(tuner.automatics())
+            time.sleep(4.0)
+            g = rig.frame()
+            err = rig.masks(g)
         if err:
             sys.exit(f"  no target in view ({err}).\n  Put a CLEAN {a.target} card "
                      "on the trap, check the camera sees all of it, and run again.")
