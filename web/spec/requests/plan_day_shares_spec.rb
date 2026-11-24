@@ -20,12 +20,13 @@ RSpec.describe "Posting a training-plan day to CompetitiveShooter.org" do
     @client ||= instance_double(CompetitiveShooter).tap { allow(CompetitiveShooter).to receive(:new).with(key).and_return(it) }
   end
 
-  it "opens the composer when the day is ticked done, and posts nothing by itself" do
+  it "ticking the day done stays on the day, offers the post, and posts nothing by itself" do
     expect(CompetitiveShooter).not_to receive(:new)
     patch plan_workout_path(1, 2), params: { done: "1", note: "Felt steady" }
-    expect(response).to redirect_to(plan_day_share_path(1, 2))
-    expect(flash[:notice]).to include("Here's the post")
+    expect(response).to redirect_to(plan_workout_path(1, 2))
     follow_redirect!
+    expect(response.body).to include("Post the day…", plan_day_share_path(1, 2))
+    get plan_day_share_path(1, 2)
     body = CGI.unescapeHTML(response.body)
     expect(body).to include("Post the day to CompetitiveShooter.org", "Training plan, week 1 day 2: Hold and trigger (Pardini)",
                             "✓ Hold drills: 10 of 10 holds of 8 s", "Felt steady", "Show my note on it", "Plan progress")

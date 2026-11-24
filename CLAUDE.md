@@ -686,8 +686,8 @@ from there). The user commits; don't commit unless asked.
   Spotter" with Spotter's own mark, never the site's logo (their `via` rules forbid posing as the site).
   NOT yet posted for real (specs stub the API).
   **Training-plan days: a post COMPOSER, never automatic** (2026-11-21, the shooter; it posted by itself for
-  one day, 11-20/21). Ticking a day done or saving its note opens `/plan/W/D/share` (`PlanDaySharesController`)
-  until the day has been posted. Pick up to 4 pictures from `PlanDayShare#available_kinds` (posted in that
+  one day, 11-20/21). Since 2026-11-24 (the shooter) ticking a day done stays on the day page; a finished,
+  unposted day offers "Post the day…" there -> `/plan/W/D/share` (`PlanDaySharesController`). Pick up to 4 pictures from `PlanDayShare#available_kinds` (posted in that
   order): the day's card (`PlanDayPicture`), Plan progress (`PlanProgressPicture`: the calendar grid, done /
   missed / this day ringed, A D R M marks, days in a row), and the sessions' pictures (`SharePicture.kinds_for`:
   for GROUP training - any session with `group_of` - Groups / Every card / The numbers, else the score ones). A

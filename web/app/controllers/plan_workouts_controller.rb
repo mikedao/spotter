@@ -15,24 +15,14 @@ class PlanWorkoutsController < ApplicationController
   def update
     workout = @enrollment.workouts.find_or_initialize_by(week: @day.week, day: @day.day)
     params[:done] == "0" ? workout.reopen!(note: params[:note]) : workout.complete!(note: params[:note])
-    # Done and the note saved: the post composer comes up (the shooter, 2026-11-21) -
-    # until the day has been posted; nothing goes out without Post.
-    if workout.done? && share_next?(workout)
-      redirect_to plan_day_share_path(@day.week, @day.day), notice: "Done. Nice work. Here's the post, if you want to share the day.", status: :see_other
-    else
-      redirect_to plan_workout_path(@day.week, @day.day), notice: workout.done? ? "Done. Nice work." : "Marked as not done.", status: :see_other
-    end
+    # Back to the day, never on to the post composer: posting is an option the finished
+    # day offers (the shooter, 2026-11-24), not a step after ticking it.
+    redirect_to plan_workout_path(@day.week, @day.day), notice: workout.done? ? "Done. Nice work." : "Marked as not done.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     redirect_to plan_workout_path(@day.week, @day.day), alert: "#{e.record.errors.full_messages.to_sentence}.", status: :see_other
   end
 
   private
-    # The composer opens for a day not posted yet (with or without a key: it says
-    # how to add one).
-    def share_next?(workout)
-      !@day.rest? && !Current.user.shared_posts.exists?(plan_week: workout.week, plan_day: workout.day)
-    end
-
     def set_day
       @enrollment = Current.user.plan_enrollment or return redirect_to(training_plan_path)
       @day = @enrollment.day(params[:week].to_i, params[:day].to_i) or raise ActionController::RoutingError, "Not Found"

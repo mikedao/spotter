@@ -147,10 +147,12 @@
           ✓ Posted to CompetitiveShooter.org: <%= link_to "see the post", post.url, class: "font-medium text-blue-700 underline dark:text-blue-300", target: "_blank", rel: "noopener" %>
           · <%= link_to "post it again", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
         <% elsif done %>
-          Not posted to CompetitiveShooter.org. <%= link_to "Make the post", plan_day_share_path(@day.week, @day.day), class: "font-medium text-blue-700 underline dark:text-blue-300" %>
+          <span class="flex flex-wrap items-center gap-3">
+            <span>Not posted to CompetitiveShooter.org.</span>
+            <%= render(ButtonComponent.new(href: plan_day_share_path(@day.week, @day.day), variant: :secondary)) { "Post the day…" } %>
+          </span>
         <% else %>
-          Mark it done and the post to CompetitiveShooter.org comes up, to make your own before anything goes out.
-          <%= link_to "Have a look now", plan_day_share_path(@day.week, @day.day), class: "text-blue-700 underline dark:text-blue-300" %>
+          Once it's done you can post the day to CompetitiveShooter.org - only if you choose to.
         <% end %>
       </p>
     <% end %>

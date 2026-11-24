@@ -32,7 +32,10 @@ RSpec.describe "Training plan" do
     shot("plan_day")
 
     click_button "Mark done"
-    # The post composer comes up; nothing is posted without Post.
+    # Back on the day: posting is an option there, never a step after ticking it.
+    expect(page).to have_button("Not done after all")
+    expect(page).to have_no_text("Post the day to CompetitiveShooter.org")
+    click_link "Post the day…"
     expect(page).to have_text("Post the day to CompetitiveShooter.org")
     expect(page).to have_css("img[src*='/share/day']")
     find("label", text: "Crimson").click
