@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_22_003041) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_203106) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -290,6 +290,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_22_003041) do
     t.string "personality"
     t.string "cso_api_key"
     t.string "share_colors"
+    t.string "setup_plan_block"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
     t.index ["username"], name: "index_users_on_username", unique: true
   end

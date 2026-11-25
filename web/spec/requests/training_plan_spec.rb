@@ -249,6 +249,46 @@ RSpec.describe "Training plan" do
       expect(started.exercises).to be_empty
     end
 
+    it "keeps the block on the user, so Start links it even when the cookie session is lost" do
+      post setup_path, params: { plan_block: "1-3-2" }
+      expect(user.reload.setup_plan_block).to eq("1-3-2")
+      cookies.delete("_web_session")
+      post practice_sessions_path, params: start
+      expect(started.reload).to have_attributes(plan_week: 1, plan_day: 3, plan_block: 2)
+      expect(user.reload.setup_plan_block).to be_nil
+    end
+
+    describe "counting a finished session for the plan after the fact" do
+      let(:finished) { create(:practice_session, user:, status: "ended", started_at: Time.current.change(hour: 14), ended_at: Time.current.change(hour: 15)) }
+
+      it "offers that day's shooting blocks on an unlinked session, and links the one picked" do
+        get practice_session_path(finished)
+        body = CGI.unescapeHTML(response.body)
+        expect(body).to include("Not counted for your training plan", "Count it as Slow groups", "Count it as Steady-pace series")
+        expect(body).not_to include("Count it as Hold drills")
+
+        patch plan_link_practice_session_path(finished), params: { block: "1-1-3" }
+        expect(response).to redirect_to(practice_session_path(finished))
+        expect(finished.reload).to have_attributes(plan_week: 1, plan_day: 1, plan_block: 3)
+        follow_redirect!
+        expect(response.body).not_to include("Not counted for your training plan")
+      end
+
+      it "refuses a block of another day, a live session, or one already linked" do
+        patch plan_link_practice_session_path(finished), params: { block: "1-2-2" }
+        expect(finished.reload.plan_week).to be_nil
+        finished.update!(ended_at: nil)
+        patch plan_link_practice_session_path(finished), params: { block: "1-1-2" }
+        expect(finished.reload.plan_week).to be_nil
+      end
+
+      it "offers nothing for a session shot outside the plan's dates" do
+        finished.update!(started_at: 3.days.ago)
+        get practice_session_path(finished)
+        expect(response.body).not_to include("Not counted for your training plan")
+      end
+    end
+
     it "ignores a block that is not in the plan, or has no session of its own" do
       [ "99-1-1", "1-1-1", "1-1" ].each do |ref|
         post setup_path, params: { plan_block: ref }

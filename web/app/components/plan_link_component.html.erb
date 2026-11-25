@@ -1,0 +1,11 @@
+<div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/40" data-plan-link>
+  <p class="text-sm text-gray-700 dark:text-gray-200">
+    Not counted for your training plan. Shot for <%= helpers.link_to "Week #{day.week} · Day #{day.day} · #{day.title}", helpers.plan_workout_path(day.week, day.day), class: "text-blue-700 underline dark:text-blue-300" %>?
+  </p>
+  <div class="mt-2 flex flex-wrap gap-2">
+    <% blocks.each do |block| %>
+      <%= render(ButtonComponent.new(href: helpers.plan_link_practice_session_path(@session), method: :patch, variant: :secondary, size: :sm,
+            params: { block: "#{day.ref}-#{block.number}" })) { "Count it as #{block.name}" } %>
+    <% end %>
+  </div>
+</div>

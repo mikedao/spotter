@@ -29,6 +29,7 @@ Rails.application.routes.draw do
   resources :practice_sessions, only: %i[ index show create update destroy ], path: "practice" do
     post :stop, on: :member
     patch :diary, on: :member        # the session diary: exercises, problems, fixes, learned
+    patch :plan_link, on: :member    # count a finished session for a block of that day's plan, after the fact
     post :start_match, on: :member   # end a match's sighting time early
     post :refind, on: :member        # the camera got bumped: re-locate the target
     post :pause_scoring, on: :member   # changing cards: score nothing until resumed

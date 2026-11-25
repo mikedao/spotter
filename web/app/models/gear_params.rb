@@ -29,8 +29,10 @@ class GearParams
       fields = @params[:new_pellet] || {}
       return if fields.values_at(:name, :lot, :weight_grains, :head_mm).all?(&:blank?)   # left empty: none
 
-      pellet =@user.pellets.new(name: fields[:name], lot: fields[:lot].presence,
-                                 weight_grains: fields[:weight_grains].presence, head_mm: fields[:head_mm].presence)
+      # Pellet.new, not @user.pellets.new: an unsaved one left in the user's association
+      # would be saved along with the user's next save (a copy of one typed in again).
+      pellet = Pellet.new(user: @user, name: fields[:name], lot: fields[:lot].presence,
+                          weight_grains: fields[:weight_grains].presence, head_mm: fields[:head_mm].presence)
       same_one(pellet)&.tap { it.update!(retired_at: nil) } || pellet.tap(&:save!)
     end
 

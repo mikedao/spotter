@@ -1,7 +1,7 @@
 class PracticeSessionsController < ApplicationController
   RECENT_SESSIONS = 5   # Practice lists these; the rest open under "Show all"
 
-  before_action :set_session, only: %i[ show update diary stop start_match refind pause_scoring resume_scoring resume trigger destroy ]
+  before_action :set_session, only: %i[ show update diary plan_link stop start_match refind pause_scoring resume_scoring resume trigger destroy ]
 
   def index
     @sessions = Current.user.practice_sessions.newest_first.includes(:gun, :pellet, cards: :shots)
@@ -18,7 +18,8 @@ class PracticeSessionsController < ApplicationController
   # engine for it, once this user's checks have let go of the camera and mic.
   def create
     params = start_params
-    plan_ref = session[:plan_block]   # read before `session` below becomes the new practice session
+    plan_ref = Current.user.setup_plan_block
+    logger.info "[setup] start: mode #{params[:mode].inspect}, plan block #{plan_ref.inspect}"
     # "What are you shooting?": the plan block ("plan"), practice ("") or a course. Picking
     # anything but the plan block starts an ordinary session, not counted for the plan.
     mode = params[:mode]
@@ -34,7 +35,7 @@ class PracticeSessionsController < ApplicationController
     group_of = params[:group_of].presence&.to_i
     session.update!(group_of:) if [ 0, 5, 10 ].include?(group_of)   # anything else: as before (the plan's, else the card)
     link_to_plan(session, plan_ref)
-    self.session.delete(:plan_block)
+    Current.user.update!(setup_plan_block: nil)
     redirect_to practice_session_path(session)
   rescue EngineRunner::BadCamera => e
     redirect_to setup_start_path, alert: "#{e.message.upcase_first}."
@@ -44,6 +45,21 @@ class PracticeSessionsController < ApplicationController
     redirect_to practice_sessions_path, alert: "#{e.message} - one session at a time on this rig."
   rescue ActiveRecord::RecordInvalid => e
     redirect_to setup_start_path, alert: e.record.errors.full_messages.to_sentence
+  end
+
+  # Count a finished session that was not linked for one shooting block of the plan
+  # day it was shot on (PlanLinkComponent: the Start step lost the plan block).
+  def plan_link
+    enrollment = Current.user.plan_enrollment
+    week, day = enrollment&.position(@session.started_at.to_date)
+    ref = params[:block].to_s
+    found = TrainingPlan.find_block(ref, enrollment:) if week && ref.start_with?("#{week}-#{day}-")
+    if @session.live? || @session.plan_week || !found
+      return redirect_to(practice_session_path(@session), alert: "That can't be counted for the plan.", status: :see_other)
+    end
+
+    enrollment.link_session!(@session, week:, day:, block: found.block.number)
+    redirect_to practice_session_path(@session), notice: "Counted for the plan: #{found.block.name}.", status: :see_other
   end
 
   # The session's gun, pellets and gun adjustments - set at the start, changeable

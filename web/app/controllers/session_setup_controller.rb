@@ -156,18 +156,18 @@ class SessionSetupController < ApplicationController
     @mic_ok = Current.user.sound_checked?(@mic)
     @mic_checked_at = Current.user.sound_checked_at if @mic_ok
     @gear = GearChoice.new(user: Current.user, target: @target.key)
-    @plan = (TrainingPlan.find_block(session[:plan_block], enrollment: Current.user.plan_enrollment) if Current.user.plan_enrollment)   # what the plan has set for this session
+    @plan = (TrainingPlan.find_block(Current.user.setup_plan_block, enrollment: Current.user.plan_enrollment) if Current.user.plan_enrollment)   # what the plan has set for this session
+    logger.info "[setup] start step: plan block #{Current.user.setup_plan_block.inspect} -> #{@plan ? "offered" : "none"}"
   end
 
   private
     # Started from a shooting block of the training plan ("3-1-2"): the Start step is
-    # preloaded with it, and Start links the session to it.
+    # preloaded with it, and Start links the session to it. Kept on the USER, not in the
+    # cookie session (2026-11-25: three plan sessions in a row lost it between here and
+    # Start in the shooter's browser, never in a test browser).
     def remember_plan_block
-      if Current.user.plan_enrollment && TrainingPlan.find_block(params[:plan_block], enrollment: Current.user.plan_enrollment)
-        session[:plan_block] = params[:plan_block]
-      else
-        session.delete(:plan_block)
-      end
+      ref = params[:plan_block] if Current.user.plan_enrollment && TrainingPlan.find_block(params[:plan_block], enrollment: Current.user.plan_enrollment)
+      Current.user.update!(setup_plan_block: ref)
     end
 
     def target = session[:setup_target].presence_in(TargetSpec::SPECS.keys) || "pistol"

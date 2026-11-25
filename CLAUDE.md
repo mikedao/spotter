@@ -787,8 +787,12 @@ from there). The user commits; don't commit unless asked.
   session** (2026-11-19, the shooter: "separate sessions for slow groups and called shots, preloaded"): a block
   with `session: { per_card, course?, tags }` in the yml (every air-day block that has shots; blocks are
   numbered from 1 in their day, `TrainingPlan.find_block("W-D-B")`) gets a "Start the session: <block>" button
-  that POSTs `setup_path` with `plan_block=W-D-B`; `SessionSetupController#create` keeps it in the cookie
-  session (and CLEARS it when the wizard is started from Practice); the Start step is PRELOADED (a "From your
+  that POSTs `setup_path` with `plan_block=W-D-B`; `SessionSetupController#create` keeps it ON THE USER
+  (`users.setup_plan_block`; it was the cookie session until 2026-11-25, when three plan sessions in a row lost it
+  between there and Start in the shooter's Chrome - never reproduced in a test browser; the start step and Start
+  log "[setup] ..." lines with what they saw) and CLEARS it when the wizard is started from Practice. Safety net:
+  a finished UNLINKED session shot on a plan day offers that day's shooting blocks of its kind (`PlanLinkComponent`,
+  "Count it as ...", `PATCH /practice/:id/plan_link`); the Start step is PRELOADED (a "From your
   plan" card with the block's instructions, shots per card, the course - a match for the Match blocks) and
   `PracticeSessionsController#create` calls `PlanEnrollment#link_session!`: the session gets
   `practice_sessions.plan_week/plan_day/plan_block` and the block's exercise tags (`Exercise` found by name,
